@@ -164,13 +164,29 @@ Module.register("MMM-SunSigns", {
                         textContent.style.transition = `transform ${verticalDuration}ms linear`;
                         textContent.style.transform = `translateY(-${scrollDistance}px)`;
 
-                        // Wait for scrolling to complete and pauseDuration before resetting
+                        // Wait for scrolling to complete and pauseDuration before fading out
                         setTimeout(() => {
-                            textContent.style.transition = 'none';
-                            textContent.style.transform = 'translateY(0)';
-                            
-                            // Restart the scrolling process
-                            self.startScrolling();
+                            // Fade out
+                            textContent.style.transition = `opacity 0.5s ease-out`;
+                            textContent.style.opacity = 0;
+
+                            // After fading out, reset position and fade in
+                            setTimeout(() => {
+                                textContent.style.transition = 'none';
+                                textContent.style.transform = 'translateY(0)';
+                                
+                                // Trigger reflow
+                                void textContent.offsetWidth;
+
+                                // Fade in
+                                textContent.style.transition = `opacity 0.5s ease-in`;
+                                textContent.style.opacity = 1;
+
+                                // Restart the scrolling process after fading in
+                                setTimeout(() => {
+                                    self.startScrolling();
+                                }, 500); // Wait for fade-in to complete
+                            }, 500); // Wait for fade-out to complete
                         }, verticalDuration + self.config.pauseDuration);
                     }, self.config.pauseDuration);
                 }
