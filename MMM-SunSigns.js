@@ -11,9 +11,6 @@ Module.register("MMM-SunSigns", {
         maxTextHeight: "200px",
         scrollSpeed: 6,
         pauseDuration: 5000,
-        enableHorizontalScroll: false,
-        horizontalScrollSpeed: 50,
-        horizontalScrollDirection: "left",
         requestTimeout: 30000,
         signWaitTime: 60000,
     },
@@ -157,7 +154,6 @@ Module.register("MMM-SunSigns", {
             if (textWrapper && textContent) {
                 var wrapperHeight = textWrapper.offsetHeight;
                 var contentHeight = textContent.offsetHeight;
-                var moduleWidth = parseInt(self.config.width);
                 
                 if (contentHeight > wrapperHeight) {
                     var scrollDistance = contentHeight - wrapperHeight;
@@ -166,27 +162,11 @@ Module.register("MMM-SunSigns", {
                     textContent.style.transition = `transform ${verticalDuration}ms linear`;
                     textContent.style.transform = `translateY(-${scrollDistance}px)`;
 
-                    if (self.config.enableHorizontalScroll) {
-                        var horizontalDuration = (moduleWidth / self.config.horizontalScrollSpeed) * 1000;
-
-                        setTimeout(() => {
-                            textContent.style.transition = `transform ${horizontalDuration}ms linear`;
-                            var direction = self.config.horizontalScrollDirection === "left" ? "-" : "";
-                            textContent.style.transform = `translateY(-${scrollDistance}px) translateX(${direction}100%)`;
-                        }, verticalDuration + self.config.pauseDuration);
-
-                        // Reset for next cycle
-                        setTimeout(() => {
-                            textContent.style.transition = 'none';
-                            textContent.style.transform = 'translateY(0) translateX(0)';
-                        }, verticalDuration + self.config.pauseDuration + horizontalDuration);
-                    } else {
-                        // If horizontal scroll is disabled, just reset to top after pause
-                        setTimeout(() => {
-                            textContent.style.transition = 'none';
-                            textContent.style.transform = 'translateY(0)';
-                        }, verticalDuration + self.config.pauseDuration);
-                    }
+                    // Reset to top after pause
+                    setTimeout(() => {
+                        textContent.style.transition = 'none';
+                        textContent.style.transform = 'translateY(0)';
+                    }, verticalDuration + self.config.pauseDuration);
                 }
             }
         }, 1000);
