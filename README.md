@@ -14,7 +14,7 @@ cd ~/MagicMirror/modules
 ```
 2. Clone this repository:
 ```
-git clone https://github.com/yourusername/MMM-SunSigns.git
+git clone https://github.com/mtitus83/MMM-SunSigns.git
 ```
 3. Install the dependencies:
 ```
