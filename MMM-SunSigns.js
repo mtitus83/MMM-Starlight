@@ -10,7 +10,7 @@ Module.register("MMM-SunSigns", {
         imageWidth: "100px",
         maxTextHeight: "200px",
         scrollSpeed: 6,
-        pauseDuration: 5000,
+        pauseDuration: 2000,
         requestTimeout: 30000,
         signWaitTime: 60000,
     },
@@ -159,14 +159,20 @@ Module.register("MMM-SunSigns", {
                     var scrollDistance = contentHeight - wrapperHeight;
                     var verticalDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
 
-                    textContent.style.transition = `transform ${verticalDuration}ms linear`;
-                    textContent.style.transform = `translateY(-${scrollDistance}px)`;
-
-                    // Reset to top after pause
+                    // Wait for pauseDuration before starting to scroll
                     setTimeout(() => {
-                        textContent.style.transition = 'none';
-                        textContent.style.transform = 'translateY(0)';
-                    }, verticalDuration + self.config.pauseDuration);
+                        textContent.style.transition = `transform ${verticalDuration}ms linear`;
+                        textContent.style.transform = `translateY(-${scrollDistance}px)`;
+
+                        // Wait for scrolling to complete and pauseDuration before resetting
+                        setTimeout(() => {
+                            textContent.style.transition = 'none';
+                            textContent.style.transform = 'translateY(0)';
+                            
+                            // Restart the scrolling process
+                            self.startScrolling();
+                        }, verticalDuration + self.config.pauseDuration);
+                    }, self.config.pauseDuration);
                 }
             }
         }, 1000);

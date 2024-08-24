@@ -48,7 +48,7 @@ modules: [
 | `imageWidth`     | Width of the zodiac sign image. (default: `"100px"`)                                            |
 | `maxTextHeight`  | Maximum height of the text area before scrolling. (default: `"200px"`)                          |
 | `scrollSpeed`    | Speed of the vertical scrolling in pixels per second. (default: `6`)                            |
-| `pauseDuration`  | Duration to pause at the end of scrolling before resetting, in milliseconds. (default: `5000`)  |
+| `pauseDuration`  | Duration to pause before starting to scroll and after scrolling completes, in milliseconds. (default: `2000` // 2 seconds) |
 | `signWaitTime`   | Time to display each sign before rotating to the next, in milliseconds. (default: `60000` // 1 minute) |
 | `requestTimeout` | Timeout for the HTTP request in milliseconds. (default: `30000` // 30 seconds)                  |
 
@@ -65,6 +65,7 @@ modules: [
         width: "500px",
         maxTextHeight: "300px",
         scrollSpeed: 8,
+        pauseDuration: 3000, // 3 seconds pause before and after scrolling
         signWaitTime: 120000 // 2 minutes
     }
 }
