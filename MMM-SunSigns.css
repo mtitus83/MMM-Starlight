@@ -1,0 +1,50 @@
+.MMM-SunSigns {
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.MMM-SunSigns .sunsigns-content-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.MMM-SunSigns .sunsigns-text-content {
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.MMM-SunSigns .sunsigns-period {
+    font-weight: bold;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+    text-align: center;
+    text-decoration: underline;
+}
+
+.MMM-SunSigns .sunsigns-text-wrapper {
+    overflow: hidden;
+    position: relative;
+}
+
+.MMM-SunSigns .sunsigns-text {
+    font-size: 0.9em;
+    text-align: justify;
+    position: relative;
+}
+
+.MMM-SunSigns .sunsigns-image-wrapper {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+.MMM-SunSigns .sunsigns-image-wrapper img {
+    height: auto;
+}
+
+.MMM-SunSigns.sunsigns-error {
+    color: #ff4444;
+    font-weight: bold;
+}
