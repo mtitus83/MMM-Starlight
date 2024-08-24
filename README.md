@@ -15,7 +15,7 @@ Please note that this module is not officially supported by the developer. While
 - Fetches horoscopes for multiple zodiac signs
 - Supports daily, weekly, monthly, and yearly horoscopes
 - Vertical scrolling with pause at the bottom
-- Horizontal scrolling off the screen
+- Optional horizontal scrolling off the screen
 - Configurable scrolling speeds and durations
 - Automatic rotation between different zodiac signs
 - Displays zodiac sign images
@@ -29,7 +29,7 @@ Please note that this module is not officially supported by the developer. While
 
 2. Clone this repository:
    ```
-   git clone https://github.com/yourusername/MMM-SunSigns.git
+   git clone https://github.com/mtitus83/MMM-SunSigns.git
    ```
 
 3. Navigate to the module's directory:
@@ -55,38 +55,44 @@ Add the following to your `config/config.js` file:
     config: {
         zodiacSign: ["taurus", "virgo"],
         period: "daily",
+        updateInterval: 24 * 60 * 60 * 1000,
         width: "400px",
         fontSize: "1em",
         imageWidth: "100px",
         maxTextHeight: "200px",
         scrollSpeed: 6,
         pauseDuration: 5000,
+        enableHorizontalScroll: false,
         horizontalScrollSpeed: 50,
-        horizontalScrollDirection: "right",
-        updateInterval: 24 * 60 * 60 * 1000,
+        horizontalScrollDirection: "left",
         requestTimeout: 30000,
-        signWaitTime: 10000
+        signWaitTime: 60000,
+        retryDelay: 300000,
+        maxRetries: 5
     }
 }
 ```
 
 ### Configuration Options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `zodiacSign` | Array of zodiac signs to display | `["taurus"]` |
-| `period` | Period of horoscope. Can be `"daily"`, `"weekly"`, `"monthly"`, or `"yearly"` | `"daily"` |
-| `width` | Width of the module | `"400px"` |
-| `fontSize` | Font size for the horoscope text | `"1em"` |
-| `imageWidth` | Width of the zodiac sign image | `"100px"` |
-| `maxTextHeight` | Maximum height of the text area before scrolling | `"200px"` |
-| `scrollSpeed` | Vertical scrolling speed in pixels per second | `6` |
-| `pauseDuration` | Duration to pause at the bottom in milliseconds | `5000` |
-| `horizontalScrollSpeed` | Horizontal scrolling speed in pixels per second | `50` |
-| `horizontalScrollDirection` | Direction of horizontal scroll. Can be `"left"` or `"right"` | `"left"` |
-| `updateInterval` | How often to fetch new horoscopes in milliseconds | `24 * 60 * 60 * 1000` (24 hours) |
-| `requestTimeout` | Timeout for the horoscope request in milliseconds | `30000` |
-| `signWaitTime` | Time to wait before switching to the next sign in milliseconds | `10000` |
+| Option | Description | Required | Default |
+|--------|-------------|----------|---------|
+| `zodiacSign` | Array of zodiac signs to display | Yes | `["taurus"]` |
+| `period` | Period of horoscope. Can be `"daily"`, `"weekly"`, `"monthly"`, or `"yearly"` | Yes | `"daily"` |
+| `updateInterval` | How often to fetch new horoscopes in milliseconds | No | `60 * 60 * 1000` (1 hour) |
+| `width` | Width of the module | No | `"400px"` |
+| `fontSize` | Font size for the horoscope text | No | `"1em"` |
+| `imageWidth` | Width of the zodiac sign image | No | `"100px"` |
+| `maxTextHeight` | Maximum height of the text area before scrolling | No | `"200px"` |
+| `scrollSpeed` | Vertical scrolling speed in pixels per second | No | `6` |
+| `pauseDuration` | Duration to pause at the bottom in milliseconds | No | `5000` |
+| `enableHorizontalScroll` | Whether to enable horizontal scrolling | No | `false` |
+| `horizontalScrollSpeed` | Horizontal scrolling speed in pixels per second | No | `50` |
+| `horizontalScrollDirection` | Direction of horizontal scroll. Can be `"left"` or `"right"` | No | `"left"` |
+| `requestTimeout` | Timeout for the horoscope request in milliseconds | No | `30000` |
+| `signWaitTime` | Time to wait before switching to the next sign in milliseconds | No | `60000` |
+| `retryDelay` | Delay between retry attempts in milliseconds | No | `300000` (5 minutes) |
+| `maxRetries` | Maximum number of retry attempts | No | `5` |
 
 ## Customization
 
