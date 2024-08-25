@@ -42,6 +42,9 @@ Module.register("MMM-SunSigns", {
         var currentSign = this.config.zodiacSign[this.currentSignIndex];
         var horoscopeText = this.horoscopes[currentSign] || "Loading horoscope for " + currentSign + "...";
 
+        var slideWrapper = document.createElement("div");
+        slideWrapper.className = "sunsigns-slide-wrapper";
+
         var contentWrapper = document.createElement("div");
         contentWrapper.className = "sunsigns-content-wrapper";
 
@@ -75,7 +78,8 @@ Module.register("MMM-SunSigns", {
 
         contentWrapper.appendChild(imageWrapper);
 
-        wrapper.appendChild(contentWrapper);
+        slideWrapper.appendChild(contentWrapper);
+        wrapper.appendChild(slideWrapper);
 
         return wrapper;
     },
@@ -114,10 +118,41 @@ Module.register("MMM-SunSigns", {
     scheduleSignRotation: function() {
         var self = this;
         setInterval(function() {
-            self.currentSignIndex = (self.currentSignIndex + 1) % self.config.zodiacSign.length;
-            self.updateDom();
-            self.startScrolling();
+            self.slideOutCurrentSign();
         }, this.config.signWaitTime);
+    },
+
+    slideOutCurrentSign: function() {
+        var slideWrapper = document.querySelector(".MMM-SunSigns .sunsigns-slide-wrapper");
+        if (slideWrapper) {
+            slideWrapper.style.transition = "transform 1s ease-in-out";
+            slideWrapper.style.transform = "translateX(100%)";
+            
+            setTimeout(() => {
+                this.currentSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
+                this.updateDom();
+                this.slideInNewSign();
+            }, 1000); // Wait for slide out animation to complete
+        }
+    },
+
+    slideInNewSign: function() {
+        var slideWrapper = document.querySelector(".MMM-SunSigns .sunsigns-slide-wrapper");
+        if (slideWrapper) {
+            slideWrapper.style.transition = "none";
+            slideWrapper.style.transform = "translateX(-100%)";
+            
+            // Trigger reflow
+            void slideWrapper.offsetWidth;
+            
+            slideWrapper.style.transition = "transform 1s ease-in-out";
+            slideWrapper.style.transform = "translateX(0)";
+            
+            // Start scrolling after slide-in animation completes
+            setTimeout(() => {
+                this.startScrolling();
+            }, 1000);
+        }
     },
 
     socketNotificationReceived: function(notification, payload) {
