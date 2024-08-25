@@ -137,11 +137,13 @@ Module.register("MMM-SunSigns", {
         var container = document.querySelector(".MMM-SunSigns .sunsigns-slide-container");
         if (container) {
             container.style.transition = "transform 1s ease-in-out";
-            container.style.transform = "translateX(-100%)";
+            container.style.transform = "translateX(-50%)";
             
             setTimeout(() => {
                 this.currentSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
-                this.updateDom();
+                container.style.transition = "none";
+                container.style.transform = "translateX(0)";
+                this.updateDom(0); // Force immediate update
                 this.startScrolling();
             }, 1000); // Wait for slide animation to complete
         }
