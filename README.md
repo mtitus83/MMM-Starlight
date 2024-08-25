@@ -43,17 +43,18 @@ modules: [
 | Option           | Description                                                                                     |
 |------------------|-------------------------------------------------------------------------------------------------|
 | `zodiacSign`     | An array of zodiac signs to display. (default: `["taurus"]`)                                    |
-| `period`         | The period for the horoscope. Can be "daily", "weekly", "monthly", or "yearly". (default: "daily") |
+| `period`         | The period for the horoscope. Can be "daily", "weekly", "monthly", or "yearly". (default: "monthly") |
 | `updateInterval` | How often to fetch new horoscopes in milliseconds. (default: `60 * 60 * 1000` // 1 hour)        |
 | `retryDelay`     | Delay before retrying a failed request in milliseconds. (default: `300000` // 5 minutes)        |
 | `maxRetries`     | Maximum number of retries for a failed request. (default: `5`)                                  |
 | `width`          | Width of the module. (default: `"400px"`)                                                       |
 | `fontSize`       | Font size of the horoscope text. (default: `"1em"`)                                             |
+| `showImage`      | Whether to display the zodiac sign image. (default: `true`)                                     |
 | `imageWidth`     | Width of the zodiac sign image. (default: `"100px"`)                                            |
-| `maxTextHeight`  | Maximum height of the text area before scrolling. (default: `"200px"`)                          |
-| `scrollSpeed`    | Speed of the vertical scrolling in pixels per second. (default: `6`)                            |
-| `pauseDuration`  | Duration to pause before starting to scroll and after scrolling completes, in milliseconds. (default: `2000` // 2 seconds) |
-| `signWaitTime`   | Time to display each sign before rotating to the next, in milliseconds. (default: `60000` // 1 minute) |
+| `maxTextHeight`  | Maximum height of the text area before scrolling. (default: `"400px"`)                          |
+| `scrollSpeed`    | Speed of the vertical scrolling in pixels per second. (default: `7`)                            |
+| `pauseDuration`  | Duration to pause before starting to scroll and after scrolling completes, in milliseconds. (default: `10000` // 10 seconds) |
+| `signWaitTime`   | Time to display each sign before rotating to the next, in milliseconds. (default: `120000` // 2 minutes) |
 | `requestTimeout` | Timeout for the HTTP request in milliseconds. (default: `30000` // 30 seconds)                  |
 
 ### Example configuration
@@ -69,8 +70,8 @@ modules: [
         width: "500px",
         maxTextHeight: "300px",
         scrollSpeed: 8,
-        pauseDuration: 3000, // 3 seconds pause before and after scrolling
-        signWaitTime: 120000 // 2 minutes
+        pauseDuration: 5000, // 5 seconds pause before and after scrolling
+        signWaitTime: 180000 // 3 minutes
     }
 }
 ```

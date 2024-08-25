@@ -1,18 +1,19 @@
 Module.register("MMM-SunSigns", {
     defaults: {
         zodiacSign: ["taurus"],
-        period: "daily",
-        updateInterval: 60 * 60 * 1000,
-        retryDelay: 300000,
-        maxRetries: 5,
+        period: "monthly",
+        requestTimeout: 30000,
+        signWaitTime: 120000,
+        showImage: true,
+        imageWidth: "100px",
+        pauseDuration: 10000,
+        scrollSpeed: 7,
+        maxTextHeight: "400px",
         width: "400px",
         fontSize: "1em",
-        imageWidth: "100px",
-        maxTextHeight: "200px",
-        scrollSpeed: 6,
-        pauseDuration: 2000,
-        requestTimeout: 30000,
-        signWaitTime: 60000,
+        updateInterval: 60 * 60 * 1000,
+        retryDelay: 300000,
+        maxRetries: 5
     },
 
     start: function() {
@@ -91,15 +92,17 @@ Module.register("MMM-SunSigns", {
         textContent.appendChild(horoscopeWrapper);
         contentWrapper.appendChild(textContent);
 
-        var imageWrapper = document.createElement("div");
-        imageWrapper.className = "sunsigns-image-wrapper";
-        var image = document.createElement("img");
-        image.src = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
-        image.alt = sign + " zodiac sign";
-        image.style.width = this.config.imageWidth;
-        imageWrapper.appendChild(image);
+        if (this.config.showImage) {
+            var imageWrapper = document.createElement("div");
+            imageWrapper.className = "sunsigns-image-wrapper";
+            var image = document.createElement("img");
+            image.src = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
+            image.alt = sign + " zodiac sign";
+            image.style.width = this.config.imageWidth;
+            imageWrapper.appendChild(image);
+            contentWrapper.appendChild(imageWrapper);
+        }
 
-        contentWrapper.appendChild(imageWrapper);
         slideWrapper.appendChild(contentWrapper);
 
         return slideWrapper;
