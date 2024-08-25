@@ -4,9 +4,19 @@
     overflow: hidden;
 }
 
-.MMM-SunSigns .sunsigns-slide-wrapper {
-    width: 100%;
+.MMM-SunSigns .sunsigns-slide-container {
+    display: flex;
+    width: 200%;
     transition: transform 1s ease-in-out;
+}
+
+.MMM-SunSigns .sunsigns-slide-wrapper {
+    width: 50%;
+    flex-shrink: 0;
+}
+
+.MMM-SunSigns .sunsigns-slide-wrapper.next {
+    transform: translateX(0);
 }
 
 .MMM-SunSigns .sunsigns-content-wrapper {

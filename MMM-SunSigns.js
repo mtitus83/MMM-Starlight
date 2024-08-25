@@ -39,11 +39,24 @@ Module.register("MMM-SunSigns", {
             return wrapper;
         }
 
-        var currentSign = this.config.zodiacSign[this.currentSignIndex];
-        var horoscopeText = this.horoscopes[currentSign] || "Loading horoscope for " + currentSign + "...";
+        var slideContainer = document.createElement("div");
+        slideContainer.className = "sunsigns-slide-container";
 
+        var currentSign = this.config.zodiacSign[this.currentSignIndex];
+        var nextSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
+        var nextSign = this.config.zodiacSign[nextSignIndex];
+
+        slideContainer.appendChild(this.createSignElement(currentSign, "current"));
+        slideContainer.appendChild(this.createSignElement(nextSign, "next"));
+
+        wrapper.appendChild(slideContainer);
+
+        return wrapper;
+    },
+
+    createSignElement: function(sign, className) {
         var slideWrapper = document.createElement("div");
-        slideWrapper.className = "sunsigns-slide-wrapper";
+        slideWrapper.className = "sunsigns-slide-wrapper " + className;
 
         var contentWrapper = document.createElement("div");
         contentWrapper.className = "sunsigns-content-wrapper";
@@ -53,7 +66,7 @@ Module.register("MMM-SunSigns", {
 
         var periodText = document.createElement("div");
         periodText.className = "sunsigns-period";
-        periodText.innerHTML = this.config.period.charAt(0).toUpperCase() + this.config.period.slice(1) + " Horoscope for " + currentSign.charAt(0).toUpperCase() + currentSign.slice(1);
+        periodText.innerHTML = this.config.period.charAt(0).toUpperCase() + this.config.period.slice(1) + " Horoscope for " + sign.charAt(0).toUpperCase() + sign.slice(1);
         textContent.appendChild(periodText);
 
         var horoscopeWrapper = document.createElement("div");
@@ -62,7 +75,7 @@ Module.register("MMM-SunSigns", {
 
         var horoscopeTextElement = document.createElement("div");
         horoscopeTextElement.className = "sunsigns-text";
-        horoscopeTextElement.innerHTML = horoscopeText;
+        horoscopeTextElement.innerHTML = this.horoscopes[sign] || "Loading horoscope for " + sign + "...";
         horoscopeWrapper.appendChild(horoscopeTextElement);
 
         textContent.appendChild(horoscopeWrapper);
@@ -71,17 +84,15 @@ Module.register("MMM-SunSigns", {
         var imageWrapper = document.createElement("div");
         imageWrapper.className = "sunsigns-image-wrapper";
         var image = document.createElement("img");
-        image.src = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${currentSign}/wrappable.png`;
-        image.alt = currentSign + " zodiac sign";
+        image.src = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
+        image.alt = sign + " zodiac sign";
         image.style.width = this.config.imageWidth;
         imageWrapper.appendChild(image);
 
         contentWrapper.appendChild(imageWrapper);
-
         slideWrapper.appendChild(contentWrapper);
-        wrapper.appendChild(slideWrapper);
 
-        return wrapper;
+        return slideWrapper;
     },
 
     scheduleUpdate: function(delay) {
@@ -118,40 +129,21 @@ Module.register("MMM-SunSigns", {
     scheduleSignRotation: function() {
         var self = this;
         setInterval(function() {
-            self.slideOutCurrentSign();
+            self.slideToNextSign();
         }, this.config.signWaitTime);
     },
 
-    slideOutCurrentSign: function() {
-        var slideWrapper = document.querySelector(".MMM-SunSigns .sunsigns-slide-wrapper");
-        if (slideWrapper) {
-            slideWrapper.style.transition = "transform 1s ease-in-out";
-            slideWrapper.style.transform = "translateX(100%)";
+    slideToNextSign: function() {
+        var container = document.querySelector(".MMM-SunSigns .sunsigns-slide-container");
+        if (container) {
+            container.style.transition = "transform 1s ease-in-out";
+            container.style.transform = "translateX(-100%)";
             
             setTimeout(() => {
                 this.currentSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
                 this.updateDom();
-                this.slideInNewSign();
-            }, 1000); // Wait for slide out animation to complete
-        }
-    },
-
-    slideInNewSign: function() {
-        var slideWrapper = document.querySelector(".MMM-SunSigns .sunsigns-slide-wrapper");
-        if (slideWrapper) {
-            slideWrapper.style.transition = "none";
-            slideWrapper.style.transform = "translateX(-100%)";
-            
-            // Trigger reflow
-            void slideWrapper.offsetWidth;
-            
-            slideWrapper.style.transition = "transform 1s ease-in-out";
-            slideWrapper.style.transform = "translateX(0)";
-            
-            // Start scrolling after slide-in animation completes
-            setTimeout(() => {
                 this.startScrolling();
-            }, 1000);
+            }, 1000); // Wait for slide animation to complete
         }
     },
 
