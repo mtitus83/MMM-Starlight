@@ -4,13 +4,17 @@
     overflow: hidden;
 }
 
-.MMM-SunSigns .sunsigns-slide-container {
+.MMM-SunSigns.single-sign .sunsigns-slide-wrapper {
+    width: 100%;
+}
+
+.MMM-SunSigns.multiple-signs .sunsigns-slide-container {
     display: flex;
     width: 200%;
     transition: transform 1s ease-in-out;
 }
 
-.MMM-SunSigns .sunsigns-slide-wrapper {
+.MMM-SunSigns.multiple-signs .sunsigns-slide-wrapper {
     width: 50%;
     flex-shrink: 0;
 }

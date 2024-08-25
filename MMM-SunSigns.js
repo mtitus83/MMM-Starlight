@@ -43,9 +43,11 @@ Module.register("MMM-SunSigns", {
 
         if (this.config.zodiacSign.length === 1) {
             // Single sign configuration
+            wrapper.classList.add("single-sign");
             wrapper.appendChild(this.createSignElement(this.config.zodiacSign[0], "single"));
         } else {
             // Multiple signs configuration
+            wrapper.classList.add("multiple-signs");
             var slideContainer = document.createElement("div");
             slideContainer.className = "sunsigns-slide-container";
 
