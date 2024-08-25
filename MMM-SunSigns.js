@@ -21,7 +21,9 @@ Module.register("MMM-SunSigns", {
         this.currentSignIndex = 0;
         this.loaded = false;
         this.scheduleUpdate(1000);
-        this.scheduleSignRotation();
+        if (this.config.zodiacSign.length > 1) {
+            this.scheduleSignRotation();
+        }
     },
 
     getStyles: function() {
@@ -39,17 +41,23 @@ Module.register("MMM-SunSigns", {
             return wrapper;
         }
 
-        var slideContainer = document.createElement("div");
-        slideContainer.className = "sunsigns-slide-container";
+        if (this.config.zodiacSign.length === 1) {
+            // Single sign configuration
+            wrapper.appendChild(this.createSignElement(this.config.zodiacSign[0], "single"));
+        } else {
+            // Multiple signs configuration
+            var slideContainer = document.createElement("div");
+            slideContainer.className = "sunsigns-slide-container";
 
-        var currentSign = this.config.zodiacSign[this.currentSignIndex];
-        var nextSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
-        var nextSign = this.config.zodiacSign[nextSignIndex];
+            var currentSign = this.config.zodiacSign[this.currentSignIndex];
+            var nextSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
+            var nextSign = this.config.zodiacSign[nextSignIndex];
 
-        slideContainer.appendChild(this.createSignElement(currentSign, "current"));
-        slideContainer.appendChild(this.createSignElement(nextSign, "next"));
+            slideContainer.appendChild(this.createSignElement(currentSign, "current"));
+            slideContainer.appendChild(this.createSignElement(nextSign, "next"));
 
-        wrapper.appendChild(slideContainer);
+            wrapper.appendChild(slideContainer);
+        }
 
         return wrapper;
     },
@@ -134,6 +142,8 @@ Module.register("MMM-SunSigns", {
     },
 
     slideToNextSign: function() {
+        if (this.config.zodiacSign.length <= 1) return; // Don't slide if there's only one sign
+
         var container = document.querySelector(".MMM-SunSigns .sunsigns-slide-container");
         if (container) {
             container.style.transition = "transform 1s ease-in-out";
