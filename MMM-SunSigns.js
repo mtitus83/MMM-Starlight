@@ -21,6 +21,7 @@ Module.register("MMM-SunSigns", {
         this.horoscopes = {};
         this.currentSignIndex = 0;
         this.loaded = false;
+        this.isScrolling = false;
         this.scheduleUpdate(1000);
         if (this.config.zodiacSign.length > 1) {
             this.scheduleSignRotation();
@@ -141,9 +142,18 @@ Module.register("MMM-SunSigns", {
 
     scheduleSignRotation: function() {
         var self = this;
-        setInterval(function() {
-            self.slideToNextSign();
+        this.rotationTimer = setTimeout(function() {
+            self.checkAndRotateSign();
         }, this.config.signWaitTime);
+    },
+
+    checkAndRotateSign: function() {
+        if (!this.isScrolling) {
+            this.slideToNextSign();
+        } else {
+            // If still scrolling, check again after a short delay
+            setTimeout(() => this.checkAndRotateSign(), 1000);
+        }
     },
 
     slideToNextSign: function() {
@@ -160,6 +170,7 @@ Module.register("MMM-SunSigns", {
                 container.style.transform = "translateX(0)";
                 this.updateDom(0); // Force immediate update
                 this.startScrolling();
+                this.scheduleSignRotation(); // Schedule the next rotation
             }, 1000); // Wait for slide animation to complete
         }
     },
@@ -200,6 +211,7 @@ Module.register("MMM-SunSigns", {
                 var contentHeight = textContent.offsetHeight;
                 
                 if (contentHeight > wrapperHeight) {
+                    self.isScrolling = true;
                     var scrollDistance = contentHeight - wrapperHeight;
                     var verticalDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
 
@@ -226,6 +238,9 @@ Module.register("MMM-SunSigns", {
                                 textContent.style.transition = `opacity 0.5s ease-in`;
                                 textContent.style.opacity = 1;
 
+                                // Scrolling is complete
+                                self.isScrolling = false;
+
                                 // Restart the scrolling process after fading in
                                 setTimeout(() => {
                                     self.startScrolling();
@@ -233,6 +248,8 @@ Module.register("MMM-SunSigns", {
                             }, 500); // Wait for fade-out to complete
                         }, verticalDuration + self.config.pauseDuration);
                     }, self.config.pauseDuration);
+                } else {
+                    self.isScrolling = false;
                 }
             }
         }, 1000);
