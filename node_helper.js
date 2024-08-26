@@ -17,13 +17,17 @@ module.exports = NodeHelper.create({
     },
 
     getHoroscope: async function(config) {
-        console.log(`${this.name}: getHoroscope called for ${config.sign}`);
-        const baseUrl = 'https://www.sunsigns.com/horoscopes';
-        let url = `${baseUrl}/${config.period}/${config.sign}`;
-        
-        if (config.period === 'yearly') {
+        console.log(`${this.name}: getHoroscope called for ${config.sign}, period: ${config.period}`);
+        let baseUrl = 'https://www.sunsigns.com/horoscopes';
+        let url;
+
+        if (config.period === 'tomorrow') {
+            url = `${baseUrl}/daily/${config.sign}/tomorrow`;
+        } else if (config.period === 'yearly') {
             const currentYear = new Date().getFullYear();
             url = `${baseUrl}/yearly/${currentYear}/${config.sign}`;
+        } else {
+            url = `${baseUrl}/${config.period}/${config.sign}`;
         }
 
         console.log(this.name + ": Fetching horoscope from " + url);
@@ -38,7 +42,8 @@ module.exports = NodeHelper.create({
                 this.sendSocketNotification("HOROSCOPE_RESULT", {
                     success: true,
                     data: horoscope,
-                    sign: config.sign
+                    sign: config.sign,
+                    period: config.period
                 });
             } else {
                 throw new Error("Horoscope content not found");
@@ -65,6 +70,7 @@ module.exports = NodeHelper.create({
                     success: false, 
                     message: "Error in retry attempt for " + config.sign,
                     sign: config.sign,
+                    period: config.period,
                     error: retryError.toString()
                 });
             }
@@ -73,20 +79,22 @@ module.exports = NodeHelper.create({
             this.sendSocketNotification("HOROSCOPE_RESULT", { 
                 success: false, 
                 message: "Max retries reached. Unable to fetch horoscope for " + config.sign,
-                sign: config.sign
+                sign: config.sign,
+                period: config.period
             });
         }
     },
 
     socketNotificationReceived: function(notification, payload) {
         if (notification === "GET_HOROSCOPE") {
-            console.log(this.name + ": Received request to get horoscope for " + payload.sign);
+            console.log(this.name + ": Received request to get horoscope for " + payload.sign + ", period: " + payload.period);
             this.getHoroscope(payload).catch(error => {
                 console.error(this.name + ": Unhandled error in getHoroscope:", error);
                 this.sendSocketNotification("HOROSCOPE_RESULT", { 
                     success: false, 
                     message: "An unexpected error occurred while fetching the horoscope.",
                     sign: payload.sign,
+                    period: payload.period,
                     error: error.toString()
                 });
             });
