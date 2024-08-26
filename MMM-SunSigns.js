@@ -1,7 +1,7 @@
 Module.register("MMM-SunSigns", {
     defaults: {
         zodiacSign: ["taurus"],
-        period: "daily",
+        periods: ["daily","tomorrow"],
         requestTimeout: 30000,
         signWaitTime: 120000,
         showImage: true,
