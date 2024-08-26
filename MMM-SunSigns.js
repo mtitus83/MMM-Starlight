@@ -1,7 +1,7 @@
 Module.register("MMM-SunSigns", {
     defaults: {
         zodiacSign: ["taurus"],
-        periods: ["daily","tomorrow"],
+        period: ["daily","tomorrow"],
         requestTimeout: 30000,
         signWaitTime: 120000,
         showImage: true,
@@ -42,7 +42,7 @@ Module.register("MMM-SunSigns", {
             return wrapper;
         }
 
-        if (this.config.zodiacSign.length === 1 && this.config.periods.length === 1) {
+        if (this.config.zodiacSign.length === 1 && this.config.period.length === 1) {
             wrapper.classList.add("single-sign");
             wrapper.appendChild(this.createSignElement(this.config.zodiacSign[0], "single"));
         } else {
@@ -51,11 +51,11 @@ Module.register("MMM-SunSigns", {
             slideContainer.className = "sunsigns-slide-container";
 
             var currentSign = this.config.zodiacSign[this.currentSignIndex];
-            var currentPeriod = this.config.periods[this.currentPeriodIndex];
+            var currentPeriod = this.config.period[this.currentPeriodIndex];
             var nextSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
-            var nextPeriodIndex = (this.currentPeriodIndex + 1) % this.config.periods.length;
+            var nextPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
             var nextSign = nextPeriodIndex === 0 ? this.config.zodiacSign[nextSignIndex] : currentSign;
-            var nextPeriod = this.config.periods[nextPeriodIndex];
+            var nextPeriod = this.config.period[nextPeriodIndex];
 
             slideContainer.appendChild(this.createSignElement(currentSign, "current", currentPeriod));
             slideContainer.appendChild(this.createSignElement(nextSign, "next", nextPeriod));
@@ -133,7 +133,7 @@ Module.register("MMM-SunSigns", {
 
     updateHoroscopes: function() {
         this.config.zodiacSign.forEach(sign => {
-            this.config.periods.forEach(period => {
+            this.config.period.forEach(period => {
                 this.getHoroscope(sign, period);
             });
         });
@@ -173,7 +173,7 @@ Module.register("MMM-SunSigns", {
             container.style.transform = "translateX(-50%)";
             
             setTimeout(() => {
-                this.currentPeriodIndex = (this.currentPeriodIndex + 1) % this.config.periods.length;
+                this.currentPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
                 if (this.currentPeriodIndex === 0) {
                     this.currentSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
                 }
@@ -197,7 +197,7 @@ Module.register("MMM-SunSigns", {
                 this.horoscopes[payload.sign][payload.period] = payload.data;
                 this.loaded = true;
                 if (payload.sign === this.config.zodiacSign[this.currentSignIndex] &&
-                    payload.period === this.config.periods[this.currentPeriodIndex]) {
+                    payload.period === this.config.period[this.currentPeriodIndex]) {
                     this.updateDom();
                     this.startScrolling();
                 }
@@ -211,7 +211,7 @@ Module.register("MMM-SunSigns", {
             }
         } else if (notification === "UNHANDLED_ERROR") {
             Log.error(this.name + ": Unhandled error in node helper: " + payload.message + ". Error: " + payload.error);
-            this.horoscopes[this.config.zodiacSign[this.currentSignIndex]][this.config.periods[this.currentPeriodIndex]] = "An unexpected error occurred while fetching the horoscope. Please check the logs.";
+            this.horoscopes[this.config.zodiacSign[this.currentSignIndex]][this.config.period[this.currentPeriodIndex]] = "An unexpected error occurred while fetching the horoscope. Please check the logs.";
             this.updateDom();
         }
     },
