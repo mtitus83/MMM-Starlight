@@ -1,6 +1,6 @@
 # MMM-SunSigns
 
-A MagicMirror² module that displays horoscopes for specified zodiac signs for various time periods.
+A MagicMirror² module that displays horoscopes for specified zodiac signs for various time period.
 
 ## Disclaimer
 
@@ -43,7 +43,7 @@ modules: [
 | Option           | Description                                                                                     |
 |------------------|-------------------------------------------------------------------------------------------------|
 | `zodiacSign`     | An array of zodiac signs to display. (default: `["taurus"]`)                                    |
-| `periods`        | An array of periods for the horoscope. Can include "daily", "tomorrow", "weekly", "monthly", and "yearly". (default: `["daily", "tomorrow"]`) |
+| `period`        | An array of period for the horoscope. Can include "daily", "tomorrow", "weekly", "monthly", and "yearly". (default: `["daily", "tomorrow"]`) |
 | `updateInterval` | How often to fetch new horoscopes in milliseconds. (default: `60 * 60 * 1000` // 1 hour)        |
 | `retryDelay`     | Delay before retrying a failed request in milliseconds. (default: `300000` // 5 minutes)        |
 | `maxRetries`     | Maximum number of retries for a failed request. (default: `5`)                                  |
@@ -59,14 +59,14 @@ modules: [
 
 ### Ordering of Horoscopes
 
-The order in which horoscopes are displayed is determined by the order of the `zodiacSign` and `periods` arrays in your configuration. The module will cycle through all periods for each sign before moving to the next sign. 
+The order in which horoscopes are displayed is determined by the order of the `zodiacSign` and `period` arrays in your configuration. The module will cycle through all period for each sign before moving to the next sign. 
 
 For example, if your configuration is:
 
 ```javascript
 {
     zodiacSign: ["aries", "taurus"],
-    periods: ["daily", "tomorrow", "weekly"]
+    period: ["daily", "tomorrow", "weekly"]
 }
 ```
 
@@ -89,7 +89,7 @@ Then it will cycle back to Aries daily and repeat the sequence.
     position: "top_right",
     config: {
         zodiacSign: ["aries", "taurus", "gemini"],
-        periods: ["daily", "tomorrow", "weekly", "monthly"],
+        period: ["daily", "tomorrow", "weekly", "monthly"],
         updateInterval: 6 * 60 * 60 * 1000, // 6 hours
         width: "500px",
         maxTextHeight: "300px",
