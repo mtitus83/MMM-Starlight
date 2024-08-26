@@ -1,7 +1,7 @@
 Module.register("MMM-SunSigns", {
     defaults: {
         zodiacSign: ["taurus"],
-        period: ["daily","tomorrow"],
+        period: ["daily", "tomorrow"],
         requestTimeout: 30000,
         signWaitTime: 120000,
         showImage: true,
@@ -44,7 +44,7 @@ Module.register("MMM-SunSigns", {
 
         if (this.config.zodiacSign.length === 1 && this.config.period.length === 1) {
             wrapper.classList.add("single-sign");
-            wrapper.appendChild(this.createSignElement(this.config.zodiacSign[0], "single"));
+            wrapper.appendChild(this.createSignElement(this.config.zodiacSign[0], "single", this.config.period[0]));
         } else {
             wrapper.classList.add("multiple-signs");
             var slideContainer = document.createElement("div");
@@ -152,6 +152,11 @@ Module.register("MMM-SunSigns", {
     },
 
     scheduleRotation: function() {
+        if (this.config.zodiacSign.length === 1 && this.config.period.length === 1) {
+            // Don't schedule rotation for single sign and period
+            return;
+        }
+
         var self = this;
         this.rotationTimer = setTimeout(function() {
             self.checkAndRotate();
@@ -159,6 +164,11 @@ Module.register("MMM-SunSigns", {
     },
 
     checkAndRotate: function() {
+        if (this.config.zodiacSign.length === 1 && this.config.period.length === 1) {
+            // Don't rotate for single sign and period
+            return;
+        }
+
         if (!this.isScrolling) {
             this.slideToNext();
         } else {
@@ -171,7 +181,7 @@ Module.register("MMM-SunSigns", {
         if (container) {
             container.style.transition = "transform 1s ease-in-out";
             container.style.transform = "translateX(-50%)";
-            
+
             setTimeout(() => {
                 this.currentPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
                 if (this.currentPeriodIndex === 0) {
@@ -223,11 +233,11 @@ Module.register("MMM-SunSigns", {
         this.scrollTimer = setTimeout(function() {
             var textWrapper = document.querySelector(".MMM-SunSigns .sunsigns-text-wrapper");
             var textContent = document.querySelector(".MMM-SunSigns .sunsigns-text");
-            
+
             if (textWrapper && textContent) {
                 var wrapperHeight = textWrapper.offsetHeight;
                 var contentHeight = textContent.offsetHeight;
-                
+
                 if (contentHeight > wrapperHeight) {
                     self.isScrolling = true;
                     var scrollDistance = contentHeight - wrapperHeight;
@@ -244,7 +254,7 @@ Module.register("MMM-SunSigns", {
                             setTimeout(() => {
                                 textContent.style.transition = 'none';
                                 textContent.style.transform = 'translateY(0)';
-                                
+
                                 void textContent.offsetWidth;
 
                                 textContent.style.transition = `opacity 0.5s ease-in`;
