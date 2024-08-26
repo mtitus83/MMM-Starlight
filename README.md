@@ -43,7 +43,7 @@ modules: [
 | Option           | Description                                                                                     |
 |------------------|-------------------------------------------------------------------------------------------------|
 | `zodiacSign`     | An array of zodiac signs to display. (default: `["taurus"]`)                                    |
-| `period`         | The period for the horoscope. Can be "daily", "weekly", "monthly", or "yearly". (default: "monthly") |
+| `period`         | The period for the horoscope. Can be "daily", "weekly", "monthly", or "yearly". (default: "daily") |
 | `updateInterval` | How often to fetch new horoscopes in milliseconds. (default: `60 * 60 * 1000` // 1 hour)        |
 | `retryDelay`     | Delay before retrying a failed request in milliseconds. (default: `300000` // 5 minutes)        |
 | `maxRetries`     | Maximum number of retries for a failed request. (default: `5`)                                  |
