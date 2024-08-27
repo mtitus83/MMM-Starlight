@@ -79,14 +79,24 @@ Module.register("MMM-SunSigns", {
         var slideContainer = document.createElement("div");
         slideContainer.className = "sunsigns-slide-container";
 
-        this.config.zodiacSign.forEach((sign, signIndex) => {
-            this.config.period.forEach((period, periodIndex) => {
-                var slideWrapper = this.createSignElement(sign, 
-                    signIndex === this.currentSignIndex && periodIndex === this.currentPeriodIndex ? "current" : "next", 
-                    period);
-                slideContainer.appendChild(slideWrapper);
-            });
-        });
+        // Calculate total number of slides
+        var totalSlides = this.config.zodiacSign.length * this.config.period.length;
+
+        // Calculate current overall index
+        var currentOverallIndex = this.currentSignIndex * this.config.period.length + this.currentPeriodIndex;
+        var nextOverallIndex = (currentOverallIndex + 1) % totalSlides;
+
+        // Create current slide
+        var currentSign = this.config.zodiacSign[this.currentSignIndex];
+        var currentPeriod = this.config.period[this.currentPeriodIndex];
+        slideContainer.appendChild(this.createSignElement(currentSign, "current", currentPeriod));
+
+        // Create next slide
+        var nextSignIndex = Math.floor(nextOverallIndex / this.config.period.length);
+        var nextPeriodIndex = nextOverallIndex % this.config.period.length;
+        var nextSign = this.config.zodiacSign[nextSignIndex];
+        var nextPeriod = this.config.period[nextPeriodIndex];
+        slideContainer.appendChild(this.createSignElement(nextSign, "next", nextPeriod));
 
         wrapper.appendChild(slideContainer);
 
@@ -169,12 +179,9 @@ Module.register("MMM-SunSigns", {
         this.currentPeriodIndex++;
         if (this.currentPeriodIndex >= this.config.period.length) {
             this.currentPeriodIndex = 0;
-            this.currentSignIndex++;
-            if (this.currentSignIndex >= this.config.zodiacSign.length) {
-                this.currentSignIndex = 0;
-            }
+            this.currentSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
         }
-        this.updateDom(1000);
+        this.updateDom(1000); // 1000ms transition
         this.scheduleRotation();
     },
 

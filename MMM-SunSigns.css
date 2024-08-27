@@ -4,17 +4,13 @@
     overflow: hidden;
 }
 
-.MMM-SunSigns.single-sign .sunsigns-slide-wrapper {
-    width: 100%;
-}
-
-.MMM-SunSigns.multiple-signs .sunsigns-slide-container {
+.MMM-SunSigns .sunsigns-slide-container {
     display: flex;
     width: 200%;
     transition: transform 1s ease-in-out;
 }
 
-.MMM-SunSigns.multiple-signs .sunsigns-slide-wrapper {
+.MMM-SunSigns .sunsigns-slide-wrapper {
     width: 50%;
     flex-shrink: 0;
 }
@@ -69,4 +65,14 @@
 .MMM-SunSigns.sunsigns-error {
     color: #ff4444;
     font-weight: bold;
+}
+
+/* Animation for sliding transition */
+@keyframes slideLeft {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+
+.MMM-SunSigns .sunsigns-slide-container.sliding {
+    animation: slideLeft 1s ease-in-out;
 }
