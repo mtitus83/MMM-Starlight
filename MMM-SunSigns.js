@@ -12,7 +12,8 @@ Module.register("MMM-SunSigns", {
         signWaitTime: 50000,
         pauseDuration: 10000,
         scrollSpeed: 7,
-        updateInterval: 60 * 60 * 1000
+        updateInterval: 60 * 60 * 1000,
+        transitionSpeed: 1000 // 1 second for transitions
     },
 
     start: function() {
@@ -170,9 +171,21 @@ Module.register("MMM-SunSigns", {
         this.transitionState = "waiting";
         setTimeout(() => {
             this.transitionState = "sliding";
-            this.updateDom(1000);
-            setTimeout(() => this.finishTransition(), 1000);
+            this.updateDom(0); // Update DOM immediately
+            this.startSlideTransition();
         }, this.config.signWaitTime);
+    },
+
+    startSlideTransition: function() {
+        var slideContainer = document.querySelector(".MMM-SunSigns .sunsigns-slide-container");
+        if (slideContainer) {
+            slideContainer.style.transition = `transform ${this.config.transitionSpeed}ms ease-in-out`;
+            slideContainer.style.transform = "translateX(-50%)";
+
+            setTimeout(() => {
+                this.finishTransition();
+            }, this.config.transitionSpeed);
+        }
     },
 
     finishTransition: function() {
@@ -181,6 +194,13 @@ Module.register("MMM-SunSigns", {
         this.currentPeriodIndex = nextIndices.periodIndex;
         this.transitionState = "pausing";
         this.updateDom(0);
+
+        var slideContainer = document.querySelector(".MMM-SunSigns .sunsigns-slide-container");
+        if (slideContainer) {
+            slideContainer.style.transition = "none";
+            slideContainer.style.transform = "translateX(0)";
+        }
+
         setTimeout(() => {
             this.transitionState = "scrolling";
             this.startScrolling();
