@@ -1,23 +1,108 @@
 var NodeHelper = require("node_helper");
 var axios = require("axios");
 var cheerio = require("cheerio");
+const fs = require('fs');
+const path = require('path');
 
 module.exports = NodeHelper.create({
     start: function() {
         console.log("Starting node helper for: " + this.name);
-        this.retryCount = {};
+        this.cacheDir = path.join(__dirname, 'cache');
+        if (!fs.existsSync(this.cacheDir)) {
+            fs.mkdirSync(this.cacheDir);
+        }
+        this.initializeCache();
+        this.requestQueue = [];
+        this.isProcessingQueue = false;
+        
+        // Non-configurable settings
+        this.settings = {
+            updateInterval: 12 * 60 * 60 * 1000, // 12 hours
+            cacheDuration: 11 * 60 * 60 * 1000, // 11 hours
+            maxConcurrentRequests: 2,
+            retryDelay: 5 * 60 * 1000, // 5 minutes
+            maxRetries: 3
+        };
+    },
 
-        process.on('unhandledRejection', (reason, promise) => {
-            console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-            this.sendSocketNotification("UNHANDLED_ERROR", {
-                message: "An unexpected error occurred in the node helper.",
-                error: reason.toString()
+    initializeCache: function() {
+        this.cache = {};
+        const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
+        if (fs.existsSync(cacheFile)) {
+            const data = fs.readFileSync(cacheFile, 'utf8');
+            this.cache = JSON.parse(data);
+        }
+    },
+
+    saveCache: function() {
+        const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
+        fs.writeFileSync(cacheFile, JSON.stringify(this.cache), 'utf8');
+    },
+
+    socketNotificationReceived: function(notification, payload) {
+        if (notification === "UPDATE_HOROSCOPES") {
+            this.queueHoroscopeUpdates(payload.zodiacSigns, payload.periods);
+        }
+    },
+
+    queueHoroscopeUpdates: function(signs, periods) {
+        signs.forEach(sign => {
+            periods.forEach(period => {
+                this.requestQueue.push({ sign, period });
             });
         });
+        this.processQueue();
+    },
+
+    processQueue: function() {
+        if (this.isProcessingQueue) return;
+        this.isProcessingQueue = true;
+
+        const processNext = () => {
+            if (this.requestQueue.length === 0) {
+                this.isProcessingQueue = false;
+                return;
+            }
+
+            const { sign, period } = this.requestQueue.shift();
+            this.getHoroscope({ sign, period })
+                .then(horoscope => {
+                    this.sendSocketNotification("HOROSCOPE_RESULT", {
+                        success: true,
+                        sign: sign,
+                        period: period,
+                        data: horoscope
+                    });
+                })
+                .catch(error => {
+                    console.error(`Error fetching horoscope for ${sign}, ${period}:`, error);
+                    this.sendSocketNotification("HOROSCOPE_RESULT", {
+                        success: false,
+                        sign: sign,
+                        period: period,
+                        message: error.message
+                    });
+                })
+                .finally(() => {
+                    setTimeout(processNext, 5000); // 5-second delay between requests
+                });
+        };
+
+        for (let i = 0; i < this.settings.maxConcurrentRequests; i++) {
+            processNext();
+        }
     },
 
     getHoroscope: async function(config) {
-        console.log(`${this.name}: getHoroscope called for ${config.sign}, period: ${config.period}`);
+        const cacheKey = `${config.sign}_${config.period}`;
+        const cachedData = this.cache[cacheKey];
+
+        if (cachedData && (Date.now() - cachedData.timestamp < this.settings.cacheDuration)) {
+            console.log(`${this.name}: Returning cached horoscope for ${config.sign}, period: ${config.period}`);
+            return cachedData.data;
+        }
+
+        console.log(`${this.name}: Fetching new horoscope for ${config.sign}, period: ${config.period}`);
         let baseUrl = 'https://www.sunsigns.com/horoscopes';
         let url;
 
@@ -30,74 +115,33 @@ module.exports = NodeHelper.create({
             url = `${baseUrl}/${config.period}/${config.sign}`;
         }
 
-        console.log(this.name + ": Fetching horoscope from " + url);
-
-        try {
-            const response = await axios.get(url, { timeout: config.timeout });
-            const $ = cheerio.load(response.data);
-            const horoscope = $('.horoscope-content p').text().trim();
-            
-            if (horoscope) {
-                this.retryCount[config.sign] = 0;
-                this.sendSocketNotification("HOROSCOPE_RESULT", {
-                    success: true,
-                    data: horoscope,
-                    sign: config.sign,
-                    period: config.period
-                });
-            } else {
-                throw new Error("Horoscope content not found");
-            }
-        } catch (error) {
-            console.error(`${this.name}: Error in getHoroscope:`, error);
-            await this.handleHoroscopeError(error, config);
-        }
-    },
-
-    handleHoroscopeError: async function(error, config) {
-        console.log(`${this.name}: handleHoroscopeError called for ${config.sign}`);
-        this.retryCount[config.sign] = (this.retryCount[config.sign] || 0) + 1;
-        console.error(this.name + ": Error fetching horoscope for " + config.sign + ":", error.message);
-        
-        if (this.retryCount[config.sign] <= config.maxRetries) {
-            console.log(this.name + `: Retry attempt ${this.retryCount[config.sign]} of ${config.maxRetries} in ${config.retryDelay / 1000} seconds for ${config.sign}`);
+        let retries = 0;
+        while (retries < this.settings.maxRetries) {
             try {
-                await new Promise(resolve => setTimeout(resolve, config.retryDelay));
-                await this.getHoroscope(config);
-            } catch (retryError) {
-                console.error(`${this.name}: Error in retry for ${config.sign}:`, retryError);
-                this.sendSocketNotification("HOROSCOPE_RESULT", { 
-                    success: false, 
-                    message: "Error in retry attempt for " + config.sign,
-                    sign: config.sign,
-                    period: config.period,
-                    error: retryError.toString()
-                });
-            }
-        } else {
-            this.retryCount[config.sign] = 0;
-            this.sendSocketNotification("HOROSCOPE_RESULT", { 
-                success: false, 
-                message: "Max retries reached. Unable to fetch horoscope for " + config.sign,
-                sign: config.sign,
-                period: config.period
-            });
-        }
-    },
+                const response = await axios.get(url, { timeout: 30000 });
+                const $ = cheerio.load(response.data);
+                const horoscope = $('.horoscope-content p').text().trim();
 
-    socketNotificationReceived: function(notification, payload) {
-        if (notification === "GET_HOROSCOPE") {
-            console.log(this.name + ": Received request to get horoscope for " + payload.sign + ", period: " + payload.period);
-            this.getHoroscope(payload).catch(error => {
-                console.error(this.name + ": Unhandled error in getHoroscope:", error);
-                this.sendSocketNotification("HOROSCOPE_RESULT", { 
-                    success: false, 
-                    message: "An unexpected error occurred while fetching the horoscope.",
-                    sign: payload.sign,
-                    period: payload.period,
-                    error: error.toString()
-                });
-            });
+                if (horoscope) {
+                    this.cache[cacheKey] = {
+                        data: horoscope,
+                        timestamp: Date.now()
+                    };
+                    this.saveCache();
+                    return horoscope;
+                } else {
+                    throw new Error("Horoscope content not found");
+                }
+            } catch (error) {
+                console.error(`${this.name}: Error fetching horoscope for ${config.sign}, ${config.period}:`, error.message);
+                retries++;
+                if (retries < this.settings.maxRetries) {
+                    console.log(`${this.name}: Retrying in ${this.settings.retryDelay / 1000} seconds...`);
+                    await new Promise(resolve => setTimeout(resolve, this.settings.retryDelay));
+                } else {
+                    throw new Error(`Max retries reached. Unable to fetch horoscope for ${config.sign}, ${config.period}`);
+                }
+            }
         }
     }
 });

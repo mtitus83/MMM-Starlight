@@ -1,19 +1,12 @@
 Module.register("MMM-SunSigns", {
     defaults: {
         zodiacSign: ["taurus"],
-        period: ["daily", "tomorrow"],
-        requestTimeout: 30000,
-        signWaitTime: 120000,
+        period: ["daily"],
         showImage: true,
         imageWidth: "100px",
-        pauseDuration: 10000,
-        scrollSpeed: 7,
         maxTextHeight: "400px",
         width: "400px",
         fontSize: "1em",
-        updateInterval: 60 * 60 * 1000,
-        retryDelay: 300000,
-        maxRetries: 5
     },
 
     start: function() {
@@ -23,8 +16,12 @@ Module.register("MMM-SunSigns", {
         this.currentPeriodIndex = 0;
         this.loaded = false;
         this.isScrolling = false;
-        this.scheduleUpdate(1000);
-        this.scheduleRotation();
+        
+        // Add a random delay before the first update
+        const initialDelay = Math.floor(Math.random() * 3600000); // Random delay up to 1 hour
+        setTimeout(() => {
+            this.updateHoroscopes();
+        }, initialDelay);
     },
 
     getStyles: function() {
@@ -118,36 +115,10 @@ Module.register("MMM-SunSigns", {
         return period.charAt(0).toUpperCase() + period.slice(1);
     },
 
-    scheduleUpdate: function(delay) {
-        var self = this;
-        var nextLoad = this.config.updateInterval;
-        if (typeof delay !== "undefined" && delay >= 0) {
-            nextLoad = delay;
-        }
-
-        clearTimeout(this.updateTimer);
-        this.updateTimer = setTimeout(function() {
-            self.updateHoroscopes();
-        }, nextLoad);
-    },
-
     updateHoroscopes: function() {
-        this.config.zodiacSign.forEach(sign => {
-            this.config.period.forEach(period => {
-                this.getHoroscope(sign, period);
-            });
-        });
-        this.scheduleUpdate(this.config.updateInterval);
-    },
-
-    getHoroscope: function(sign, period) {
-        Log.info(this.name + ": Requesting horoscope update for " + sign + ", period: " + period);
-        this.sendSocketNotification("GET_HOROSCOPE", {
-            sign: sign,
-            period: period,
-            timeout: this.config.requestTimeout,
-            retryDelay: this.config.retryDelay,
-            maxRetries: this.config.maxRetries
+        this.sendSocketNotification("UPDATE_HOROSCOPES", {
+            zodiacSigns: this.config.zodiacSign,
+            periods: this.config.period
         });
     },
 
@@ -160,7 +131,7 @@ Module.register("MMM-SunSigns", {
         var self = this;
         this.rotationTimer = setTimeout(function() {
             self.checkAndRotate();
-        }, this.config.signWaitTime);
+        }, 120000); // Fixed rotation interval of 2 minutes
     },
 
     checkAndRotate: function() {
@@ -197,7 +168,6 @@ Module.register("MMM-SunSigns", {
     },
 
     socketNotificationReceived: function(notification, payload) {
-        console.log(this.name + ": Received socket notification:", notification, payload);
         if (notification === "HOROSCOPE_RESULT") {
             if (payload.success) {
                 Log.info(this.name + ": Horoscope fetched successfully for " + payload.sign + ", period: " + payload.period);
@@ -219,10 +189,6 @@ Module.register("MMM-SunSigns", {
                 this.horoscopes[payload.sign][payload.period] = "Unable to fetch " + payload.period + " horoscope for " + payload.sign + ". Error: " + (payload.error || "Unknown error");
                 this.updateDom();
             }
-        } else if (notification === "UNHANDLED_ERROR") {
-            Log.error(this.name + ": Unhandled error in node helper: " + payload.message + ". Error: " + payload.error);
-            this.horoscopes[this.config.zodiacSign[this.currentSignIndex]][this.config.period[this.currentPeriodIndex]] = "An unexpected error occurred while fetching the horoscope. Please check the logs.";
-            this.updateDom();
         }
     },
 
@@ -241,7 +207,7 @@ Module.register("MMM-SunSigns", {
                 if (contentHeight > wrapperHeight) {
                     self.isScrolling = true;
                     var scrollDistance = contentHeight - wrapperHeight;
-                    var verticalDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
+                    var verticalDuration = (scrollDistance / 7) * 1000; // Fixed scroll speed
 
                     setTimeout(() => {
                         textContent.style.transition = `transform ${verticalDuration}ms linear`;
@@ -266,8 +232,8 @@ Module.register("MMM-SunSigns", {
                                     self.startScrolling();
                                 }, 500);
                             }, 500);
-                        }, verticalDuration + self.config.pauseDuration);
-                    }, self.config.pauseDuration);
+                        }, verticalDuration + 10000); // Fixed pause duration
+                    }, 10000); // Fixed pause duration
                 } else {
                     self.isScrolling = false;
                 }
