@@ -11,7 +11,7 @@ Module.register("MMM-SunSigns", {
         pauseDuration: 10000, // 10 seconds
         scrollSpeed: 7, // pixels per second
         signWaitTime: 50000, // 50 seconds
-        endOfWeek: "Sunday" // New option for defining end of week
+        endOfWeek: "Sunday"
     },
 
     start: function() {
@@ -25,10 +25,15 @@ Module.register("MMM-SunSigns", {
         this.updateFailures = 0;
         this.transitionState = "idle";
 
+        // Merge user-defined periods with defaults, maintaining order and removing duplicates
+        if (this.config.period && Array.isArray(this.config.period)) {
+            let mergedPeriods = [...new Set([...this.config.period, ...this.defaults.period])];
+            this.config.period = mergedPeriods;
+        }
+
         this.scheduleInitialUpdate();
         this.scheduleMidnightUpdate();
     },
-
     getStyles: function() {
         return ["MMM-SunSigns.css"];
     },
