@@ -16,14 +16,13 @@ module.exports = NodeHelper.create({
         await this.initializeCache();
         this.requestQueue = [];
         this.isProcessingQueue = false;
-        this.debug = true; // Set to true for detailed logging
+        this.debug = true;
 
-        // Non-configurable settings
         this.settings = {
-            updateInterval: 12 * 60 * 60 * 1000, // 12 hours
-            cacheDuration: 11 * 60 * 60 * 1000, // 11 hours
+            updateInterval: 12 * 60 * 60 * 1000,
+            cacheDuration: 11 * 60 * 60 * 1000,
             maxConcurrentRequests: 2,
-            retryDelay: 5 * 60 * 1000, // 5 minutes
+            retryDelay: 5 * 60 * 1000,
             maxRetries: 3
         };
 
@@ -67,11 +66,13 @@ module.exports = NodeHelper.create({
 
     socketNotificationReceived: function(notification, payload) {
         if (notification === "UPDATE_HOROSCOPES") {
+            this.log("Received UPDATE_HOROSCOPES notification");
             this.queueHoroscopeUpdates(payload.zodiacSigns, payload.periods);
         }
     },
 
     queueHoroscopeUpdates: function(signs, periods) {
+        this.log(`Queueing updates for signs: ${signs.join(', ')} and periods: ${periods.join(', ')}`);
         signs.forEach(sign => {
             periods.forEach(period => {
                 this.requestQueue.push({ sign, period });
@@ -87,12 +88,18 @@ module.exports = NodeHelper.create({
     },
 
     processQueue: async function() {
-        if (this.isProcessingQueue) return;
+        if (this.isProcessingQueue) {
+            this.log("Queue is already being processed");
+            return;
+        }
         this.isProcessingQueue = true;
+        this.log("Starting to process queue");
 
         try {
             while (this.requestQueue.length > 0) {
                 const batch = this.requestQueue.splice(0, this.settings.maxConcurrentRequests);
+                this.log(`Processing batch of ${batch.length} requests`);
+                
                 const promises = batch.map(item => this.getHoroscope(item).catch(error => ({
                     error,
                     sign: item.sign,
@@ -103,6 +110,7 @@ module.exports = NodeHelper.create({
                 
                 results.forEach(result => {
                     if (result.error) {
+                        this.log(`Error fetching horoscope for ${result.sign}, ${result.period}: ${result.error.message}`);
                         this.sendSocketNotification("HOROSCOPE_RESULT", {
                             success: false,
                             sign: result.sign,
@@ -110,6 +118,7 @@ module.exports = NodeHelper.create({
                             message: result.error.message
                         });
                     } else {
+                        this.log(`Successfully fetched horoscope for ${result.sign}, ${result.period}`);
                         this.sendSocketNotification("HOROSCOPE_RESULT", {
                             success: true,
                             sign: result.sign,
@@ -121,6 +130,7 @@ module.exports = NodeHelper.create({
                 });
 
                 if (this.requestQueue.length > 0) {
+                    this.log("Waiting before processing next batch");
                     await new Promise(resolve => setTimeout(resolve, 5000));
                 }
             }
