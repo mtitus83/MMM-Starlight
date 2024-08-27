@@ -25,9 +25,8 @@ Module.register("MMM-SunSigns", {
         this.lastUpdateAttempt = null;
         this.updateFailures = 0;
         this.transitionState = "idle";
-    
+
         this.scheduleUpdate(1000);
-        Log.info(this.name + ": Initial update scheduled");
     },
 
     getStyles: function() {
@@ -51,6 +50,15 @@ Module.register("MMM-SunSigns", {
             pauseDuration: this.config.pauseDuration,
             scrollSpeed: this.config.scrollSpeed
         });
+
+        setTimeout(() => {
+            if (!this.loaded) {
+                Log.error(this.name + ": Initial load timeout reached. Retrying...");
+                this.updateFailures++;
+                this.scheduleUpdate(this.config.updateInterval);
+            }
+        }, this.config.requestTimeout);
+    },
 
     getDom: function() {
         var wrapper = document.createElement("div");
@@ -94,11 +102,55 @@ Module.register("MMM-SunSigns", {
     },
 
     createSignElement: function(sign, className, period) {
-        // ... (keep this method as it was)
+        var slideWrapper = document.createElement("div");
+        slideWrapper.className = "sunsigns-slide-wrapper " + className;
+
+        var contentWrapper = document.createElement("div");
+        contentWrapper.className = "sunsigns-content-wrapper";
+
+        var textContent = document.createElement("div");
+        textContent.className = "sunsigns-text-content";
+
+        var periodText = document.createElement("div");
+        periodText.className = "sunsigns-period";
+        periodText.innerHTML = this.formatPeriodText(period) + " Horoscope for " + sign.charAt(0).toUpperCase() + sign.slice(1);
+        textContent.appendChild(periodText);
+
+        var horoscopeWrapper = document.createElement("div");
+        horoscopeWrapper.className = "sunsigns-text-wrapper";
+        horoscopeWrapper.style.maxHeight = this.config.maxTextHeight;
+
+        var horoscopeTextElement = document.createElement("div");
+        horoscopeTextElement.className = "sunsigns-text";
+        horoscopeTextElement.innerHTML = this.horoscopes[sign] && this.horoscopes[sign][period] 
+            ? this.horoscopes[sign][period] 
+            : "Loading " + period + " horoscope for " + sign + "...";
+        horoscopeWrapper.appendChild(horoscopeTextElement);
+
+        textContent.appendChild(horoscopeWrapper);
+        contentWrapper.appendChild(textContent);
+
+        if (this.config.showImage) {
+            var imageWrapper = document.createElement("div");
+            imageWrapper.className = "sunsigns-image-wrapper";
+            var image = document.createElement("img");
+            image.src = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
+            image.alt = sign + " zodiac sign";
+            image.style.width = this.config.imageWidth;
+            imageWrapper.appendChild(image);
+            contentWrapper.appendChild(imageWrapper);
+        }
+
+        slideWrapper.appendChild(contentWrapper);
+
+        return slideWrapper;
     },
 
     formatPeriodText: function(period) {
-        // ... (keep this method as it was)
+        if (period === "tomorrow") {
+            return "Tomorrow's";
+        }
+        return period.charAt(0).toUpperCase() + period.slice(1);
     },
 
     getNextIndices: function() {
@@ -116,14 +168,12 @@ Module.register("MMM-SunSigns", {
         }
 
         this.transitionState = "waiting";
-            setTimeout(() => {
-                if (!this.loaded) {
-                    Log.error(this.name + ": Initial load timeout reached. Retrying...");
-                    this.updateFailures++;
-                    this.scheduleUpdate(this.config.updateInterval);
-                }
-            }, this.config.requestTimeout || 30000);
-        },
+        setTimeout(() => {
+            this.transitionState = "sliding";
+            this.updateDom(1000);
+            setTimeout(() => this.finishTransition(), 1000);
+        }, this.config.signWaitTime);
+    },
 
     finishTransition: function() {
         let nextIndices = this.getNextIndices();
@@ -191,5 +241,4 @@ Module.register("MMM-SunSigns", {
             Log.warn(this.name + ": Received unknown socket notification: " + notification);
         }
     }
-
 });
