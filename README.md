@@ -1,6 +1,6 @@
 # MMM-SunSigns
 
-A MagicMirror² module that displays horoscopes for specified zodiac signs for various time period.
+A MagicMirror² module that displays horoscopes for specified zodiac signs for various time periods.
 
 ## Disclaimer
 
@@ -43,10 +43,7 @@ modules: [
 | Option           | Description                                                                                     |
 |------------------|-------------------------------------------------------------------------------------------------|
 | `zodiacSign`     | An array of zodiac signs to display. (default: `["taurus"]`)                                    |
-| `period`        | An array of period for the horoscope. Can include "daily", "tomorrow", "weekly", "monthly", and "yearly". (default: `["daily", "tomorrow"]`) |
-| `updateInterval` | How often to fetch new horoscopes in milliseconds. (default: `60 * 60 * 1000` // 1 hour)        |
-| `retryDelay`     | Delay before retrying a failed request in milliseconds. (default: `300000` // 5 minutes)        |
-| `maxRetries`     | Maximum number of retries for a failed request. (default: `5`)                                  |
+| `period`         | An array of periods for the horoscope. Can include "daily", "weekly", "monthly", and "yearly". (default: `["daily"]`) |
 | `width`          | Width of the module. (default: `"400px"`)                                                       |
 | `fontSize`       | Font size of the horoscope text. (default: `"1em"`)                                             |
 | `showImage`      | Whether to display the zodiac sign image. (default: `true`)                                     |
@@ -54,32 +51,22 @@ modules: [
 | `maxTextHeight`  | Maximum height of the text area before scrolling. (default: `"400px"`)                          |
 | `scrollSpeed`    | Speed of the vertical scrolling in pixels per second. (default: `7`)                            |
 | `pauseDuration`  | Duration to pause before starting to scroll and after scrolling completes, in milliseconds. (default: `10000` // 10 seconds) |
-| `signWaitTime`   | Time to display each sign before rotating to the next, in milliseconds. (default: `120000` // 2 minutes) |
-| `requestTimeout` | Timeout for the HTTP request in milliseconds. (default: `30000` // 30 seconds)                  |
+| `signWaitTime`   | Time to display each sign before rotating to the next, in milliseconds. (default: `50000` // 50 seconds) |
+| `debug`          | Enable debug logging. (default: `false`)                                                        |
 
-### Ordering of Horoscopes
+### Note on Removed Options
 
-The order in which horoscopes are displayed is determined by the order of the `zodiacSign` and `period` arrays in your configuration. The module will cycle through all period for each sign before moving to the next sign. 
+In this version, the following options have been removed or are no longer user-configurable:
 
-For example, if your configuration is:
+- `updateInterval`: Horoscopes are now automatically updated every 12 hours and cached.
+- `retryDelay` and `maxRetries`: Retry logic is now handled internally.
+- `requestTimeout`: This option has been removed.
 
-```javascript
-{
-    zodiacSign: ["aries", "taurus"],
-    period: ["daily", "tomorrow", "weekly"]
-}
-```
+If you were using these options in a previous version, please remove them from your configuration.
 
-The horoscopes will be displayed in this order:
+### Caching Mechanism
 
-1. Aries daily
-2. Aries tomorrow
-3. Aries weekly
-4. Taurus daily
-5. Taurus tomorrow
-6. Taurus weekly
-
-Then it will cycle back to Aries daily and repeat the sequence.
+This version introduces a caching mechanism that stores horoscopes locally. This helps reduce the number of requests and improves the module's performance. Horoscopes are automatically updated every 12 hours.
 
 ### Example configuration
 
@@ -89,16 +76,40 @@ Then it will cycle back to Aries daily and repeat the sequence.
     position: "top_right",
     config: {
         zodiacSign: ["aries", "taurus", "gemini"],
-        period: ["daily", "tomorrow", "weekly", "monthly"],
-        updateInterval: 6 * 60 * 60 * 1000, // 6 hours
+        period: ["daily", "weekly", "monthly"],
         width: "500px",
         maxTextHeight: "300px",
         scrollSpeed: 8,
         pauseDuration: 5000, // 5 seconds pause before and after scrolling
-        signWaitTime: 180000 // 3 minutes
+        signWaitTime: 60000, // 1 minute
+        debug: true
     }
 }
 ```
+
+### Ordering of Horoscopes
+
+The order in which horoscopes are displayed is determined by the order of the `zodiacSign` and `period` arrays in your configuration. The module will cycle through all periods for each sign before moving to the next sign. 
+
+For example, if your configuration is:
+
+```javascript
+{
+    zodiacSign: ["aries", "taurus"],
+    period: ["daily", "weekly", "monthly"]
+}
+```
+
+The horoscopes will be displayed in this order:
+
+1. Aries daily
+2. Aries weekly
+3. Aries monthly
+4. Taurus daily
+5. Taurus weekly
+6. Taurus monthly
+
+Then it will cycle back to Aries daily and repeat the sequence.
 
 ## Updating
 
@@ -113,7 +124,3 @@ npm install
 ## Contributing
 
 If you find any issues or have suggestions for improvements, please open an issue or submit a pull request on the GitHub repository.
-
-## License
-
-This project is licensed under the MIT License. See the LICENSE file for details.

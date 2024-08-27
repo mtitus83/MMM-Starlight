@@ -8,12 +8,9 @@ Module.register("MMM-SunSigns", {
         width: "400px",
         fontSize: "1em",
         debug: false,
-        requestTimeout: 30000,
-        signWaitTime: 50000,
-        pauseDuration: 10000,
-        scrollSpeed: 7,
-        updateInterval: 60 * 60 * 1000,
-        transitionSpeed: 1000 // 1 second for transitions
+        pauseDuration: 10000, // 10 seconds
+        scrollSpeed: 7, // pixels per second
+        signWaitTime: 50000, // 50 seconds, now user-configurable again
     },
 
     start: function() {
@@ -47,18 +44,10 @@ Module.register("MMM-SunSigns", {
         this.sendSocketNotification("UPDATE_HOROSCOPES", {
             zodiacSigns: this.config.zodiacSign,
             periods: this.config.period,
-            signWaitTime: this.config.signWaitTime,
-            pauseDuration: this.config.pauseDuration,
-            scrollSpeed: this.config.scrollSpeed
         });
 
-        setTimeout(() => {
-            if (!this.loaded) {
-                Log.error(this.name + ": Initial load timeout reached. Retrying...");
-                this.updateFailures++;
-                this.scheduleUpdate(this.config.updateInterval);
-            }
-        }, this.config.requestTimeout);
+        // Schedule next update in 12 hours (hard-coded)
+        this.scheduleUpdate(12 * 60 * 60 * 1000);
     },
 
     getDom: function() {
@@ -179,12 +168,12 @@ Module.register("MMM-SunSigns", {
     startSlideTransition: function() {
         var slideContainer = document.querySelector(".MMM-SunSigns .sunsigns-slide-container");
         if (slideContainer) {
-            slideContainer.style.transition = `transform ${this.config.transitionSpeed}ms ease-in-out`;
+            slideContainer.style.transition = `transform 1000ms ease-in-out`; // Hard-coded 1 second transition
             slideContainer.style.transform = "translateX(-50%)";
 
             setTimeout(() => {
                 this.finishTransition();
-            }, this.config.transitionSpeed);
+            }, 1000); // Hard-coded 1 second wait
         }
     },
 
@@ -255,7 +244,7 @@ Module.register("MMM-SunSigns", {
             } else {
                 Log.error(this.name + ": Failed to fetch horoscope", payload);
                 this.updateFailures++;
-                this.scheduleUpdate(this.config.updateInterval);
+                this.scheduleUpdate(60 * 60 * 1000); // Retry in 1 hour if failed
             }
         } else {
             Log.warn(this.name + ": Received unknown socket notification: " + notification);
