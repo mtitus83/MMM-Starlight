@@ -1,17 +1,19 @@
 var NodeHelper = require("node_helper");
 var axios = require("axios");
 var cheerio = require("cheerio");
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
 
 module.exports = NodeHelper.create({
-    start: function() {
+    start: async function() {
         console.log("Starting node helper for: " + this.name);
         this.cacheDir = path.join(__dirname, 'cache');
-        if (!fs.existsSync(this.cacheDir)) {
-            fs.mkdirSync(this.cacheDir);
+        try {
+            await fs.mkdir(this.cacheDir, { recursive: true });
+        } catch (error) {
+            console.error("Error creating cache directory:", error);
         }
-        this.initializeCache();
+        await this.initializeCache();
         this.requestQueue = [];
         this.isProcessingQueue = false;
         this.debug = true; // Set to true for detailed logging
@@ -25,10 +27,8 @@ module.exports = NodeHelper.create({
             maxRetries: 3
         };
 
-        // Global error handler for unhandled rejections
         process.on('unhandledRejection', (reason, promise) => {
             console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-            // Optionally, send a notification to the module
             this.sendSocketNotification("ERROR", {
                 type: "Unhandled Rejection",
                 message: reason.message || "Unknown error occurred"
@@ -42,24 +42,24 @@ module.exports = NodeHelper.create({
         }
     },
 
-    initializeCache: function() {
+    initializeCache: async function() {
         this.cache = {};
         const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
-        if (fs.existsSync(cacheFile)) {
-            try {
-                const data = fs.readFileSync(cacheFile, 'utf8');
-                this.cache = JSON.parse(data);
-            } catch (error) {
+        try {
+            const data = await fs.readFile(cacheFile, 'utf8');
+            this.cache = JSON.parse(data);
+        } catch (error) {
+            if (error.code !== 'ENOENT') {
                 console.error("Error reading cache file:", error);
-                this.cache = {};
             }
+            this.cache = {};
         }
     },
 
-    saveCache: function() {
+    saveCache: async function() {
         const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
         try {
-            fs.writeFileSync(cacheFile, JSON.stringify(this.cache), 'utf8');
+            await fs.writeFile(cacheFile, JSON.stringify(this.cache), 'utf8');
         } catch (error) {
             console.error("Error writing cache file:", error);
         }
@@ -78,7 +78,11 @@ module.exports = NodeHelper.create({
             });
         });
         this.processQueue().catch(error => {
-            console.error("Error processing queue:", error);
+            console.error("Error in queueHoroscopeUpdates:", error);
+            this.sendSocketNotification("ERROR", {
+                type: "Queue Processing Error",
+                message: error.message
+            });
         });
     },
 
@@ -86,41 +90,50 @@ module.exports = NodeHelper.create({
         if (this.isProcessingQueue) return;
         this.isProcessingQueue = true;
 
-        while (this.requestQueue.length > 0) {
-            const batch = this.requestQueue.splice(0, this.settings.maxConcurrentRequests);
-            const promises = batch.map(item => this.getHoroscope(item));
+        try {
+            while (this.requestQueue.length > 0) {
+                const batch = this.requestQueue.splice(0, this.settings.maxConcurrentRequests);
+                const promises = batch.map(item => this.getHoroscope(item).catch(error => ({
+                    error,
+                    sign: item.sign,
+                    period: item.period
+                })));
 
-            try {
                 const results = await Promise.all(promises);
-                results.forEach((result, index) => {
-                    const { sign, period } = batch[index];
-                    this.sendSocketNotification("HOROSCOPE_RESULT", {
-                        success: true,
-                        sign: sign,
-                        period: period,
-                        data: result,
-                        cached: result.cached
-                    });
+                
+                results.forEach(result => {
+                    if (result.error) {
+                        this.sendSocketNotification("HOROSCOPE_RESULT", {
+                            success: false,
+                            sign: result.sign,
+                            period: result.period,
+                            message: result.error.message
+                        });
+                    } else {
+                        this.sendSocketNotification("HOROSCOPE_RESULT", {
+                            success: true,
+                            sign: result.sign,
+                            period: result.period,
+                            data: result.data,
+                            cached: result.cached
+                        });
+                    }
                 });
-            } catch (error) {
-                console.error("Error processing batch:", error);
-                batch.forEach(({ sign, period }) => {
-                    this.sendSocketNotification("HOROSCOPE_RESULT", {
-                        success: false,
-                        sign: sign,
-                        period: period,
-                        message: error.message
-                    });
-                });
-            }
 
-            if (this.requestQueue.length > 0) {
-                await new Promise(resolve => setTimeout(resolve, 5000)); // 5-second delay between batches
+                if (this.requestQueue.length > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 5000));
+                }
             }
+        } catch (error) {
+            console.error("Unexpected error in processQueue:", error);
+            this.sendSocketNotification("ERROR", {
+                type: "Queue Processing Error",
+                message: error.message
+            });
+        } finally {
+            this.isProcessingQueue = false;
+            this.log("Queue processing complete");
         }
-
-        this.isProcessingQueue = false;
-        this.log("Queue processing complete");
     },
 
     getHoroscope: async function(config) {
@@ -129,7 +142,7 @@ module.exports = NodeHelper.create({
 
         if (cachedData && (Date.now() - cachedData.timestamp < this.settings.cacheDuration)) {
             this.log(`Returning cached horoscope for ${config.sign}, period: ${config.period}`);
-            return { ...cachedData.data, cached: true };
+            return { ...cachedData.data, sign: config.sign, period: config.period, cached: true };
         }
 
         this.log(`Fetching new horoscope for ${config.sign}, period: ${config.period}`);
@@ -153,12 +166,12 @@ module.exports = NodeHelper.create({
                 const horoscope = $('.horoscope-content p').text().trim();
 
                 if (horoscope) {
-                    const result = { data: horoscope, cached: false };
+                    const result = { data: horoscope, sign: config.sign, period: config.period, cached: false };
                     this.cache[cacheKey] = {
                         data: result,
                         timestamp: Date.now()
                     };
-                    this.saveCache();
+                    await this.saveCache();
                     return result;
                 } else {
                     throw new Error("Horoscope content not found");
