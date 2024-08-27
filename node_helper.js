@@ -33,7 +33,7 @@ module.exports = NodeHelper.create({
                 message: reason.message || "Unknown error occurred"
             });
         });
-        
+
         this.log("Node helper initialized");
     },
 
@@ -71,11 +71,11 @@ module.exports = NodeHelper.create({
         if (notification === "UPDATE_HOROSCOPES") {
             this.log("Received UPDATE_HOROSCOPES notification");
             this.log(`Payload: ${JSON.stringify(payload)}`);
-            this.queueHoroscopeUpdates(payload.zodiacSigns, payload.periods, payload.signWaitTime, payload.pauseDuration, payload.scrollSpeed);
+            this.queueHoroscopeUpdates(payload.zodiacSigns, payload.periods);
         }
     },
 
-    queueHoroscopeUpdates: function(signs, periods, signWaitTime, pauseDuration, scrollSpeed) {
+    queueHoroscopeUpdates: function(signs, periods) {
         this.log(`Queueing updates for signs: ${signs.join(', ')} and periods: ${periods.join(', ')}`);
         signs.forEach(sign => {
             periods.forEach(period => {
@@ -83,7 +83,7 @@ module.exports = NodeHelper.create({
             });
         });
         this.log(`Queue size after adding requests: ${this.requestQueue.length}`);
-        this.processQueue(signWaitTime, pauseDuration, scrollSpeed).catch(error => {
+        this.processQueue().catch(error => {
             console.error("Error in queueHoroscopeUpdates:", error);
             this.sendSocketNotification("ERROR", {
                 type: "Queue Processing Error",
@@ -92,7 +92,7 @@ module.exports = NodeHelper.create({
         });
     },
 
-    processQueue: async function(signWaitTime, pauseDuration, scrollSpeed) {
+    processQueue: async function() {
         if (this.isProcessingQueue) {
             this.log("Queue is already being processed");
             return;
@@ -129,10 +129,7 @@ module.exports = NodeHelper.create({
                             sign: result.sign,
                             period: result.period,
                             data: result.data,
-                            cached: result.cached,
-                            signWaitTime: signWaitTime,
-                            pauseDuration: pauseDuration,
-                            scrollSpeed: scrollSpeed
+                            cached: result.cached
                         });
                     }
                 });
@@ -167,13 +164,25 @@ module.exports = NodeHelper.create({
         let baseUrl = 'https://www.sunsigns.com/horoscopes';
         let url;
 
-        if (config.period === 'tomorrow') {
-            url = `${baseUrl}/daily/${config.sign}/tomorrow`;
-        } else if (config.period === 'yearly') {
-            const currentYear = new Date().getFullYear();
-            url = `${baseUrl}/yearly/${currentYear}/${config.sign}`;
-        } else {
-            url = `${baseUrl}/${config.period}/${config.sign}`;
+        switch (config.period) {
+            case 'daily':
+                url = `${baseUrl}/daily/${config.sign}`;
+                break;
+            case 'tomorrow':
+                url = `${baseUrl}/daily/${config.sign}/tomorrow`;
+                break;
+            case 'weekly':
+                url = `${baseUrl}/weekly/${config.sign}`;
+                break;
+            case 'monthly':
+                url = `${baseUrl}/monthly/${config.sign}`;
+                break;
+            case 'yearly':
+                const currentYear = new Date().getFullYear();
+                url = `${baseUrl}/yearly/${currentYear}/${config.sign}`;
+                break;
+            default:
+                throw new Error(`Invalid period: ${config.period}`);
         }
 
         let retries = 0;
