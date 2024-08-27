@@ -67,18 +67,18 @@ module.exports = NodeHelper.create({
     socketNotificationReceived: function(notification, payload) {
         if (notification === "UPDATE_HOROSCOPES") {
             this.log("Received UPDATE_HOROSCOPES notification");
-            this.queueHoroscopeUpdates(payload.zodiacSigns, payload.periods, payload.signWaitTime);
+            this.queueHoroscopeUpdates(payload.zodiacSigns, payload.periods, payload.signWaitTime, payload.pauseDuration, payload.scrollSpeed);
         }
     },
 
-    queueHoroscopeUpdates: function(signs, periods, signWaitTime) {
+    queueHoroscopeUpdates: function(signs, periods, signWaitTime, pauseDuration, scrollSpeed) {
         this.log(`Queueing updates for signs: ${signs.join(', ')} and periods: ${periods.join(', ')}`);
         signs.forEach(sign => {
             periods.forEach(period => {
                 this.requestQueue.push({ sign, period });
             });
         });
-        this.processQueue(signWaitTime).catch(error => {
+        this.processQueue(signWaitTime, pauseDuration, scrollSpeed).catch(error => {
             console.error("Error in queueHoroscopeUpdates:", error);
             this.sendSocketNotification("ERROR", {
                 type: "Queue Processing Error",
@@ -87,7 +87,7 @@ module.exports = NodeHelper.create({
         });
     },
 
-    processQueue: async function(signWaitTime) {
+    processQueue: async function(signWaitTime, pauseDuration, scrollSpeed) {
         if (this.isProcessingQueue) {
             this.log("Queue is already being processed");
             return;
@@ -125,7 +125,9 @@ module.exports = NodeHelper.create({
                             period: result.period,
                             data: result.data,
                             cached: result.cached,
-                            signWaitTime: signWaitTime
+                            signWaitTime: signWaitTime,
+                            pauseDuration: pauseDuration,
+                            scrollSpeed: scrollSpeed
                         });
                     }
                 });

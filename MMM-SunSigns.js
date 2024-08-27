@@ -10,7 +10,9 @@ Module.register("MMM-SunSigns", {
         debug: true,
         retryDelay: 60000, // 1 minute
         initialLoadTimeout: 30000, // 30 seconds
-        signWaitTime: 120000 // 2 minutes (default)
+        signWaitTime: 120000, // 2 minutes (default)
+        pauseDuration: 10000, // 10 seconds (default)
+        scrollSpeed: 7 // pixels per second (default)
     },
 
     start: function() {
@@ -42,7 +44,9 @@ Module.register("MMM-SunSigns", {
         this.sendSocketNotification("UPDATE_HOROSCOPES", {
             zodiacSigns: this.config.zodiacSign,
             periods: this.config.period,
-            signWaitTime: this.config.signWaitTime
+            signWaitTime: this.config.signWaitTime,
+            pauseDuration: this.config.pauseDuration,
+            scrollSpeed: this.config.scrollSpeed
         });
 
         // Set a timeout for initial load
@@ -240,7 +244,7 @@ Module.register("MMM-SunSigns", {
                 if (contentHeight > wrapperHeight) {
                     self.isScrolling = true;
                     var scrollDistance = contentHeight - wrapperHeight;
-                    var verticalDuration = (scrollDistance / 7) * 1000; // Fixed scroll speed
+                    var verticalDuration = (scrollDistance / self.config.scrollSpeed) * 1000; // Use configurable scroll speed
 
                     setTimeout(() => {
                         textContent.style.transition = `transform ${verticalDuration}ms linear`;
@@ -265,8 +269,8 @@ Module.register("MMM-SunSigns", {
                                     self.startScrolling();
                                 }, 500);
                             }, 500);
-                        }, verticalDuration + 10000); // Fixed pause duration
-                    }, 10000); // Fixed pause duration
+                        }, verticalDuration + self.config.pauseDuration); // Use configurable pause duration
+                    }, self.config.pauseDuration); // Use configurable pause duration
                 } else {
                     self.isScrolling = false;
                 }
