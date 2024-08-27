@@ -15,8 +15,8 @@
     flex-shrink: 0;
 }
 
-.MMM-SunSigns .sunsigns-slide-wrapper.next {
-    transform: translateX(0);
+.MMM-SunSigns .sunsigns-slide-container.sliding {
+    transform: translateX(-50%);
 }
 
 .MMM-SunSigns .sunsigns-content-wrapper {
@@ -67,12 +67,25 @@
     font-weight: bold;
 }
 
-/* Animation for sliding transition */
-@keyframes slideLeft {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
+/* Remove any fade animations */
+.MMM-SunSigns .sunsigns-slide-wrapper,
+.MMM-SunSigns .sunsigns-text {
+    transition: none;
+    opacity: 1;
 }
 
-.MMM-SunSigns .sunsigns-slide-container.sliding {
-    animation: slideLeft 1s ease-in-out;
+/* Ensure content doesn't wrap */
+.MMM-SunSigns .sunsigns-slide-wrapper {
+    white-space: nowrap;
+}
+
+.MMM-SunSigns .sunsigns-text-content {
+    white-space: normal;
+}
+
+/* Debug info styling */
+.MMM-SunSigns .small.dimmed {
+    font-size: 0.8em;
+    opacity: 0.7;
+    margin-top: 10px;
 }

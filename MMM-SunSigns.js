@@ -176,12 +176,20 @@ Module.register("MMM-SunSigns", {
     },
 
     rotateHoroscope: function() {
-        this.currentPeriodIndex++;
-        if (this.currentPeriodIndex >= this.config.period.length) {
-            this.currentPeriodIndex = 0;
-            this.currentSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
+        var slideContainer = document.querySelector(".MMM-SunSigns .sunsigns-slide-container");
+        if (slideContainer) {
+            slideContainer.classList.add("sliding");
+            
+            setTimeout(() => {
+                this.currentPeriodIndex++;
+                if (this.currentPeriodIndex >= this.config.period.length) {
+                    this.currentPeriodIndex = 0;
+                    this.currentSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
+                }
+                this.updateDom(0); // Update DOM immediately
+                slideContainer.classList.remove("sliding");
+            }, 1000); // This should match the CSS transition duration
         }
-        this.updateDom(1000); // 1000ms transition
         this.scheduleRotation();
     },
 
@@ -231,23 +239,15 @@ Module.register("MMM-SunSigns", {
                         textContent.style.transform = `translateY(-${scrollDistance}px)`;
 
                         setTimeout(() => {
-                            textContent.style.transition = `opacity 0.5s ease-out`;
-                            textContent.style.opacity = 0;
+                            textContent.style.transition = 'none';
+                            textContent.style.transform = 'translateY(0)';
+
+                            void textContent.offsetWidth;
+
+                            self.isScrolling = false;
 
                             setTimeout(() => {
-                                textContent.style.transition = 'none';
-                                textContent.style.transform = 'translateY(0)';
-
-                                void textContent.offsetWidth;
-
-                                textContent.style.transition = `opacity 0.5s ease-in`;
-                                textContent.style.opacity = 1;
-
-                                self.isScrolling = false;
-
-                                setTimeout(() => {
-                                    self.startScrolling();
-                                }, 500);
+                                self.startScrolling();
                             }, 500);
                         }, verticalDuration + self.config.pauseDuration); // Use configurable pause duration
                     }, self.config.pauseDuration); // Use configurable pause duration
