@@ -14,7 +14,8 @@ module.exports = NodeHelper.create({
         this.initializeCache();
         this.requestQueue = [];
         this.isProcessingQueue = false;
-        
+        this.debug = true; // Set to true for detailed logging
+
         // Non-configurable settings
         this.settings = {
             updateInterval: 12 * 60 * 60 * 1000, // 12 hours
@@ -23,20 +24,45 @@ module.exports = NodeHelper.create({
             retryDelay: 5 * 60 * 1000, // 5 minutes
             maxRetries: 3
         };
+
+        // Global error handler for unhandled rejections
+        process.on('unhandledRejection', (reason, promise) => {
+            console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+            // Optionally, send a notification to the module
+            this.sendSocketNotification("ERROR", {
+                type: "Unhandled Rejection",
+                message: reason.message || "Unknown error occurred"
+            });
+        });
+    },
+
+    log: function(message) {
+        if (this.debug) {
+            console.log(`[MMM-SunSigns] ${message}`);
+        }
     },
 
     initializeCache: function() {
         this.cache = {};
         const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
         if (fs.existsSync(cacheFile)) {
-            const data = fs.readFileSync(cacheFile, 'utf8');
-            this.cache = JSON.parse(data);
+            try {
+                const data = fs.readFileSync(cacheFile, 'utf8');
+                this.cache = JSON.parse(data);
+            } catch (error) {
+                console.error("Error reading cache file:", error);
+                this.cache = {};
+            }
         }
     },
 
     saveCache: function() {
         const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
-        fs.writeFileSync(cacheFile, JSON.stringify(this.cache), 'utf8');
+        try {
+            fs.writeFileSync(cacheFile, JSON.stringify(this.cache), 'utf8');
+        } catch (error) {
+            console.error("Error writing cache file:", error);
+        }
     },
 
     socketNotificationReceived: function(notification, payload) {
@@ -51,46 +77,50 @@ module.exports = NodeHelper.create({
                 this.requestQueue.push({ sign, period });
             });
         });
-        this.processQueue();
+        this.processQueue().catch(error => {
+            console.error("Error processing queue:", error);
+        });
     },
 
-    processQueue: function() {
+    processQueue: async function() {
         if (this.isProcessingQueue) return;
         this.isProcessingQueue = true;
 
-        const processNext = () => {
-            if (this.requestQueue.length === 0) {
-                this.isProcessingQueue = false;
-                return;
-            }
+        while (this.requestQueue.length > 0) {
+            const batch = this.requestQueue.splice(0, this.settings.maxConcurrentRequests);
+            const promises = batch.map(item => this.getHoroscope(item));
 
-            const { sign, period } = this.requestQueue.shift();
-            this.getHoroscope({ sign, period })
-                .then(horoscope => {
+            try {
+                const results = await Promise.all(promises);
+                results.forEach((result, index) => {
+                    const { sign, period } = batch[index];
                     this.sendSocketNotification("HOROSCOPE_RESULT", {
                         success: true,
                         sign: sign,
                         period: period,
-                        data: horoscope
+                        data: result,
+                        cached: result.cached
                     });
-                })
-                .catch(error => {
-                    console.error(`Error fetching horoscope for ${sign}, ${period}:`, error);
+                });
+            } catch (error) {
+                console.error("Error processing batch:", error);
+                batch.forEach(({ sign, period }) => {
                     this.sendSocketNotification("HOROSCOPE_RESULT", {
                         success: false,
                         sign: sign,
                         period: period,
                         message: error.message
                     });
-                })
-                .finally(() => {
-                    setTimeout(processNext, 5000); // 5-second delay between requests
                 });
-        };
+            }
 
-        for (let i = 0; i < this.settings.maxConcurrentRequests; i++) {
-            processNext();
+            if (this.requestQueue.length > 0) {
+                await new Promise(resolve => setTimeout(resolve, 5000)); // 5-second delay between batches
+            }
         }
+
+        this.isProcessingQueue = false;
+        this.log("Queue processing complete");
     },
 
     getHoroscope: async function(config) {
@@ -98,11 +128,11 @@ module.exports = NodeHelper.create({
         const cachedData = this.cache[cacheKey];
 
         if (cachedData && (Date.now() - cachedData.timestamp < this.settings.cacheDuration)) {
-            console.log(`${this.name}: Returning cached horoscope for ${config.sign}, period: ${config.period}`);
-            return cachedData.data;
+            this.log(`Returning cached horoscope for ${config.sign}, period: ${config.period}`);
+            return { ...cachedData.data, cached: true };
         }
 
-        console.log(`${this.name}: Fetching new horoscope for ${config.sign}, period: ${config.period}`);
+        this.log(`Fetching new horoscope for ${config.sign}, period: ${config.period}`);
         let baseUrl = 'https://www.sunsigns.com/horoscopes';
         let url;
 
@@ -123,12 +153,13 @@ module.exports = NodeHelper.create({
                 const horoscope = $('.horoscope-content p').text().trim();
 
                 if (horoscope) {
+                    const result = { data: horoscope, cached: false };
                     this.cache[cacheKey] = {
-                        data: horoscope,
+                        data: result,
                         timestamp: Date.now()
                     };
                     this.saveCache();
-                    return horoscope;
+                    return result;
                 } else {
                     throw new Error("Horoscope content not found");
                 }
@@ -136,7 +167,7 @@ module.exports = NodeHelper.create({
                 console.error(`${this.name}: Error fetching horoscope for ${config.sign}, ${config.period}:`, error.message);
                 retries++;
                 if (retries < this.settings.maxRetries) {
-                    console.log(`${this.name}: Retrying in ${this.settings.retryDelay / 1000} seconds...`);
+                    this.log(`Retrying in ${this.settings.retryDelay / 1000} seconds...`);
                     await new Promise(resolve => setTimeout(resolve, this.settings.retryDelay));
                 } else {
                     throw new Error(`Max retries reached. Unable to fetch horoscope for ${config.sign}, ${config.period}`);
