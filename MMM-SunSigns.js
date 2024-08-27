@@ -24,7 +24,7 @@ Module.register("MMM-SunSigns", {
         this.isScrolling = false;
         this.lastUpdateAttempt = null;
         this.updateFailures = 0;
-        
+
         this.scheduleUpdate(1000);
     },
 
@@ -76,26 +76,19 @@ Module.register("MMM-SunSigns", {
             return wrapper;
         }
 
-        if (this.config.zodiacSign.length === 1 && this.config.period.length === 1) {
-            wrapper.classList.add("single-sign");
-            wrapper.appendChild(this.createSignElement(this.config.zodiacSign[0], "single", this.config.period[0]));
-        } else {
-            wrapper.classList.add("multiple-signs");
-            var slideContainer = document.createElement("div");
-            slideContainer.className = "sunsigns-slide-container";
+        var slideContainer = document.createElement("div");
+        slideContainer.className = "sunsigns-slide-container";
 
-            var currentSign = this.config.zodiacSign[this.currentSignIndex];
-            var currentPeriod = this.config.period[this.currentPeriodIndex];
-            var nextSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
-            var nextPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
-            var nextSign = nextPeriodIndex === 0 ? this.config.zodiacSign[nextSignIndex] : currentSign;
-            var nextPeriod = this.config.period[nextPeriodIndex];
+        this.config.zodiacSign.forEach((sign, signIndex) => {
+            this.config.period.forEach((period, periodIndex) => {
+                var slideWrapper = this.createSignElement(sign, 
+                    signIndex === this.currentSignIndex && periodIndex === this.currentPeriodIndex ? "current" : "next", 
+                    period);
+                slideContainer.appendChild(slideWrapper);
+            });
+        });
 
-            slideContainer.appendChild(this.createSignElement(currentSign, "current", currentPeriod));
-            slideContainer.appendChild(this.createSignElement(nextSign, "next", nextPeriod));
-
-            wrapper.appendChild(slideContainer);
-        }
+        wrapper.appendChild(slideContainer);
 
         if (this.config.debug) {
             var debugInfo = document.createElement("div");
@@ -168,41 +161,21 @@ Module.register("MMM-SunSigns", {
 
         var self = this;
         this.rotationTimer = setTimeout(function() {
-            self.checkAndRotate();
+            self.rotateHoroscope();
         }, this.config.signWaitTime);
     },
 
-    checkAndRotate: function() {
-        if (this.config.zodiacSign.length === 1 && this.config.period.length === 1) {
-            // Don't rotate for single sign and period
-            return;
+    rotateHoroscope: function() {
+        this.currentPeriodIndex++;
+        if (this.currentPeriodIndex >= this.config.period.length) {
+            this.currentPeriodIndex = 0;
+            this.currentSignIndex++;
+            if (this.currentSignIndex >= this.config.zodiacSign.length) {
+                this.currentSignIndex = 0;
+            }
         }
-
-        if (!this.isScrolling) {
-            this.slideToNext();
-        } else {
-            setTimeout(() => this.checkAndRotate(), 1000);
-        }
-    },
-
-    slideToNext: function() {
-        var container = document.querySelector(".MMM-SunSigns .sunsigns-slide-container");
-        if (container) {
-            container.style.transition = "transform 1s ease-in-out";
-            container.style.transform = "translateX(-50%)";
-
-            setTimeout(() => {
-                this.currentPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
-                if (this.currentPeriodIndex === 0) {
-                    this.currentSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
-                }
-                container.style.transition = "none";
-                container.style.transform = "translateX(0)";
-                this.updateDom(0);
-                this.startScrolling();
-                this.scheduleRotation();
-            }, 1000);
-        }
+        this.updateDom(1000);
+        this.scheduleRotation();
     },
 
     socketNotificationReceived: function(notification, payload) {
