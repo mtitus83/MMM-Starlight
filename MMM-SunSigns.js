@@ -7,6 +7,9 @@ Module.register("MMM-SunSigns", {
         maxTextHeight: "400px",
         width: "400px",
         fontSize: "1em",
+        debug: true,
+        retryDelay: 60000, // 1 minute
+        initialLoadTimeout: 30000 // 30 seconds
     },
 
     start: function() {
@@ -16,16 +19,40 @@ Module.register("MMM-SunSigns", {
         this.currentPeriodIndex = 0;
         this.loaded = false;
         this.isScrolling = false;
+        this.lastUpdateAttempt = null;
+        this.updateFailures = 0;
         
-        // Add a random delay before the first update
-        const initialDelay = Math.floor(Math.random() * 3600000); // Random delay up to 1 hour
-        setTimeout(() => {
-            this.updateHoroscopes();
-        }, initialDelay);
+        this.scheduleUpdate(1000);
     },
 
     getStyles: function() {
         return ["MMM-SunSigns.css"];
+    },
+
+    scheduleUpdate: function(delay) {
+        var self = this;
+        setTimeout(function() {
+            self.updateHoroscopes();
+        }, delay);
+    },
+
+    updateHoroscopes: function() {
+        this.lastUpdateAttempt = new Date().toLocaleString();
+        this.sendSocketNotification("UPDATE_HOROSCOPES", {
+            zodiacSigns: this.config.zodiacSign,
+            periods: this.config.period
+        });
+
+        // Set a timeout for initial load
+        if (!this.loaded) {
+            setTimeout(() => {
+                if (!this.loaded) {
+                    Log.error(this.name + ": Initial load timeout reached. Retrying...");
+                    this.updateFailures++;
+                    this.scheduleUpdate(this.config.retryDelay);
+                }
+            }, this.config.initialLoadTimeout);
+        }
     },
 
     getDom: function() {
@@ -36,6 +63,10 @@ Module.register("MMM-SunSigns", {
 
         if (!this.loaded) {
             wrapper.innerHTML = "Loading horoscope...";
+            if (this.config.debug) {
+                wrapper.innerHTML += "<br>Last attempt: " + this.lastUpdateAttempt;
+                wrapper.innerHTML += "<br>Update failures: " + this.updateFailures;
+            }
             return wrapper;
         }
 
@@ -58,6 +89,14 @@ Module.register("MMM-SunSigns", {
             slideContainer.appendChild(this.createSignElement(nextSign, "next", nextPeriod));
 
             wrapper.appendChild(slideContainer);
+        }
+
+        if (this.config.debug) {
+            var debugInfo = document.createElement("div");
+            debugInfo.className = "small dimmed";
+            debugInfo.innerHTML = `Last Update: ${this.lastUpdateAttempt}<br>
+                                   Update Failures: ${this.updateFailures}`;
+            wrapper.appendChild(debugInfo);
         }
 
         return wrapper;
@@ -115,13 +154,6 @@ Module.register("MMM-SunSigns", {
         return period.charAt(0).toUpperCase() + period.slice(1);
     },
 
-    updateHoroscopes: function() {
-        this.sendSocketNotification("UPDATE_HOROSCOPES", {
-            zodiacSigns: this.config.zodiacSign,
-            periods: this.config.period
-        });
-    },
-
     scheduleRotation: function() {
         if (this.config.zodiacSign.length === 1 && this.config.period.length === 1) {
             // Don't schedule rotation for single sign and period
@@ -169,26 +201,25 @@ Module.register("MMM-SunSigns", {
 
     socketNotificationReceived: function(notification, payload) {
         if (notification === "HOROSCOPE_RESULT") {
+            Log.info(this.name + ": Received horoscope result", payload);
             if (payload.success) {
-                Log.info(this.name + ": Horoscope fetched successfully for " + payload.sign + ", period: " + payload.period);
                 if (!this.horoscopes[payload.sign]) {
                     this.horoscopes[payload.sign] = {};
                 }
                 this.horoscopes[payload.sign][payload.period] = payload.data;
                 this.loaded = true;
-                if (payload.sign === this.config.zodiacSign[this.currentSignIndex] &&
-                    payload.period === this.config.period[this.currentPeriodIndex]) {
-                    this.updateDom();
-                    this.startScrolling();
-                }
-            } else {
-                Log.error(this.name + ": " + payload.message);
-                if (!this.horoscopes[payload.sign]) {
-                    this.horoscopes[payload.sign] = {};
-                }
-                this.horoscopes[payload.sign][payload.period] = "Unable to fetch " + payload.period + " horoscope for " + payload.sign + ". Error: " + (payload.error || "Unknown error");
+                this.updateFailures = 0;
                 this.updateDom();
+                this.scheduleRotation();
+            } else {
+                Log.error(this.name + ": Failed to fetch horoscope", payload);
+                this.updateFailures++;
+                this.scheduleUpdate(this.config.retryDelay);
             }
+        } else if (notification === "ERROR") {
+            Log.error(this.name + ": Received error notification", payload);
+            this.updateFailures++;
+            this.scheduleUpdate(this.config.retryDelay);
         }
     },
 
