@@ -56,17 +56,18 @@ modules: [
 
 ### Note on Removed Options
 
-In this version, the following options have been removed or are no longer user-configurable:
+In this version, the following options have been removed or are no longer user-configurable due to new caching functionality:
 
-- `updateInterval`: Horoscopes are now automatically updated at midnight each day.
-- `retryDelay` and `maxRetries`: Retry logic is now handled internally.
-- `requestTimeout`: This option has been removed.
+The options listed below have been deprecated in this version as updates are now handled by the module in a more efficient manner. Please remove these variables from your configuration file:
 
-If you were using these options in a previous version, please remove them from your configuration.
+- `updateInterval`
+- `retryDelay`
+- `maxRetries`
+- `requestTimeout`
 
 ### Caching Mechanism
 
-This version introduces a caching mechanism that stores horoscopes locally. This helps reduce the number of requests and improves the module's performance. Horoscopes are automatically updated at midnight each day.
+This version introduces a caching mechanism that stores horoscopes locally. This helps reduce the number of requests and improves the module's performance. The module handles horoscope updates when required.
 
 ### Example configuration
 
