@@ -25,8 +25,9 @@ Module.register("MMM-SunSigns", {
         this.lastUpdateAttempt = null;
         this.updateFailures = 0;
         this.transitionState = "idle";
-
+    
         this.scheduleUpdate(1000);
+        Log.info(this.name + ": Initial update scheduled");
     },
 
     getStyles: function() {
@@ -42,19 +43,14 @@ Module.register("MMM-SunSigns", {
 
     updateHoroscopes: function() {
         this.lastUpdateAttempt = new Date().toLocaleString();
+        Log.info(this.name + ": Sending UPDATE_HOROSCOPES notification");
         this.sendSocketNotification("UPDATE_HOROSCOPES", {
             zodiacSigns: this.config.zodiacSign,
-            periods: this.config.period
+            periods: this.config.period,
+            signWaitTime: this.config.signWaitTime,
+            pauseDuration: this.config.pauseDuration,
+            scrollSpeed: this.config.scrollSpeed
         });
-
-        setTimeout(() => {
-            if (!this.loaded) {
-                Log.error(this.name + ": Initial load timeout reached. Retrying...");
-                this.updateFailures++;
-                this.scheduleUpdate(this.config.updateInterval);
-            }
-        }, this.config.requestTimeout);
-    },
 
     getDom: function() {
         var wrapper = document.createElement("div");
@@ -120,12 +116,14 @@ Module.register("MMM-SunSigns", {
         }
 
         this.transitionState = "waiting";
-        setTimeout(() => {
-            this.transitionState = "sliding";
-            this.updateDom(1000);
-            setTimeout(() => this.finishTransition(), 1000);
-        }, this.config.signWaitTime);
-    },
+            setTimeout(() => {
+                if (!this.loaded) {
+                    Log.error(this.name + ": Initial load timeout reached. Retrying...");
+                    this.updateFailures++;
+                    this.scheduleUpdate(this.config.updateInterval);
+                }
+            }, this.config.requestTimeout || 30000);
+        },
 
     finishTransition: function() {
         let nextIndices = this.getNextIndices();
@@ -169,6 +167,7 @@ Module.register("MMM-SunSigns", {
     },
 
     socketNotificationReceived: function(notification, payload) {
+        Log.info(this.name + ": Received socket notification: " + notification);
         if (notification === "HOROSCOPE_RESULT") {
             Log.info(this.name + ": Received horoscope result", payload);
             if (payload.success) {
@@ -178,6 +177,7 @@ Module.register("MMM-SunSigns", {
                 this.horoscopes[payload.sign][payload.period] = payload.data;
                 this.loaded = true;
                 this.updateFailures = 0;
+                Log.info(this.name + ": Horoscope data loaded successfully");
                 if (this.transitionState === "idle") {
                     this.updateDom();
                     this.scheduleNextTransition();
@@ -187,6 +187,9 @@ Module.register("MMM-SunSigns", {
                 this.updateFailures++;
                 this.scheduleUpdate(this.config.updateInterval);
             }
+        } else {
+            Log.warn(this.name + ": Received unknown socket notification: " + notification);
         }
     }
+
 });
