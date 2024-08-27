@@ -10,7 +10,7 @@ Module.register("MMM-SunSigns", {
         debug: false,
         pauseDuration: 10000, // 10 seconds
         scrollSpeed: 7, // pixels per second
-        signWaitTime: 50000, // 50 seconds, now user-configurable again
+        signWaitTime: 50000, // 50 seconds
     },
 
     start: function() {
@@ -46,8 +46,17 @@ Module.register("MMM-SunSigns", {
             periods: this.config.period,
         });
 
-        // Schedule next update in 12 hours (hard-coded)
-        this.scheduleUpdate(12 * 60 * 60 * 1000);
+        // Schedule next update at midnight
+        var now = new Date();
+        var night = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() + 1, // the next day
+            0, 0, 0 // at 00:00:00 hours
+        );
+        var msTillMidnight = night.getTime() - now.getTime();
+
+        this.scheduleUpdate(msTillMidnight);
     },
 
     getDom: function() {
