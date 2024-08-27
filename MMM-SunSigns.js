@@ -11,6 +11,7 @@ Module.register("MMM-SunSigns", {
         pauseDuration: 10000, // 10 seconds
         scrollSpeed: 7, // pixels per second
         signWaitTime: 50000, // 50 seconds
+        endOfWeek: "Sunday" // New option for defining end of week
     },
 
     start: function() {
@@ -26,10 +27,7 @@ Module.register("MMM-SunSigns", {
         this.tomorrowFetched = false;
 
         this.scheduleInitialUpdate();
-        this.scheduleMidnightShift();
-        if (!this.config.period.includes("tomorrow")) {
-            this.scheduleRandomTomorrowFetch();
-        }
+        this.scheduleMidnightUpdate();
     },
 
     getStyles: function() {
@@ -42,7 +40,7 @@ Module.register("MMM-SunSigns", {
         }, 1000);
     },
 
-    scheduleMidnightShift: function() {
+    scheduleMidnightUpdate: function() {
         var now = new Date();
         var night = new Date(
             now.getFullYear(),
@@ -53,55 +51,63 @@ Module.register("MMM-SunSigns", {
         var msTillMidnight = night.getTime() - now.getTime();
 
         setTimeout(() => {
-            this.shiftTomorrowToDaily();
-            this.tomorrowFetched = false; // Reset for the new day
-            this.scheduleMidnightShift(); // Schedule next midnight shift
-            if (!this.config.period.includes("tomorrow")) {
-                this.scheduleRandomTomorrowFetch(); // Schedule next random fetch for the new day
-            }
+            this.updateHoroscopes();
+            this.scheduleMidnightUpdate(); // Schedule next midnight update
         }, msTillMidnight);
-    },
-
-    scheduleRandomTomorrowFetch: function() {
-        if (this.tomorrowFetched) return; // Don't schedule if already fetched today
-
-        const minDelay = 1 * 60 * 60 * 1000; // 1 hour
-        const maxDelay = 20 * 60 * 60 * 1000; // 20 hours
-        const randomDelay = Math.floor(Math.random() * (maxDelay - minDelay + 1) + minDelay);
-
-        setTimeout(() => {
-            this.fetchTomorrowHoroscopes();
-        }, randomDelay);
     },
 
     updateHoroscopes: function() {
         this.lastUpdateAttempt = new Date().toLocaleString();
         Log.info(this.name + ": Sending UPDATE_HOROSCOPES notification");
-        this.sendSocketNotification("UPDATE_HOROSCOPES", {
-            zodiacSigns: this.config.zodiacSign,
-            periods: this.config.period,
-        });
+        
+        let periodsToUpdate = this.getPeriodsToUpdate();
+        
+        if (periodsToUpdate.length > 0) {
+            this.sendSocketNotification("UPDATE_HOROSCOPES", {
+                zodiacSigns: this.config.zodiacSign,
+                periods: periodsToUpdate,
+            });
+        } else {
+            Log.info(this.name + ": No periods to update at this time");
+        }
     },
 
-    fetchTomorrowHoroscopes: function() {
-        if (this.tomorrowFetched) return; // Don't fetch if already fetched today
+    getPeriodsToUpdate: function() {
+        let now = new Date();
+        let periodsToUpdate = [];
 
-        Log.info(this.name + ": Fetching tomorrow's horoscopes");
-        this.sendSocketNotification("UPDATE_HOROSCOPES", {
-            zodiacSigns: this.config.zodiacSign,
-            periods: ["tomorrow"],
-        });
-    },
-
-    shiftTomorrowToDaily: function() {
-        Log.info(this.name + ": Shifting tomorrow's horoscopes to daily");
-        for (let sign of this.config.zodiacSign) {
-            if (this.horoscopes[sign] && this.horoscopes[sign].tomorrow) {
-                this.horoscopes[sign].daily = this.horoscopes[sign].tomorrow;
-                delete this.horoscopes[sign].tomorrow;
+        for (let period of this.config.period) {
+            switch(period) {
+                case "daily":
+                    periodsToUpdate.push(period);
+                    break;
+                case "weekly":
+                    if (this.isStartOfWeek(now)) {
+                        periodsToUpdate.push(period);
+                    }
+                    break;
+                case "monthly":
+                    if (now.getDate() === 1) {
+                        periodsToUpdate.push(period);
+                    }
+                    break;
+                case "yearly":
+                    if (now.getMonth() === 0 && now.getDate() === 1) {
+                        periodsToUpdate.push(period);
+                    }
+                    break;
             }
         }
-        this.updateDom();
+
+        return periodsToUpdate;
+    },
+
+    isStartOfWeek: function(date) {
+        if (this.config.endOfWeek === "Sunday") {
+            return date.getDay() === 1; // Monday
+        } else {
+            return date.getDay() === 0; // Sunday
+        }
     },
 
     getDom: function() {
@@ -191,9 +197,6 @@ Module.register("MMM-SunSigns", {
     },
 
     formatPeriodText: function(period) {
-        if (period === "tomorrow") {
-            return "Tomorrow's";
-        }
         return period.charAt(0).toUpperCase() + period.slice(1);
     },
 
@@ -291,9 +294,6 @@ Module.register("MMM-SunSigns", {
                 this.loaded = true;
                 this.updateFailures = 0;
                 Log.info(this.name + ": Horoscope data loaded successfully");
-                if (payload.period === "tomorrow") {
-                    this.tomorrowFetched = true;
-                }
                 if (this.transitionState === "idle") {
                     this.updateDom();
                     this.scheduleNextTransition();
@@ -303,11 +303,7 @@ Module.register("MMM-SunSigns", {
                 this.updateFailures++;
                 // Retry in 1 hour if failed
                 setTimeout(() => {
-                    if (payload.period === "tomorrow") {
-                        this.fetchTomorrowHoroscopes();
-                    } else {
-                        this.updateHoroscopes();
-                    }
+                    this.updateHoroscopes();
                 }, 60 * 60 * 1000);
             }
         } else {
