@@ -19,10 +19,10 @@ module.exports = NodeHelper.create({
         this.debug = true;
 
         this.settings = {
-            updateInterval: 12 * 60 * 60 * 1000,
-            cacheDuration: 11 * 60 * 60 * 1000,
+            updateInterval: 12 * 60 * 60 * 1000, // 12 hours
+            cacheDuration: 11 * 60 * 60 * 1000, // 11 hours
             maxConcurrentRequests: 2,
-            retryDelay: 5 * 60 * 1000,
+            retryDelay: 5 * 60 * 1000, // 5 minutes
             maxRetries: 3
         };
 
@@ -67,18 +67,18 @@ module.exports = NodeHelper.create({
     socketNotificationReceived: function(notification, payload) {
         if (notification === "UPDATE_HOROSCOPES") {
             this.log("Received UPDATE_HOROSCOPES notification");
-            this.queueHoroscopeUpdates(payload.zodiacSigns, payload.periods);
+            this.queueHoroscopeUpdates(payload.zodiacSigns, payload.periods, payload.signWaitTime);
         }
     },
 
-    queueHoroscopeUpdates: function(signs, periods) {
+    queueHoroscopeUpdates: function(signs, periods, signWaitTime) {
         this.log(`Queueing updates for signs: ${signs.join(', ')} and periods: ${periods.join(', ')}`);
         signs.forEach(sign => {
             periods.forEach(period => {
                 this.requestQueue.push({ sign, period });
             });
         });
-        this.processQueue().catch(error => {
+        this.processQueue(signWaitTime).catch(error => {
             console.error("Error in queueHoroscopeUpdates:", error);
             this.sendSocketNotification("ERROR", {
                 type: "Queue Processing Error",
@@ -87,7 +87,7 @@ module.exports = NodeHelper.create({
         });
     },
 
-    processQueue: async function() {
+    processQueue: async function(signWaitTime) {
         if (this.isProcessingQueue) {
             this.log("Queue is already being processed");
             return;
@@ -124,7 +124,8 @@ module.exports = NodeHelper.create({
                             sign: result.sign,
                             period: result.period,
                             data: result.data,
-                            cached: result.cached
+                            cached: result.cached,
+                            signWaitTime: signWaitTime
                         });
                     }
                 });

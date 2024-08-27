@@ -9,7 +9,8 @@ Module.register("MMM-SunSigns", {
         fontSize: "1em",
         debug: true,
         retryDelay: 60000, // 1 minute
-        initialLoadTimeout: 30000 // 30 seconds
+        initialLoadTimeout: 30000, // 30 seconds
+        signWaitTime: 120000 // 2 minutes (default)
     },
 
     start: function() {
@@ -40,7 +41,8 @@ Module.register("MMM-SunSigns", {
         this.lastUpdateAttempt = new Date().toLocaleString();
         this.sendSocketNotification("UPDATE_HOROSCOPES", {
             zodiacSigns: this.config.zodiacSign,
-            periods: this.config.period
+            periods: this.config.period,
+            signWaitTime: this.config.signWaitTime
         });
 
         // Set a timeout for initial load
@@ -163,7 +165,7 @@ Module.register("MMM-SunSigns", {
         var self = this;
         this.rotationTimer = setTimeout(function() {
             self.checkAndRotate();
-        }, 120000); // Fixed rotation interval of 2 minutes
+        }, this.config.signWaitTime);
     },
 
     checkAndRotate: function() {
