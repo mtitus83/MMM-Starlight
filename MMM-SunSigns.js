@@ -1,7 +1,7 @@
 Module.register("MMM-SunSigns", {
     defaults: {
         zodiacSign: ["taurus"],
-        period: ["daily"],
+        period: ["daily", "tomorrow", "weekly", "monthly", "yearly"],
         showImage: true,
         imageWidth: "100px",
         maxTextHeight: "400px",
@@ -24,7 +24,6 @@ Module.register("MMM-SunSigns", {
         this.lastUpdateAttempt = null;
         this.updateFailures = 0;
         this.transitionState = "idle";
-        this.tomorrowFetched = false;
 
         this.scheduleInitialUpdate();
         this.scheduleMidnightUpdate();
@@ -62,14 +61,10 @@ Module.register("MMM-SunSigns", {
         
         let periodsToUpdate = this.getPeriodsToUpdate();
         
-        if (periodsToUpdate.length > 0) {
-            this.sendSocketNotification("UPDATE_HOROSCOPES", {
-                zodiacSigns: this.config.zodiacSign,
-                periods: periodsToUpdate,
-            });
-        } else {
-            Log.info(this.name + ": No periods to update at this time");
-        }
+        this.sendSocketNotification("UPDATE_HOROSCOPES", {
+            zodiacSigns: this.config.zodiacSign,
+            periods: periodsToUpdate,
+        });
     },
 
     getPeriodsToUpdate: function() {
@@ -79,20 +74,21 @@ Module.register("MMM-SunSigns", {
         for (let period of this.config.period) {
             switch(period) {
                 case "daily":
+                case "tomorrow":
                     periodsToUpdate.push(period);
                     break;
                 case "weekly":
-                    if (this.isStartOfWeek(now)) {
+                    if (this.isStartOfWeek(now) || !this.isInCache(period)) {
                         periodsToUpdate.push(period);
                     }
                     break;
                 case "monthly":
-                    if (now.getDate() === 1) {
+                    if (now.getDate() === 1 || !this.isInCache(period)) {
                         periodsToUpdate.push(period);
                     }
                     break;
                 case "yearly":
-                    if (now.getMonth() === 0 && now.getDate() === 1) {
+                    if ((now.getMonth() === 0 && now.getDate() === 1) || !this.isInCache(period)) {
                         periodsToUpdate.push(period);
                     }
                     break;
@@ -100,6 +96,15 @@ Module.register("MMM-SunSigns", {
         }
 
         return periodsToUpdate;
+    },
+
+    isInCache: function(period) {
+        for (let sign of this.config.zodiacSign) {
+            if (!this.horoscopes[sign] || !this.horoscopes[sign][period]) {
+                return false;
+            }
+        }
+        return true;
     },
 
     isStartOfWeek: function(date) {
@@ -197,6 +202,9 @@ Module.register("MMM-SunSigns", {
     },
 
     formatPeriodText: function(period) {
+        if (period === "tomorrow") {
+            return "Tomorrow's";
+        }
         return period.charAt(0).toUpperCase() + period.slice(1);
     },
 
