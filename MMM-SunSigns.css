@@ -44,6 +44,7 @@
 .MMM-SunSigns .sunsigns-text-wrapper {
     overflow: hidden;
     position: relative;
+    max-height: 400px; /* Adjust this value to match your maxTextHeight config */
 }
 
 .MMM-SunSigns .sunsigns-text {
@@ -65,13 +66,6 @@
 .MMM-SunSigns.sunsigns-error {
     color: #ff4444;
     font-weight: bold;
-}
-
-/* Remove any fade animations */
-.MMM-SunSigns .sunsigns-slide-wrapper,
-.MMM-SunSigns .sunsigns-text {
-    transition: none;
-    opacity: 1;
 }
 
 /* Ensure content doesn't wrap */
