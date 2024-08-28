@@ -88,6 +88,22 @@ npm install
 
 This module implements a caching mechanism that stores horoscopes locally. This helps reduce the number of requests and improves the module's performance. The module handles horoscope updates when necessary.
 
+### Cache Clearing Option
+
+| Option               | Description                                            | Default |
+|----------------------|--------------------------------------------------------|---------|
+| `CLEAR_SUNSIGNS_CACHE` | A notification to clear the module's cache             | N/A     |
+
+The `CLEAR_SUNSIGNS_CACHE` option is not a configuration setting, but a notification that can be sent to the module to clear its cache. This is useful for debugging purposes or when you want to force the module to fetch fresh data.
+
+To use this option, you can send a notification to the module from the MagicMirror console or from another module:
+
+```javascript
+this.sendNotification("CLEAR_SUNSIGNS_CACHE");
+```
+
+When this notification is received, the module will clear its cache and fetch new horoscope data on the next update cycle.
+
 ## Debugging
 
 The module includes debugging options to help troubleshoot issues or verify the module's behavior.

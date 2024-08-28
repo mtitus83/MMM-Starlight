@@ -313,6 +313,9 @@ Module.register("MMM-SunSigns", {
                 this.sendSocketNotification("SET_SIMULATED_DATE", { date: payload.date });
                 this.updateDom(1000);
             }
+        } else if (notification === "CLEAR_SUNSIGNS_CACHE") {
+            this.sendSocketNotification("CLEAR_CACHE");
+            Log.info(this.name + ": Sent CLEAR_CACHE notification to node helper");
         }
     }
 });

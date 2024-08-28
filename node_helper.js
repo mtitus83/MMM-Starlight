@@ -4,6 +4,8 @@ var cheerio = require("cheerio");
 const fs = require('fs').promises;
 const path = require('path');
 
+const CACHE_VERSION = 1; // Increment this when you make significant changes to cache structure
+
 module.exports = NodeHelper.create({
     start: function() {
         console.log("Starting node helper for: " + this.name);
@@ -58,7 +60,14 @@ module.exports = NodeHelper.create({
         const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
         try {
             const data = await fs.readFile(cacheFile, 'utf8');
-            this.cache = JSON.parse(data);
+            const parsedCache = JSON.parse(data);
+            
+            if (parsedCache.version !== CACHE_VERSION) {
+                this.log("Cache version mismatch. Clearing old cache.", "warn");
+                this.cache = { version: CACHE_VERSION };
+            } else {
+                this.cache = parsedCache;
+            }
             this.log("Cache initialized successfully");
         } catch (error) {
             if (error.code !== 'ENOENT') {
@@ -66,8 +75,24 @@ module.exports = NodeHelper.create({
             } else {
                 this.log("No existing cache file found. Starting with empty cache.");
             }
-            this.cache = {};
+            this.cache = { version: CACHE_VERSION };
         }
+    },
+
+    saveCache: async function() {
+        const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
+        try {
+            await fs.writeFile(cacheFile, JSON.stringify({ ...this.cache, version: CACHE_VERSION }), 'utf8');
+            this.log("Cache saved successfully");
+        } catch (error) {
+            console.error("Error writing cache file:", error);
+        }
+    },
+
+    clearCache: async function() {
+        this.cache = { version: CACHE_VERSION };
+        await this.saveCache();
+        this.log("Cache cleared successfully", "info");
     },
 
     checkCacheTimestamps: async function() {
@@ -76,6 +101,7 @@ module.exports = NodeHelper.create({
         let updatesNeeded = false;
 
         for (let sign in this.cache) {
+            if (sign === 'version') continue;
             for (let period of ['daily', 'tomorrow']) {
                 if (this.cache[sign][period]) {
                     const cachedDate = new Date(this.cache[sign][period].timestamp);
@@ -103,16 +129,6 @@ module.exports = NodeHelper.create({
             this.updateHoroscopes();
         } else {
             this.log("All cache timestamps are current", "info");
-        }
-    },
-
-    saveCache: async function() {
-        const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
-        try {
-            await fs.writeFile(cacheFile, JSON.stringify(this.cache), 'utf8');
-            this.log("Cache saved successfully");
-        } catch (error) {
-            console.error("Error writing cache file:", error);
         }
     },
 
@@ -144,18 +160,17 @@ module.exports = NodeHelper.create({
         return new Date();
     },
 
-
-    getHoroscope: async function(config) {
+getHoroscope: async function(config) {
         try {
             if (!config.sign || !config.period) {
                 throw new Error(`Invalid config: sign or period missing. Config: ${JSON.stringify(config)}`);
             }
-    
+
             if (!this.cache[config.sign]) {
                 this.cache[config.sign] = {};
             }
             const cachedData = this.cache[config.sign][config.period];
-    
+
             if (cachedData && this.isSameDay(new Date(cachedData.timestamp), this.getCurrentDate())) {
                 this.log(`Returning cached horoscope for ${config.sign}, period: ${config.period}`);
                 const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
@@ -169,14 +184,14 @@ module.exports = NodeHelper.create({
                     imagePath: imagePath 
                 };
             }
-    
+
             this.log(`Fetching new horoscope for ${config.sign}, period: ${config.period}`);
             const horoscope = await this.fetchHoroscope(config.sign, config.period);
             const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
             const imagePath = await this.cacheImage(imageUrl, config.sign);
-    
+
             const extractedHoroscope = this.extractHoroscopeText(horoscope);
-    
+
             const result = { 
                 data: extractedHoroscope,
                 sign: config.sign, 
@@ -213,94 +228,33 @@ module.exports = NodeHelper.create({
     },
 
     extractHoroscopeText: function(data) {
-        if (typeof data === 'string') {
-            // Attempt to parse the string as JSON in case it's a stringified object
-            const parsedData = this.safeJSONParse(data);
-            if (parsedData && typeof parsedData === 'object') {
-                // If it was a JSON string, extract the horoscope text from the parsed object
-                return this.extractHoroscopeText(parsedData);
+        const extractText = (obj) => {
+            if (typeof obj === 'string') {
+                return obj;
+            } else if (obj && typeof obj === 'object') {
+                if (obj.data) return extractText(obj.data);
+                if (obj.text) return obj.text;
             }
-            // If it wasn't a JSON string or couldn't be parsed, return the original string
-            return data;
-        } else if (typeof data === 'object') {
-            // If data is an object, try to extract the text from known properties
-            if (data.data && typeof data.data === 'string') {
-                return this.extractHoroscopeText(data.data);  // Recursively check in case of nested stringified JSON
-            } else if (data.text && typeof data.text === 'string') {
-                return data.text;
-            } else {
-                // If we can't find a string property, stringify the entire object
-                return JSON.stringify(data);
-            }
-        } else {
-            // For any other type, convert to string
-            return String(data);
-        }
-    },
-
-    safeJSONParse: function(str) {
-        try {
-            return JSON.parse(str);
-        } catch (e) {
             return null;
-        }
-    },
-processQueue: async function() {
-        if (this.isProcessingQueue) {
-            this.log("Queue is already being processed");
-            return;
-        }
-        this.isProcessingQueue = true;
-        this.log("Starting to process queue");
+        };
 
-        try {
-            while (this.requestQueue.length > 0) {
-                const batch = this.requestQueue.splice(0, this.settings.maxConcurrentRequests);
-                this.log(`Processing batch of ${batch.length} requests`);
-
-                const promises = batch.map(item => this.getHoroscope(item));
-
-                const results = await Promise.all(promises);
-
-                results.forEach(result => {
-                    if (result.error) {
-                        this.log(`Error fetching horoscope for ${result.sign}, ${result.period}: ${result.message}`, "error");
-                        this.sendSocketNotification("HOROSCOPE_RESULT", {
-                            success: false,
-                            sign: result.sign,
-                            period: result.period,
-                            message: result.message
-                        });
-                    } else {
-                        const horoscopeText = this.extractHoroscopeText(result.data);
-                        const previewText = horoscopeText.substring(0, 50);
-                        this.log(`Successfully fetched horoscope for ${result.sign}, ${result.period}: ${previewText}...`);
-                        this.log(`Full result: ${JSON.stringify({...result, data: horoscopeText})}`, "debug");
-                        this.sendSocketNotification("HOROSCOPE_RESULT", {
-                            success: true,
-                            sign: result.sign,
-                            period: result.period,
-                            data: horoscopeText,
-                            cached: result.cached,
-                            imagePath: result.imagePath
-                        });
-                    }
-                });
-
-                if (this.requestQueue.length > 0) {
-                    this.log("Waiting before processing next batch");
-                    await new Promise(resolve => setTimeout(resolve, 5000));
-                }
+        let result = data;
+        let attempts = 0;
+        while (typeof result === 'string' && attempts < 3) {
+            try {
+                result = JSON.parse(result);
+                attempts++;
+            } catch (e) {
+                break;
             }
-        } catch (error) {
-            console.error("Unexpected error in processQueue:", error);
-            this.sendSocketNotification("ERROR", {
-                type: "Queue Processing Error",
-                message: error.message
-            });
-        } finally {
-            this.isProcessingQueue = false;
-            this.log("Queue processing complete");
+        }
+
+        const extractedText = extractText(result);
+        if (extractedText) {
+            return extractedText;
+        } else {
+            this.log(`Unable to extract horoscope text from: ${JSON.stringify(result)}`, "warn");
+            return "Horoscope text not available. Please try again later.";
         }
     },
 
@@ -351,6 +305,8 @@ processQueue: async function() {
         } else if (notification === "SET_SIMULATED_DATE") {
             this.setSimulatedDate(payload.date);
             this.scheduleUpdateWindow();
+        } else if (notification === "CLEAR_CACHE") {
+            this.clearCache();
         }
     },
 
@@ -369,6 +325,63 @@ processQueue: async function() {
                 message: error.message
             });
         });
+    },
+
+    processQueue: async function() {
+        if (this.isProcessingQueue) {
+            this.log("Queue is already being processed");
+            return;
+        }
+        this.isProcessingQueue = true;
+        this.log("Starting to process queue");
+
+        try {
+            while (this.requestQueue.length > 0) {
+                const batch = this.requestQueue.splice(0, this.settings.maxConcurrentRequests);
+                this.log(`Processing batch of ${batch.length} requests`);
+
+                const promises = batch.map(item => this.getHoroscope(item));
+
+                const results = await Promise.all(promises);
+
+                results.forEach(result => {
+                    if (result.error) {
+                        this.log(`Error fetching horoscope for ${result.sign}, ${result.period}: ${result.message}`, "error");
+                        this.sendSocketNotification("HOROSCOPE_RESULT", {
+                            success: false,
+                            sign: result.sign,
+                            period: result.period,
+                            message: result.message
+                        });
+                    } else {
+                        const previewText = result.data ? result.data.substring(0, 50) : 'No horoscope text available';
+                        this.log(`Successfully fetched horoscope for ${result.sign}, ${result.period}: ${previewText}...`);
+                        this.sendSocketNotification("HOROSCOPE_RESULT", {
+                            success: true,
+                            sign: result.sign,
+                            period: result.period,
+                            data: result.data,
+                            cached: result.cached,
+                            imagePath: result.imagePath
+                        });
+                    }
+                });
+
+                if (this.requestQueue.length > 0) {
+                    this.log("Waiting before processing next batch");
+                    await new Promise(resolve => setTimeout(resolve, 5000));
+                }
+            }
+        } catch (error) {
+            console.error("Unexpected error in processQueue:", error);
+            this.sendSocketNotification("ERROR", {
+                type: "Queue Processing Error",
+                message: error.message
+            });
+        } finally {
+            this.isProcessingQueue = false;
+            this.log("Queue processing complete");
+        }
     },
 
     setSimulatedDate: function(dateString) {
@@ -417,6 +430,7 @@ processQueue: async function() {
         let updatesFound = false;
 
         for (let sign in this.cache) {
+            if (sign === 'version') continue;
             try {
                 this.log(`Checking for updates for ${sign}`, "debug");
                 const newTomorrowHoroscope = await this.fetchHoroscope(sign, 'tomorrow');
@@ -470,10 +484,9 @@ processQueue: async function() {
         this.lastUpdateAttempt = new Date().toLocaleString();
         this.log("Sending UPDATE_HOROSCOPES notification", "info");
 
-        // Get all unique signs and periods from the cache
-        const signs = new Set(Object.keys(this.cache));
+        const signs = new Set(Object.keys(this.cache).filter(key => key !== 'version'));
         const periods = new Set();
-        for (let sign in this.cache) {
+        for (let sign of signs) {
             Object.keys(this.cache[sign]).forEach(period => periods.add(period));
         }
 
