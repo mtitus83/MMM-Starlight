@@ -1,4 +1,7 @@
+console.log("MMM-SunSigns module file is being loaded");
+
 Module.register("MMM-SunSigns", {
+    console.log("MMM-SunSigns module is being registered");
     defaults: {
         zodiacSign: ["taurus"],
         period: ["daily"],
@@ -18,6 +21,7 @@ Module.register("MMM-SunSigns", {
     },
 
     start: function() {
+        console.log("MMM-SunSigns start function called");
         Log.info("Starting module: " + this.name);
         this.horoscopes = {};
         this.currentSignIndex = 0;
@@ -28,30 +32,23 @@ Module.register("MMM-SunSigns", {
         this.updateFailures = 0;
         this.transitionState = "idle";
     
-        Log.info(this.name + ": Configuration:", JSON.stringify(this.config));
+        console.log("MMM-SunSigns configuration:", JSON.stringify(this.config));
     
         // Ensure that only configured periods are used
         this.config.period = this.config.period.filter(period => 
             ["daily", "tomorrow", "weekly", "monthly", "yearly"].includes(period)
         );
-        Log.info(this.name + ": Filtered periods:", JSON.stringify(this.config.period));
+        console.log("MMM-SunSigns filtered periods:", JSON.stringify(this.config.period));
     
-        if (this.config.debug && this.config.clearCacheOnStart) {
-            Log.info(this.name + ": Clearing cache on start");
-            this.sendSocketNotification("CLEAR_CACHE");
-        }
-    
-        Log.info(this.name + ": Scheduling initial update");
         this.scheduleInitialUpdate();
-        Log.info(this.name + ": Scheduling midnight update");
         this.scheduleMidnightUpdate();
     
         if (this.config.simulateDate) {
-            Log.info(this.name + ": Setting simulated date to " + this.config.simulateDate);
+            console.log("MMM-SunSigns setting simulated date:", this.config.simulateDate);
             this.sendSocketNotification("SET_SIMULATED_DATE", { date: this.config.simulateDate });
         }
     
-        Log.info(this.name + ": Start function completed");
+        console.log("MMM-SunSigns start function completed");
     },
 
     scheduleInitialUpdate: function() {
@@ -338,3 +335,5 @@ Module.register("MMM-SunSigns", {
         }
     }
 });
+
+console.log("MMM-SunSigns module file has been fully loaded");

@@ -1,3 +1,5 @@
+console.log("MMM-SunSigns node_helper file is being loaded");
+
 var NodeHelper = require("node_helper");
 var axios = require("axios");
 var cheerio = require("cheerio");
@@ -7,6 +9,7 @@ const path = require('path');
 const CACHE_VERSION = 1;
 
 module.exports = NodeHelper.create({
+    console.log("MMM-SunSigns NodeHelper is being created");
     start: function() {
         console.log("Starting node helper for: " + this.name);
         this.cacheDir = path.join(__dirname, 'cache');
@@ -543,3 +546,4 @@ socketNotificationReceived: function(notification, payload) {
     },
 });
 
+console.log("MMM-SunSigns node_helper file has been fully loaded");
