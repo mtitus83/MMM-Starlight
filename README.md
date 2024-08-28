@@ -101,17 +101,6 @@ The module supports date simulation for testing purposes. This feature is partic
 |----------------|-----------------------------------------------------------------|---------|
 | `simulateDate` | Simulate a specific date for testing. Format: "MMDDYYYY HH:MM:SS" | `null`  |
 
-You can set a simulated date in two ways:
-
-1. In the module configuration using the `simulateDate` option.
-2. By sending a notification to the module during runtime.
-
-To change the simulated date during runtime, you can use the following notification:
-
-```javascript
-this.sendNotification("SIMULATE_DATE", { date: "05152024 10:30:00" });
-```
-
 ## Updating
 
 To update the module to the latest version, navigate to your MMM-SunSigns folder and pull the latest changes:
