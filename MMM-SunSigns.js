@@ -138,9 +138,11 @@ Module.register("MMM-SunSigns", {
 
         var horoscopeTextElement = document.createElement("div");
         horoscopeTextElement.className = "sunsigns-text";
-        horoscopeTextElement.innerHTML = this.horoscopes[sign] && this.horoscopes[sign][period] 
-            ? this.horoscopes[sign][period].data 
-            : "Loading " + period + " horoscope for " + sign + "...";
+        if (this.horoscopes[sign] && this.horoscopes[sign][period]) {
+            horoscopeTextElement.innerHTML = this.horoscopes[sign][period].data || "No horoscope data available.";
+        } else {
+            horoscopeTextElement.innerHTML = "Loading " + period + " horoscope for " + sign + "...";
+        }
         horoscopeWrapper.appendChild(horoscopeTextElement);
 
         textContent.appendChild(horoscopeWrapper);
@@ -268,7 +270,7 @@ Module.register("MMM-SunSigns", {
                     cached: payload.cached,
                     imagePath: payload.imagePath
                 };
-                
+
                 this.loaded = true;
                 this.updateFailures = 0;
                 Log.info(this.name + ": Horoscope data loaded successfully");
