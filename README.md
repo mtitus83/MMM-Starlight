@@ -52,6 +52,7 @@ modules: [
 | `scrollSpeed`    | Speed of the vertical scrolling in pixels per second. (default: `7`)                            |
 | `pauseDuration`  | Duration to pause before starting to scroll and after scrolling completes, in milliseconds. (default: `10000` // 10 seconds) |
 | `signWaitTime`   | Time to display each sign before rotating to the next, in milliseconds. (default: `50000` // 50 seconds) |
+| `startOfWeek`    | Start of the week. Can be one of "Sunday", or "Monday". (default: `"Sunday"`)                   |
 | `debug`          | Enable debug logging. (default: `false`)                                                        |
 
 ### Note on Removed Options
