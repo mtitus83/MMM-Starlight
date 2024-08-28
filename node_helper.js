@@ -41,6 +41,7 @@ module.exports = NodeHelper.create({
         }
 
         await this.initializeCache();
+        await this.checkCacheTimestamps();
 
         process.on('unhandledRejection', (reason, promise) => {
             console.error('Unhandled Rejection at:', promise, 'reason:', reason);
@@ -51,6 +52,37 @@ module.exports = NodeHelper.create({
         });
 
         this.log("Node helper initialized");
+    },
+
+    checkCacheTimestamps: async function() {
+        this.log("Checking cache timestamps", "info");
+        const currentDate = this.getCurrentDate();
+        let updatesNeeded = false;
+
+        for (let sign in this.cache) {
+            if (this.cache[sign]['tomorrow']) {
+                const tomorrowTimestamp = new Date(this.cache[sign]['tomorrow'].timestamp);
+                if (tomorrowTimestamp.getDate() !== currentDate.getDate() ||
+                    tomorrowTimestamp.getMonth() !== currentDate.getMonth() ||
+                    tomorrowTimestamp.getFullYear() !== currentDate.getFullYear()) {
+                    this.log(`Stale 'tomorrow' data found for ${sign}. Updating...`, "warn");
+                    if (this.cache[sign]['daily']) {
+                        this.cache[sign]['daily'] = this.cache[sign]['tomorrow'];
+                        this.cache[sign]['daily'].timestamp = currentDate.getTime();
+                        this.log(`Updated 'daily' data for ${sign} with previous 'tomorrow' data`, "info");
+                    }
+                    delete this.cache[sign]['tomorrow'];
+                    updatesNeeded = true;
+                }
+            }
+        }
+
+        if (updatesNeeded) {
+            await this.saveCache();
+            this.log("Cache updated due to stale timestamps", "info");
+        } else {
+            this.log("All cache timestamps are current", "info");
+        }
     },
 
     log: function(message, level = "info") {
@@ -78,16 +110,6 @@ module.exports = NodeHelper.create({
         }
     },
 
-    saveCache: async function() {
-        const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
-        try {
-            await fs.writeFile(cacheFile, JSON.stringify(this.cache), 'utf8');
-            this.log("Cache saved successfully");
-        } catch (error) {
-            console.error("Error writing cache file:", error);
-        }
-    },
-
     socketNotificationReceived: function(notification, payload) {
         this.log(`Received socket notification: ${notification}`);
         if (notification === "UPDATE_HOROSCOPES") {
@@ -100,7 +122,7 @@ module.exports = NodeHelper.create({
         }
     },
 
-queueHoroscopeUpdates: function(signs, periods) {
+    queueHoroscopeUpdates: function(signs, periods) {
         this.log(`Queueing updates for signs: ${signs.join(', ')} and periods: ${periods.join(', ')}`);
         signs.forEach(sign => {
             periods.forEach(period => {
@@ -194,6 +216,16 @@ queueHoroscopeUpdates: function(signs, periods) {
         this.saveCache();
     },
 
+    saveCache: async function() {
+        const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
+        try {
+            await fs.writeFile(cacheFile, JSON.stringify(this.cache), 'utf8');
+            this.log("Cache saved successfully");
+        } catch (error) {
+            console.error("Error writing cache file:", error);
+        }
+    },
+
     scheduleUpdateWindow: function() {
         const now = this.getCurrentDate();
         const startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), this.settings.updateWindowStartHour, 0, 0, 0);
@@ -280,6 +312,7 @@ queueHoroscopeUpdates: function(signs, periods) {
         return horoscope;
     },
 
+
     getHoroscope: async function(config) {
         const cacheKey = `${config.sign}_${config.period}`;
         const cachedData = this.cache[cacheKey];
@@ -323,7 +356,6 @@ queueHoroscopeUpdates: function(signs, periods) {
         this.log(`Updated cache for ${sign} (${period})`, "debug");
         this.saveCache();
     },
-
     cacheImage: async function(imageUrl, sign) {
         const imagePath = path.join(this.imageCacheDir, `${sign}.png`);
 
