@@ -232,17 +232,25 @@ module.exports = NodeHelper.create({
         const imagePath = path.join(this.imageCacheDir, `${sign}.png`);
         
         try {
-            const response = await axios({
-                url: imageUrl,
-                method: 'GET',
-                responseType: 'arraybuffer'
-            });
-            await fs.writeFile(imagePath, response.data);
-            this.log(`Image cached for ${sign}`);
-            return imagePath;
+            // Check if image already exists
+            await fs.access(imagePath);
+            this.log(`Image for ${sign} already cached`);
+            return path.relative(__dirname, imagePath);
         } catch (error) {
-            console.error(`Error caching image for ${sign}:`, error);
-            return null;
+            // Image doesn't exist, download it
+            try {
+                const response = await axios({
+                    url: imageUrl,
+                    method: 'GET',
+                    responseType: 'arraybuffer'
+                });
+                await fs.writeFile(imagePath, response.data);
+                this.log(`Image cached for ${sign}`);
+                return path.relative(__dirname, imagePath);
+            } catch (error) {
+                console.error(`Error caching image for ${sign}:`, error);
+                return null;
+            }
         }
     }
 });
