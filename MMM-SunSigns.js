@@ -12,7 +12,7 @@ Module.register("MMM-SunSigns", {
         scrollSpeed: 7, // pixels per second
         signWaitTime: 50000, // 50 seconds
         startOfWeek: "Sunday",
-        simulateDate: null // Format: "MMDDYYYY HH:MM:SS"
+        simulateDate: null // Format: "MM/DD/YYYY"
     },
 
     start: function() {
@@ -25,16 +25,16 @@ Module.register("MMM-SunSigns", {
         this.lastUpdateAttempt = null;
         this.updateFailures = 0;
         this.transitionState = "idle";
-    
+
         // Merge user-defined periods with defaults, maintaining order and removing duplicates
         if (this.config.period && Array.isArray(this.config.period)) {
             let mergedPeriods = [...new Set([...this.config.period, ...this.defaults.period])];
             this.config.period = mergedPeriods;
         }
-    
+
         this.scheduleInitialUpdate();
         this.scheduleMidnightUpdate();
-    
+
         if (this.config.simulateDate) {
             this.sendSocketNotification("SET_SIMULATED_DATE", { date: this.config.simulateDate });
         }
@@ -78,7 +78,7 @@ Module.register("MMM-SunSigns", {
         });
     },
 
-getPeriodsToUpdate: function() {
+    getPeriodsToUpdate: function() {
         let now = new Date();
         let periodsToUpdate = [];
 
@@ -219,7 +219,7 @@ getPeriodsToUpdate: function() {
         return slideWrapper;
     },
 
-formatPeriodText: function(period) {
+    formatPeriodText: function(period) {
         if (period === "tomorrow") {
             return "Tomorrow's";
         }

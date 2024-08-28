@@ -25,8 +25,7 @@ module.exports = NodeHelper.create({
             maxRetries: 3,
             updateWindowStartHour: 1, // 1 AM
             updateWindowDuration: 6 * 60 * 60 * 1000, // 6 hours
-            maxUpdateAttempts: 6,
-            simulateDate: null // Format: "MMDDYYYY HH:MM:SS"
+            maxUpdateAttempts: 6
         };
 
         this.initialize();
@@ -36,15 +35,15 @@ module.exports = NodeHelper.create({
         try {
             await fs.mkdir(this.cacheDir, { recursive: true });
             await fs.mkdir(this.imageCacheDir, { recursive: true });
-            this.log("Cache directories created successfully");
+            console.log("Cache directories created successfully");
         } catch (error) {
-            this.log("Error creating cache directories: " + error, "error");
+            console.error("Error creating cache directories:", error);
         }
 
         await this.initializeCache();
 
         process.on('unhandledRejection', (reason, promise) => {
-            this.log('Unhandled Rejection at: ' + promise + ' reason: ' + reason, "error");
+            console.error('Unhandled Rejection at:', promise, 'reason:', reason);
             this.sendSocketNotification("ERROR", {
                 type: "Unhandled Rejection",
                 message: reason.message || "Unknown error occurred"
@@ -52,34 +51,6 @@ module.exports = NodeHelper.create({
         });
 
         this.log("Node helper initialized");
-        if (this.settings.simulateDate) {
-            this.setSimulatedDate(this.settings.simulateDate);
-        }
-        this.scheduleUpdateWindow();
-    },
-
-    setSimulatedDate: function(dateString) {
-        const parsedDate = this.parseSimulatedDateString(dateString);
-        if (parsedDate) {
-            this.simulatedDate = parsedDate;
-            this.log(`Simulated date set to: ${this.simulatedDate.toLocaleString()}`, "warn");
-        } else {
-            this.log(`Invalid simulated date format: ${dateString}. Expected format: MM/DD/YYYY HH:MM:SS`, "error");
-        }
-    },
-
-    parseSimulatedDateString: function(dateString) {
-        const regex = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})$/;
-        const match = dateString.match(regex);
-        if (match) {
-            const [, month, day, year, hours, minutes, seconds] = match;
-            return new Date(year, month - 1, day, hours, minutes, seconds);
-        }
-        return null;
-    },
-
-    getCurrentDate: function() {
-        return this.simulatedDate || new Date();
     },
 
     log: function(message, level = "info") {
@@ -99,7 +70,7 @@ module.exports = NodeHelper.create({
             this.log("Cache initialized successfully");
         } catch (error) {
             if (error.code !== 'ENOENT') {
-                this.log("Error reading cache file: " + error, "error");
+                console.error("Error reading cache file:", error);
             } else {
                 this.log("No existing cache file found. Starting with empty cache.");
             }
@@ -107,13 +78,13 @@ module.exports = NodeHelper.create({
         }
     },
 
-saveCache: async function() {
+    saveCache: async function() {
         const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
         try {
             await fs.writeFile(cacheFile, JSON.stringify(this.cache), 'utf8');
             this.log("Cache saved successfully");
         } catch (error) {
-            this.log("Error writing cache file: " + error, "error");
+            console.error("Error writing cache file:", error);
         }
     },
 
@@ -129,7 +100,7 @@ saveCache: async function() {
         }
     },
 
-    queueHoroscopeUpdates: function(signs, periods) {
+queueHoroscopeUpdates: function(signs, periods) {
         this.log(`Queueing updates for signs: ${signs.join(', ')} and periods: ${periods.join(', ')}`);
         signs.forEach(sign => {
             periods.forEach(period => {
@@ -138,7 +109,7 @@ saveCache: async function() {
         });
         this.log(`Queue size after adding requests: ${this.requestQueue.length}`);
         this.processQueue().catch(error => {
-            this.log("Error in queueHoroscopeUpdates: " + error, "error");
+            console.error("Error in queueHoroscopeUpdates:", error);
             this.sendSocketNotification("ERROR", {
                 type: "Queue Processing Error",
                 message: error.message
@@ -201,7 +172,7 @@ saveCache: async function() {
                 }
             }
         } catch (error) {
-            this.log("Unexpected error in processQueue: " + error, "error");
+            console.error("Unexpected error in processQueue:", error);
             this.sendSocketNotification("ERROR", {
                 type: "Queue Processing Error",
                 message: error.message
@@ -223,7 +194,7 @@ saveCache: async function() {
         this.saveCache();
     },
 
-scheduleUpdateWindow: function() {
+    scheduleUpdateWindow: function() {
         const now = this.getCurrentDate();
         const startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), this.settings.updateWindowStartHour, 0, 0, 0);
         if (now > startTime) {
@@ -382,5 +353,42 @@ scheduleUpdateWindow: function() {
                 return null;
             }
         }
+    },
+
+    parseSimulatedDateString: function(dateString) {
+        const regex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+        const match = dateString.match(regex);
+        if (match) {
+            const [, month, day, year] = match;
+            return new Date(year, month - 1, day);
+        }
+        return null;
+    },
+
+    setSimulatedDate: function(dateString) {
+        const parsedDate = this.parseSimulatedDateString(dateString);
+        if (parsedDate) {
+            this.simulatedDate = parsedDate;
+            this.log(`Simulated date set to: ${this.simulatedDate.toDateString()}`, "warn");
+        } else {
+            this.log(`Invalid simulated date format: ${dateString}. Expected format: MM/DD/YYYY`, "error");
+        }
+    },
+
+    getCurrentDate: function() {
+        if (this.simulatedDate) {
+            // Create a new Date object with the current time but simulated date
+            const now = new Date();
+            return new Date(
+                this.simulatedDate.getFullYear(),
+                this.simulatedDate.getMonth(),
+                this.simulatedDate.getDate(),
+                now.getHours(),
+                now.getMinutes(),
+                now.getSeconds(),
+                now.getMilliseconds()
+            );
+        }
+        return new Date();
     }
 });

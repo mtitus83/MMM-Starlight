@@ -69,10 +69,11 @@ modules: [
         pauseDuration: 5000, // 5 seconds pause before and after scrolling
         signWaitTime: 60000, // 1 minute
         debug: true,
-        simulateDate: "05/15/2024 10:30:00" // Simulate May 15, 2024 at 10:30 AM
+        simulateDate: "05/15/2024" // Simulate May 15, 2024
     }
 }
 ```
+
 ## Updating
 
 To update the module to the latest version, navigate to your MMM-SunSigns folder and pull the latest changes:
@@ -82,6 +83,7 @@ cd ~/MagicMirror/modules/MMM-SunSigns
 git pull
 npm install
 ```
+
 ## Caching Mechanism
 
 This module implements a caching mechanism that stores horoscopes locally. This helps reduce the number of requests and improves the module's performance. The module handles horoscope updates when necessary.
@@ -103,11 +105,11 @@ When `debug` is set to `true`, the module will display additional information on
 
 ### Date Simulation
 
-The module supports date simulation for testing purposes. This feature is particularly useful for testing the module's behavior on specific dates or times without having to wait for those dates to occur naturally.
+The module supports date simulation for testing purposes. This feature is particularly useful for testing the module's behavior on specific dates without having to wait for those dates to occur naturally.
 
 | Option         | Description                                                     | Default |
 |----------------|-----------------------------------------------------------------|---------|
-| `simulateDate` | Simulate a specific date for testing. Format: "MM/DD/YYYY HH:MM:SS" (24-hour time) | `null`  |
+| `simulateDate` | Simulate a specific date for testing. Format: "MM/DD/YYYY"      | `null`  |
 
 ## Contributing
 
