@@ -178,12 +178,6 @@ module.exports = NodeHelper.create({
         this.isProcessingQueue = true;
         this.log("Starting to process queue");
 
-        const now = this.getCurrentDate();
-        if (!this.lastUpdateCheck || this.lastUpdateCheck.getDate() !== now.getDate()) {
-            this.swapTomorrowToDaily();
-            this.scheduleUpdateWindow();
-        }
-
         try {
             while (this.requestQueue.length > 0) {
                 const batch = this.requestQueue.splice(0, this.settings.maxConcurrentRequests);
@@ -339,11 +333,12 @@ module.exports = NodeHelper.create({
         const response = await axios.get(url, { timeout: 30000 });
         const $ = cheerio.load(response.data);
         const horoscope = $('.horoscope-content p').text().trim();
+        if (!horoscope) {
+            throw new Error(`No horoscope content found for ${sign} (${period})`);
+        }
         this.log(`Fetched horoscope for ${sign} (${period}). Length: ${horoscope.length} characters`, "debug");
         return horoscope;
     },
-
-
 
     getHoroscope: async function(config) {
         if (!this.cache[config.sign]) {
@@ -355,7 +350,13 @@ module.exports = NodeHelper.create({
             this.log(`Returning cached horoscope for ${config.sign}, period: ${config.period}`);
             const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
             const imagePath = await this.cacheImage(imageUrl, config.sign);
-            return { ...cachedData.data, sign: config.sign, period: config.period, cached: true, imagePath: imagePath };
+            return { 
+                data: cachedData.data, 
+                sign: config.sign, 
+                period: config.period, 
+                cached: true, 
+                imagePath: imagePath 
+            };
         }
 
         this.log(`Fetching new horoscope for ${config.sign}, period: ${config.period}`);
@@ -384,7 +385,7 @@ module.exports = NodeHelper.create({
             this.cache[sign] = {};
         }
         this.cache[sign][period] = {
-            data: content,
+            data: content.data,
             timestamp: this.getCurrentDate().getTime()
         };
         this.log(`Updated cache for ${sign} (${period})`, "debug");
