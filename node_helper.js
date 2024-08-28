@@ -1,13 +1,11 @@
-console.log("MMM-SunSigns node_helper file is being loaded");
-
 var NodeHelper = require("node_helper");
 var axios = require("axios");
 var cheerio = require("cheerio");
-const fs = require('fs').promises;
-const path = require('path');
+var fs = require('fs');
+var path = require('path');
 
 // Global unhandled promise rejection handler
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', function(reason, promise) {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
     // You can add additional logging or error reporting here
 });
@@ -38,9 +36,7 @@ module.exports = NodeHelper.create({
             maxUpdateAttempts: 6
         };
 
-        this.initialize().catch(error => {
-            console.error("Error during initialization:", error);
-        });
+        this.initialize();
     },
 
     initialize: async function() {
@@ -331,29 +327,40 @@ socketNotificationReceived: function(notification, payload) {
         }
     },
 
-    fetchHoroscope: async function(sign, period) {
-        let url;
-        if (period === 'yearly') {
-            const currentYear = new Date().getFullYear();
-            url = `https://www.sunsigns.com/horoscopes/yearly/${currentYear}/${sign}`;
-        } else {
-            url = `https://www.sunsigns.com/horoscopes/${period === 'tomorrow' ? 'daily/' + sign + '/tomorrow' : period + '/' + sign}`;
-        }
-        this.log(`Fetching horoscope for ${sign} (${period}) from ${url}`, "debug");
-        const response = await axios.get(url, { timeout: 30000 });
-        const $ = cheerio.load(response.data);
-        let horoscope;
-        if (period === 'yearly') {
-            // Adjust this selector based on the actual structure of the yearly horoscope page
-            horoscope = $('.horoscope-content').text().trim();
-        } else {
-            horoscope = $('.horoscope-content p').text().trim();
-        }
-        if (!horoscope) {
-            throw new Error(`No horoscope content found for ${sign} (${period})`);
-        }
-        this.log(`Fetched horoscope for ${sign} (${period}). Length: ${horoscope.length} characters`, "debug");
-        return horoscope;
+    fetchHoroscope: function(sign, period) {
+        var self = this;
+        return new Promise(function(resolve, reject) {
+            var url;
+            if (period === 'yearly') {
+                var currentYear = new Date().getFullYear();
+                url = 'https://www.sunsigns.com/' + sign + '-horoscope-' + currentYear + '/';
+            } else {
+                url = 'https://www.sunsigns.com/horoscopes/' + (period === 'tomorrow' ? 'daily/' + sign + '/tomorrow' : period + '/' + sign);
+            }
+            self.log('Fetching horoscope for ' + sign + ' (' + period + ') from ' + url, "debug");
+            axios.get(url, { timeout: 30000 })
+                .then(function(response) {
+                    var $ = cheerio.load(response.data);
+                    var horoscope;
+                    if (period === 'yearly') {
+                        horoscope = $('.horoscope-content').text().trim();
+                        if (!horoscope) {
+                            horoscope = $('article.post').text().trim(); // Fallback selector
+                        }
+                    } else {
+                        horoscope = $('.horoscope-content p').text().trim();
+                    }
+                    if (!horoscope) {
+                        throw new Error('No horoscope content found for ' + sign + ' (' + period + ')');
+                    }
+                    self.log('Fetched horoscope for ' + sign + ' (' + period + '). Length: ' + horoscope.length + ' characters', "debug");
+                    resolve(horoscope);
+                })
+                .catch(function(error) {
+                    self.log('Error fetching horoscope for ' + sign + ' (' + period + '): ' + error.message, "error");
+                    reject(error);
+                });
+        });
     },
 
     updateCache: function(sign, period, content) {
@@ -493,8 +500,8 @@ socketNotificationReceived: function(notification, payload) {
     },
 
     isNewContent: function(sign, newHoroscope) {
-        const currentDaily = this.cache[sign]?.['daily']?.data;
-        const currentTomorrow = this.cache[sign]?.['tomorrow']?.data;
+        var currentDaily = this.cache[sign] && this.cache[sign]['daily'] ? this.cache[sign]['daily'].data : null;
+        var currentTomorrow = this.cache[sign] && this.cache[sign]['tomorrow'] ? this.cache[sign]['tomorrow'].data : null;
         return newHoroscope !== currentDaily && newHoroscope !== currentTomorrow;
     },
 
