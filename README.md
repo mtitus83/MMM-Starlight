@@ -68,7 +68,7 @@ The options listed below have been deprecated in this version as updates are now
 
 ### Caching Mechanism
 
-This version introduces a caching mechanism that stores horoscopes locally. This helps reduce the number of requests and improves the module's performance. The module handles horoscope updates when required.
+This version introduces a caching mechanism that stores horoscopes locally. This helps reduce the number of requests and improves the module's performance. The module handles horoscope updates when necessary.
 
 ### Example configuration
 
