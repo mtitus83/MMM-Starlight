@@ -11,7 +11,8 @@ Module.register("MMM-SunSigns", {
         pauseDuration: 10000, // 10 seconds
         scrollSpeed: 7, // pixels per second
         signWaitTime: 50000, // 50 seconds
-        startOfWeek: "Sunday"
+        startOfWeek: "Sunday",
+        simulateDate: null // Format: "MMDDYYYY HH:MM:SS"
     },
 
     start: function() {
@@ -33,6 +34,10 @@ Module.register("MMM-SunSigns", {
 
         this.scheduleInitialUpdate();
         this.scheduleMidnightUpdate();
+
+        if (this.config.simulateDate) {
+            this.sendSocketNotification("SET_SIMULATED_DATE", { date: this.config.simulateDate });
+        }
     },
 
     getStyles: function() {
@@ -73,7 +78,7 @@ Module.register("MMM-SunSigns", {
         });
     },
 
-    getPeriodsToUpdate: function() {
+getPeriodsToUpdate: function() {
         let now = new Date();
         let periodsToUpdate = [];
 
@@ -157,7 +162,8 @@ Module.register("MMM-SunSigns", {
             debugInfo.className = "small dimmed";
             debugInfo.innerHTML = `Last Update: ${this.lastUpdateAttempt}<br>
                                    Update Failures: ${this.updateFailures}<br>
-                                   Current State: ${this.transitionState}`;
+                                   Current State: ${this.transitionState}<br>
+                                   Simulated Date: ${this.config.simulateDate || "Not set"}`;
             wrapper.appendChild(debugInfo);
         }
 
@@ -213,7 +219,7 @@ Module.register("MMM-SunSigns", {
         return slideWrapper;
     },
 
-    formatPeriodText: function(period) {
+formatPeriodText: function(period) {
         if (period === "tomorrow") {
             return "Tomorrow's";
         }
@@ -340,8 +346,33 @@ Module.register("MMM-SunSigns", {
                     this.updateHoroscopes();
                 }, 60 * 60 * 1000);
             }
+        } else if (notification === "HOROSCOPES_UPDATED") {
+            Log.info(this.name + ": Horoscopes updated");
+            this.updateDom(1000);
+        } else if (notification === "UPDATE_WINDOW_EXPIRED") {
+            Log.warn(this.name + ": Update window expired without finding new content");
+            Log.warn("Last successful update:", payload.lastUpdateCheck);
+            Log.warn("Number of attempts:", payload.attempts);
+            if (this.config.debug) {
+                this.updateDom(1000); // Update DOM to show debug info
+            }
+        } else if (notification === "ERROR") {
+            Log.error(this.name + ": Received error notification", payload);
+            if (this.config.debug) {
+                this.updateDom(1000); // Update DOM to show error info
+            }
         } else {
             Log.warn(this.name + ": Received unknown socket notification: " + notification);
+        }
+    },
+
+    notificationReceived: function(notification, payload, sender) {
+        if (notification === "SIMULATE_DATE") {
+            if (payload && payload.date) {
+                this.config.simulateDate = payload.date;
+                this.sendSocketNotification("SET_SIMULATED_DATE", { date: payload.date });
+                this.updateDom(1000);
+            }
         }
     }
 });

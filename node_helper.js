@@ -16,6 +16,7 @@ module.exports = NodeHelper.create({
         this.lastUpdateCheck = null;
         this.updateWindowStart = null;
         this.updateAttempts = 0;
+        this.simulatedDate = null;
 
         this.settings = {
             cacheDuration: 24 * 60 * 60 * 1000, // 24 hours
@@ -24,7 +25,8 @@ module.exports = NodeHelper.create({
             maxRetries: 3,
             updateWindowStartHour: 1, // 1 AM
             updateWindowDuration: 6 * 60 * 60 * 1000, // 6 hours
-            maxUpdateAttempts: 6
+            maxUpdateAttempts: 6,
+            simulateDate: null // Format: "MMDDYYYY HH:MM:SS"
         };
 
         this.initialize();
@@ -50,11 +52,38 @@ module.exports = NodeHelper.create({
         });
 
         this.log("Node helper initialized");
+        if (this.settings.simulateDate) {
+            this.setSimulatedDate(this.settings.simulateDate);
+        }
         this.scheduleUpdateWindow();
     },
 
+    setSimulatedDate: function(dateString) {
+        const parsedDate = this.parseSimulatedDateString(dateString);
+        if (parsedDate) {
+            this.simulatedDate = parsedDate;
+            this.log(`Simulated date set to: ${this.simulatedDate.toLocaleString()}`, "warn");
+        } else {
+            this.log(`Invalid simulated date format: ${dateString}. Expected format: MMDDYYYY HH:MM:SS`, "error");
+        }
+    },
+
+    parseSimulatedDateString: function(dateString) {
+        const regex = /^(\d{2})(\d{2})(\d{4}) (\d{2}):(\d{2}):(\d{2})$/;
+        const match = dateString.match(regex);
+        if (match) {
+            const [, month, day, year, hours, minutes, seconds] = match;
+            return new Date(year, month - 1, day, hours, minutes, seconds);
+        }
+        return null;
+    },
+
+    getCurrentDate: function() {
+        return this.simulatedDate || new Date();
+    },
+
     log: function(message, level = "info") {
-        const timestamp = new Date().toISOString();
+        const timestamp = this.getCurrentDate().toISOString();
         const logMessage = `[${timestamp}] [${this.name}] [${level.toUpperCase()}] ${message}`;
         
         console.log(logMessage);
@@ -78,7 +107,7 @@ module.exports = NodeHelper.create({
         }
     },
 
-    saveCache: async function() {
+saveCache: async function() {
         const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
         try {
             await fs.writeFile(cacheFile, JSON.stringify(this.cache), 'utf8');
@@ -94,6 +123,9 @@ module.exports = NodeHelper.create({
             this.log("Received UPDATE_HOROSCOPES notification");
             this.log(`Payload: ${JSON.stringify(payload)}`);
             this.queueHoroscopeUpdates(payload.zodiacSigns, payload.periods);
+        } else if (notification === "SET_SIMULATED_DATE") {
+            this.setSimulatedDate(payload.date);
+            this.scheduleUpdateWindow(); // Reschedule update window with new simulated date
         }
     },
 
@@ -122,7 +154,7 @@ module.exports = NodeHelper.create({
         this.isProcessingQueue = true;
         this.log("Starting to process queue");
 
-        const now = new Date();
+        const now = this.getCurrentDate();
         if (!this.lastUpdateCheck || this.lastUpdateCheck.getDate() !== now.getDate()) {
             this.swapTomorrowToDaily();
             this.scheduleUpdateWindow();
@@ -191,8 +223,8 @@ module.exports = NodeHelper.create({
         this.saveCache();
     },
 
-    scheduleUpdateWindow: function() {
-        const now = new Date();
+scheduleUpdateWindow: function() {
+        const now = this.getCurrentDate();
         const startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), this.settings.updateWindowStartHour, 0, 0, 0);
         if (now > startTime) {
             startTime.setDate(startTime.getDate() + 1);
@@ -207,7 +239,7 @@ module.exports = NodeHelper.create({
     },
 
     startUpdateWindow: function() {
-        this.updateWindowStart = new Date();
+        this.updateWindowStart = this.getCurrentDate();
         this.log("Starting update window", "info");
         this.performUpdateCheck();
     },
@@ -235,16 +267,16 @@ module.exports = NodeHelper.create({
         if (updatesFound) {
             this.log("Updates found and applied", "info");
             this.sendSocketNotification("HOROSCOPES_UPDATED", {});
-            this.lastUpdateCheck = new Date();
+            this.lastUpdateCheck = this.getCurrentDate();
             this.scheduleUpdateWindow(); // Schedule next day's window
         } else {
             this.updateAttempts++;
             if (this.updateAttempts < this.settings.maxUpdateAttempts && 
-                (new Date() - this.updateWindowStart) < this.settings.updateWindowDuration) {
+                (this.getCurrentDate() - this.updateWindowStart) < this.settings.updateWindowDuration) {
                 // Schedule next check with increasing interval
                 const nextCheckDelay = Math.min(
                     30 * 60 * 1000 * Math.pow(2, this.updateAttempts - 1), // Start at 30 minutes, then 60, 120, etc.
-                    this.settings.updateWindowDuration - (new Date() - this.updateWindowStart)
+                    this.settings.updateWindowDuration - (this.getCurrentDate() - this.updateWindowStart)
                 );
                 this.log(`No updates found. Next check in ${nextCheckDelay / 60000} minutes`, "info");
                 setTimeout(() => this.performUpdateCheck(), nextCheckDelay);
@@ -255,7 +287,7 @@ module.exports = NodeHelper.create({
                     lastUpdateCheck: this.lastUpdateCheck,
                     attempts: this.updateAttempts
                 });
-                this.lastUpdateCheck = new Date();
+                this.lastUpdateCheck = this.getCurrentDate();
                 this.scheduleUpdateWindow(); // Schedule next day's window
             }
         }
@@ -281,7 +313,7 @@ module.exports = NodeHelper.create({
         const cacheKey = `${config.sign}_${config.period}`;
         const cachedData = this.cache[cacheKey];
 
-        if (cachedData && (Date.now() - cachedData.timestamp < this.settings.cacheDuration)) {
+        if (cachedData && (this.getCurrentDate().getTime() - cachedData.timestamp < this.settings.cacheDuration)) {
             this.log(`Returning cached horoscope for ${config.sign}, period: ${config.period}`);
             const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
             const imagePath = await this.cacheImage(imageUrl, config.sign);
@@ -315,7 +347,7 @@ module.exports = NodeHelper.create({
         }
         this.cache[sign][period] = {
             data: content,
-            timestamp: Date.now()
+            timestamp: this.getCurrentDate().getTime()
         };
         this.log(`Updated cache for ${sign} (${period})`, "debug");
         this.saveCache();

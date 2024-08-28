@@ -54,21 +54,7 @@ modules: [
 | `signWaitTime`   | Time to display each sign before rotating to the next, in milliseconds. (default: `50000` // 50 seconds) |
 | `startOfWeek`    | Start of the week. Can be one of "Sunday", or "Monday". (default: `"Sunday"`)                   |
 | `debug`          | Enable debug logging. (default: `false`)                                                        |
-
-### Note on Removed Options
-
-In this version, the following options have been removed or are no longer user-configurable due to new caching functionality:
-
-The options listed below have been deprecated in this version as updates are now handled by the module in a more efficient manner. Please remove these variables from your configuration file:
-
-- `updateInterval`
-- `retryDelay`
-- `maxRetries`
-- `requestTimeout`
-
-### Caching Mechanism
-
-This version introduces a caching mechanism that stores horoscopes locally. This helps reduce the number of requests and improves the module's performance. The module handles horoscope updates when necessary.
+| `simulateDate`   | Simulate a specific date for testing. Format: "MMDDYYYY HH:MM:SS". (default: `null`)            |
 
 ### Example configuration
 
@@ -84,34 +70,41 @@ This version introduces a caching mechanism that stores horoscopes locally. This
         scrollSpeed: 8,
         pauseDuration: 5000, // 5 seconds pause before and after scrolling
         signWaitTime: 60000, // 1 minute
-        debug: true
+        debug: true,
+        simulateDate: "05152024 10:30:00" // Simulate May 15, 2024 at 10:30 AM
     }
 }
 ```
 
-### Ordering of Horoscopes
+## Date Simulation
 
-The order in which horoscopes are displayed is determined by the order of the `zodiacSign` and `period` arrays in your configuration. The module will cycle through all periods for each sign before moving to the next sign. 
+The module now supports date simulation for testing purposes. You can set a simulated date in two ways:
 
-For example, if your configuration is:
+1. In the module configuration using the `simulateDate` option.
+2. By sending a notification to the module during runtime.
+
+To change the simulated date during runtime, you can use the following notification:
 
 ```javascript
-{
-    zodiacSign: ["aries", "taurus"],
-    period: ["daily", "weekly", "monthly"]
-}
+this.sendNotification("SIMULATE_DATE", { date: "05152024 10:30:00" });
 ```
 
-The horoscopes will be displayed in this order:
+This feature is particularly useful for testing the module's behavior on specific dates or times without having to wait for those dates to occur naturally.
 
-1. Aries daily
-2. Aries weekly
-3. Aries monthly
-4. Taurus daily
-5. Taurus weekly
-6. Taurus monthly
+## Debugging
 
-Then it will cycle back to Aries daily and repeat the sequence.
+When `debug` is set to `true`, the module will display additional information on the screen, including:
+
+- Last update attempt
+- Number of update failures
+- Current state of the module
+- The simulated date (if set)
+
+This information can be helpful when troubleshooting issues or verifying the module's behavior.
+
+## Caching Mechanism
+
+This module implements a caching mechanism that stores horoscopes locally. This helps reduce the number of requests and improves the module's performance. The module handles horoscope updates when necessary.
 
 ## Updating
 
