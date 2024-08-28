@@ -1,3 +1,5 @@
+console.log("node_helper.js file for MMM-SunSigns is being read");
+
 var NodeHelper = require("node_helper");
 var axios = require("axios");
 var cheerio = require("cheerio");
@@ -7,6 +9,8 @@ const path = require('path');
 const CACHE_VERSION = 1; // Increment this when you make significant changes to cache structure
 
 module.exports = NodeHelper.create({
+    console.log("MMM-SunSigns NodeHelper creation started");
+
     start: function() {
         console.log("Starting node helper for: " + this.name);
         this.cacheDir = path.join(__dirname, 'cache');
@@ -160,17 +164,17 @@ module.exports = NodeHelper.create({
         return new Date();
     },
 
-    getHoroscope: async function(config) {
+getHoroscope: async function(config) {
         try {
             if (!config.sign || !config.period) {
                 throw new Error(`Invalid config: sign or period missing. Config: ${JSON.stringify(config)}`);
             }
-    
+
             if (!this.cache[config.sign]) {
                 this.cache[config.sign] = {};
             }
             const cachedData = this.cache[config.sign][config.period];
-    
+
             if (!this.config.bypassCache && cachedData && this.isSameDay(new Date(cachedData.timestamp), this.getCurrentDate())) {
                 this.log(`Returning cached horoscope for ${config.sign}, period: ${config.period}`);
                 const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
@@ -184,14 +188,14 @@ module.exports = NodeHelper.create({
                     imagePath: imagePath 
                 };
             }
-    
+
             this.log(`Fetching new horoscope for ${config.sign}, period: ${config.period}`);
             const horoscope = await this.fetchHoroscope(config.sign, config.period);
             const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
             const imagePath = await this.cacheImage(imageUrl, config.sign);
-    
+
             const extractedHoroscope = this.extractHoroscopeText(horoscope);
-    
+
             const result = { 
                 data: extractedHoroscope,
                 sign: config.sign, 
@@ -199,11 +203,11 @@ module.exports = NodeHelper.create({
                 cached: false,
                 imagePath: imagePath
             };
-    
+
             if (!this.config.bypassCache) {
                 this.updateCache(config.sign, config.period, result);
             }
-    
+
             return result;
         } catch (error) {
             this.log(`Error in getHoroscope for ${config.sign}, ${config.period}: ${error.message}`, "error");
@@ -342,16 +346,16 @@ module.exports = NodeHelper.create({
         }
         this.isProcessingQueue = true;
         this.log("Starting to process queue");
-    
+
         try {
             while (this.requestQueue.length > 0) {
                 const batch = this.requestQueue.splice(0, this.settings.maxConcurrentRequests);
                 this.log(`Processing batch of ${batch.length} requests`);
-    
+
                 const promises = batch.map(item => this.getHoroscope(item));
-    
+
                 const results = await Promise.all(promises);
-    
+
                 results.forEach(result => {
                     if (result.error) {
                         this.log(`Error fetching horoscope for ${result.sign}, ${result.period}: ${result.message}`, "error");
@@ -375,7 +379,7 @@ module.exports = NodeHelper.create({
                         });
                     }
                 });
-    
+
                 if (this.requestQueue.length > 0) {
                     this.log("Waiting before processing next batch");
                     await new Promise(resolve => setTimeout(resolve, 5000));
@@ -505,3 +509,5 @@ module.exports = NodeHelper.create({
         });
     },
 });
+
+console.log("node_helper.js file for MMM-SunSigns has been fully read");
