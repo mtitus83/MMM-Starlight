@@ -73,7 +73,15 @@ modules: [
     }
 }
 ```
+## Updating
 
+To update the module to the latest version, navigate to your MMM-SunSigns folder and pull the latest changes:
+
+```
+cd ~/MagicMirror/modules/MMM-SunSigns
+git pull
+npm install
+```
 ## Caching Mechanism
 
 This module implements a caching mechanism that stores horoscopes locally. This helps reduce the number of requests and improves the module's performance. The module handles horoscope updates when necessary.
@@ -100,16 +108,6 @@ The module supports date simulation for testing purposes. This feature is partic
 | Option         | Description                                                     | Default |
 |----------------|-----------------------------------------------------------------|---------|
 | `simulateDate` | Simulate a specific date for testing. Format: "MMDDYYYY HH:MM:SS" | `null`  |
-
-## Updating
-
-To update the module to the latest version, navigate to your MMM-SunSigns folder and pull the latest changes:
-
-```
-cd ~/MagicMirror/modules/MMM-SunSigns
-git pull
-npm install
-```
 
 ## Contributing
 
