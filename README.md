@@ -101,7 +101,7 @@ When `debug` is set to `true`, the module will display additional information on
 - Current state of the module
 - The simulated date (if set)
 
-## Date Simulation
+### Date Simulation
 
 The module supports date simulation for testing purposes. This feature is particularly useful for testing the module's behavior on specific dates or times without having to wait for those dates to occur naturally.
 
