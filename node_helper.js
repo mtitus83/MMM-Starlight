@@ -5,18 +5,11 @@ const fs = require('fs').promises;
 const path = require('path');
 
 module.exports = NodeHelper.create({
-    start: async function() {
+    start: function() {
         console.log("Starting node helper for: " + this.name);
         this.cacheDir = path.join(__dirname, 'cache');
         this.imageCacheDir = path.join(this.cacheDir, 'images');
-        try {
-            await fs.mkdir(this.cacheDir, { recursive: true });
-            await fs.mkdir(this.imageCacheDir, { recursive: true });
-            console.log("Cache directories created successfully");
-        } catch (error) {
-            console.error("Error creating cache directories:", error);
-        }
-        await this.initializeCache();
+        this.cache = {};
         this.requestQueue = [];
         this.isProcessingQueue = false;
         this.debug = true;
@@ -28,6 +21,20 @@ module.exports = NodeHelper.create({
             retryDelay: 5 * 60 * 1000, // 5 minutes
             maxRetries: 3
         };
+
+        this.initialize();
+    },
+
+    initialize: async function() {
+        try {
+            await fs.mkdir(this.cacheDir, { recursive: true });
+            await fs.mkdir(this.imageCacheDir, { recursive: true });
+            console.log("Cache directories created successfully");
+        } catch (error) {
+            console.error("Error creating cache directories:", error);
+        }
+
+        await this.initializeCache();
 
         process.on('unhandledRejection', (reason, promise) => {
             console.error('Unhandled Rejection at:', promise, 'reason:', reason);
@@ -47,7 +54,6 @@ module.exports = NodeHelper.create({
     },
 
     initializeCache: async function() {
-        this.cache = {};
         const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
         try {
             const data = await fs.readFile(cacheFile, 'utf8');
