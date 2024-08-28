@@ -111,7 +111,7 @@ When both `debug` and `clearCacheOnStart` are set to `true`, the module will cle
 
 ### Bypass Cache
 
-When both `debug` and `bypassCache` are set to `true`, the module will ignore its cache and always fetch new data from the website. This can be useful for testing or when you want to ensure you're always getting the most up-to-date information.
+When both `debug` and `bypassCache` are set to `true`, the module will ignore its cache and always fetch new data. This can be useful for testing or when you want to ensure you're always getting the most up-to-date information.
 
 Example configuration with debug options:
 
