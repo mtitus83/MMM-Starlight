@@ -144,40 +144,41 @@ module.exports = NodeHelper.create({
         return new Date();
     },
 
+
     getHoroscope: async function(config) {
         try {
             if (!config.sign || !config.period) {
                 throw new Error(`Invalid config: sign or period missing. Config: ${JSON.stringify(config)}`);
             }
-
+    
             if (!this.cache[config.sign]) {
                 this.cache[config.sign] = {};
             }
             const cachedData = this.cache[config.sign][config.period];
-
+    
             if (cachedData && this.isSameDay(new Date(cachedData.timestamp), this.getCurrentDate())) {
                 this.log(`Returning cached horoscope for ${config.sign}, period: ${config.period}`);
                 const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
                 const imagePath = await this.cacheImage(imageUrl, config.sign);
                 
-                let horoscopeText = this.extractHoroscopeText(cachedData.data);
-                
                 return { 
-                    data: horoscopeText,
+                    data: cachedData.data,
                     sign: config.sign, 
                     period: config.period, 
                     cached: true, 
                     imagePath: imagePath 
                 };
             }
-
+    
             this.log(`Fetching new horoscope for ${config.sign}, period: ${config.period}`);
             const horoscope = await this.fetchHoroscope(config.sign, config.period);
             const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
             const imagePath = await this.cacheImage(imageUrl, config.sign);
-
+    
+            const extractedHoroscope = this.extractHoroscopeText(horoscope);
+    
             const result = { 
-                data: horoscope,
+                data: extractedHoroscope,
                 sign: config.sign, 
                 period: config.period, 
                 cached: false,
