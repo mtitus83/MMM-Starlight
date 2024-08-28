@@ -144,33 +144,41 @@ module.exports = NodeHelper.create({
         return new Date();
     },
 
-getHoroscope: async function(config) {
-        if (!this.cache[config.sign]) {
-            this.cache[config.sign] = {};
-        }
-        const cachedData = this.cache[config.sign][config.period];
-
-        if (cachedData && this.isSameDay(new Date(cachedData.timestamp), this.getCurrentDate())) {
-            this.log(`Returning cached horoscope for ${config.sign}, period: ${config.period}`);
-            const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
-            const imagePath = await this.cacheImage(imageUrl, config.sign);
-            return { 
-                data: cachedData.data, 
-                sign: config.sign, 
-                period: config.period, 
-                cached: true, 
-                imagePath: imagePath 
-            };
-        }
-
-        this.log(`Fetching new horoscope for ${config.sign}, period: ${config.period}`);
+    getHoroscope: async function(config) {
         try {
+            if (!config.sign || !config.period) {
+                throw new Error(`Invalid config: sign or period missing. Config: ${JSON.stringify(config)}`);
+            }
+    
+            if (!this.cache[config.sign]) {
+                this.cache[config.sign] = {};
+            }
+            const cachedData = this.cache[config.sign][config.period];
+    
+            if (cachedData && this.isSameDay(new Date(cachedData.timestamp), this.getCurrentDate())) {
+                this.log(`Returning cached horoscope for ${config.sign}, period: ${config.period}`);
+                const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
+                const imagePath = await this.cacheImage(imageUrl, config.sign);
+                return { 
+                    data: typeof cachedData.data === 'string' ? cachedData.data : "Cached data is not a string",
+                    sign: config.sign, 
+                    period: config.period, 
+                    cached: true, 
+                    imagePath: imagePath 
+                };
+            }
+    
+            this.log(`Fetching new horoscope for ${config.sign}, period: ${config.period}`);
             const horoscope = await this.fetchHoroscope(config.sign, config.period);
             const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
             const imagePath = await this.cacheImage(imageUrl, config.sign);
-
+    
+            if (typeof horoscope !== 'string') {
+                throw new Error(`Fetched horoscope is not a string. Type: ${typeof horoscope}`);
+            }
+    
             const result = { 
-                data: horoscope, 
+                data: horoscope,
                 sign: config.sign, 
                 period: config.period, 
                 cached: false,
@@ -179,8 +187,14 @@ getHoroscope: async function(config) {
             this.updateCache(config.sign, config.period, result);
             return result;
         } catch (error) {
-            this.log(`Error fetching horoscope for ${config.sign}, ${config.period}: ${error.message}`, "error");
-            throw error;
+            this.log(`Error in getHoroscope for ${config.sign}, ${config.period}: ${error.message}`, "error");
+            // Instead of throwing, return an error object
+            return {
+                error: true,
+                message: error.message,
+                sign: config.sign,
+                period: config.period
+            };
         }
     },
 
@@ -203,20 +217,20 @@ getHoroscope: async function(config) {
         }
         this.isProcessingQueue = true;
         this.log("Starting to process queue");
-
+    
         try {
             while (this.requestQueue.length > 0) {
                 const batch = this.requestQueue.splice(0, this.settings.maxConcurrentRequests);
                 this.log(`Processing batch of ${batch.length} requests`);
-
+    
                 const promises = batch.map(item => this.getHoroscope(item).catch(error => ({
                     error,
                     sign: item.sign,
                     period: item.period
                 })));
-
+    
                 const results = await Promise.all(promises);
-
+    
                 results.forEach(result => {
                     if (result.error) {
                         this.log(`Error fetching horoscope for ${result.sign}, ${result.period}: ${result.error.message}`, "error");
@@ -227,7 +241,8 @@ getHoroscope: async function(config) {
                             message: result.error.message
                         });
                     } else {
-                        this.log(`Successfully fetched horoscope for ${result.sign}, ${result.period}: ${result.data.substring(0, 50)}...`);
+                        const previewText = typeof result.data === 'string' ? result.data.substring(0, 50) : 'Data is not a string';
+                        this.log(`Successfully fetched horoscope for ${result.sign}, ${result.period}: ${previewText}...`);
                         this.sendSocketNotification("HOROSCOPE_RESULT", {
                             success: true,
                             sign: result.sign,
@@ -238,7 +253,7 @@ getHoroscope: async function(config) {
                         });
                     }
                 });
-
+    
                 if (this.requestQueue.length > 0) {
                     this.log("Waiting before processing next batch");
                     await new Promise(resolve => setTimeout(resolve, 5000));
