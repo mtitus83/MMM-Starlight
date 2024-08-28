@@ -15,39 +15,32 @@ process.on('unhandledRejection', (reason, promise) => {
 const CACHE_VERSION = 1;
 
 module.exports = NodeHelper.create({
-    console.log("MMM-SunSigns NodeHelper is being created");
-    
-
     start: function() {
         console.log("Starting node helper for: " + this.name);
-        try {
-            this.cacheDir = path.join(__dirname, 'cache');
-            this.imageCacheDir = path.join(this.cacheDir, 'images');
-            this.cache = {};
-            this.requestQueue = [];
-            this.isProcessingQueue = false;
-            this.debug = true;
-            this.lastUpdateCheck = null;
-            this.updateWindowStart = null;
-            this.updateAttempts = 0;
-            this.simulatedDate = null;
-    
-            this.settings = {
-                cacheDuration: 24 * 60 * 60 * 1000,
-                maxConcurrentRequests: 2,
-                retryDelay: 5 * 60 * 1000,
-                maxRetries: 3,
-                updateWindowStartHour: 1,
-                updateWindowDuration: 6 * 60 * 60 * 1000,
-                maxUpdateAttempts: 6
-            };
-    
-            this.initialize().catch(error => {
-                console.error("Error during initialization:", error);
-            });
-        } catch (error) {
-            console.error("Error in start function:", error);
-        }
+        this.cacheDir = path.join(__dirname, 'cache');
+        this.imageCacheDir = path.join(this.cacheDir, 'images');
+        this.cache = {};
+        this.requestQueue = [];
+        this.isProcessingQueue = false;
+        this.debug = true;
+        this.lastUpdateCheck = null;
+        this.updateWindowStart = null;
+        this.updateAttempts = 0;
+        this.simulatedDate = null;
+
+        this.settings = {
+            cacheDuration: 24 * 60 * 60 * 1000,
+            maxConcurrentRequests: 2,
+            retryDelay: 5 * 60 * 1000,
+            maxRetries: 3,
+            updateWindowStartHour: 1,
+            updateWindowDuration: 6 * 60 * 60 * 1000,
+            maxUpdateAttempts: 6
+        };
+
+        this.initialize().catch(error => {
+            console.error("Error during initialization:", error);
+        });
     },
 
     initialize: async function() {
