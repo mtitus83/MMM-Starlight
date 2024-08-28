@@ -1,7 +1,7 @@
 console.log("MMM-SunSigns module file is being loaded");
+console.log("MMM-SunSigns module is being registered");
 
 Module.register("MMM-SunSigns", {
-    console.log("MMM-SunSigns module is being registered");
     defaults: {
         zodiacSign: ["taurus"],
         period: ["daily"],
@@ -14,7 +14,7 @@ Module.register("MMM-SunSigns", {
         scrollSpeed: 7, // pixels per second
         signWaitTime: 50000, // 50 seconds
         startOfWeek: "Sunday",
-        simulateDate: null // Format: "MM/DD/YYYY",
+        simulateDate: null, //Format MMDDYYYY 
         debug: false,
         clearCacheOnStart: false,
         bypassCache: false
@@ -51,11 +51,18 @@ Module.register("MMM-SunSigns", {
         console.log("MMM-SunSigns start function completed");
     },
 
+    getStyles: function() {
+        return ["MMM-SunSigns.css"];
+    },
+
     scheduleInitialUpdate: function() {
         Log.info(this.name + ": Scheduling initial update");
         setTimeout(() => {
             Log.info(this.name + ": Executing initial update");
-            this.updateHoroscopes();
+            this.sendSocketNotification("UPDATE_HOROSCOPES", {
+                zodiacSigns: this.config.zodiacSign,
+                periods: this.config.period,
+            });
         }, 1000);
     },
 
