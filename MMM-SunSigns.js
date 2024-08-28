@@ -11,7 +11,7 @@ Module.register("MMM-SunSigns", {
         pauseDuration: 10000, // 10 seconds
         scrollSpeed: 7, // pixels per second
         signWaitTime: 50000, // 50 seconds
-        endOfWeek: "Sunday"
+        startOfWeek: "Sunday"
     },
 
     start: function() {
@@ -114,7 +114,7 @@ Module.register("MMM-SunSigns", {
     },
 
     isStartOfWeek: function(date) {
-        if (this.config.endOfWeek === "Sunday") {
+        if (this.config.startOfWeek === "Sunday") {
             return date.getDay() === 1; // Monday
         } else {
             return date.getDay() === 0; // Sunday
