@@ -17,43 +17,48 @@ const CACHE_VERSION = 1;
 module.exports = NodeHelper.create({
     console.log("MMM-SunSigns NodeHelper is being created");
     
+
     start: function() {
         console.log("Starting node helper for: " + this.name);
-        this.cacheDir = path.join(__dirname, 'cache');
-        this.imageCacheDir = path.join(this.cacheDir, 'images');
-        this.cache = {};
-        this.requestQueue = [];
-        this.isProcessingQueue = false;
-        this.debug = true;
-        this.lastUpdateCheck = null;
-        this.updateWindowStart = null;
-        this.updateAttempts = 0;
-        this.simulatedDate = null;
-
-        this.settings = {
-            cacheDuration: 24 * 60 * 60 * 1000,
-            maxConcurrentRequests: 2,
-            retryDelay: 5 * 60 * 1000,
-            maxRetries: 3,
-            updateWindowStartHour: 1,
-            updateWindowDuration: 6 * 60 * 60 * 1000,
-            maxUpdateAttempts: 6
-        };
-
-        this.initialize().catch(error => {
-            console.error("Error during initialization:", error);
-        });
+        try {
+            this.cacheDir = path.join(__dirname, 'cache');
+            this.imageCacheDir = path.join(this.cacheDir, 'images');
+            this.cache = {};
+            this.requestQueue = [];
+            this.isProcessingQueue = false;
+            this.debug = true;
+            this.lastUpdateCheck = null;
+            this.updateWindowStart = null;
+            this.updateAttempts = 0;
+            this.simulatedDate = null;
+    
+            this.settings = {
+                cacheDuration: 24 * 60 * 60 * 1000,
+                maxConcurrentRequests: 2,
+                retryDelay: 5 * 60 * 1000,
+                maxRetries: 3,
+                updateWindowStartHour: 1,
+                updateWindowDuration: 6 * 60 * 60 * 1000,
+                maxUpdateAttempts: 6
+            };
+    
+            this.initialize().catch(error => {
+                console.error("Error during initialization:", error);
+            });
+        } catch (error) {
+            console.error("Error in start function:", error);
+        }
     },
 
-initialize: async function() {
+    initialize: async function() {
         try {
             await fs.mkdir(this.cacheDir, { recursive: true });
             await fs.mkdir(this.imageCacheDir, { recursive: true });
             console.log("Cache directories created successfully");
-
+    
             await this.initializeCache();
             await this.checkCacheTimestamps();
-
+    
             this.log("Node helper initialized");
         } catch (error) {
             console.error("Error during initialization:", error);
@@ -232,16 +237,16 @@ socketNotificationReceived: function(notification, payload) {
         }
         this.isProcessingQueue = true;
         this.log("Starting to process queue");
-
+    
         try {
             while (this.requestQueue.length > 0) {
                 const batch = this.requestQueue.splice(0, this.settings.maxConcurrentRequests);
                 this.log(`Processing batch of ${batch.length} requests`);
-
+    
                 const promises = batch.map(item => this.getHoroscope(item));
-
+    
                 const results = await Promise.all(promises);
-
+    
                 results.forEach(result => {
                     if (result.error) {
                         this.log(`Error fetching horoscope for ${result.sign}, ${result.period}: ${result.message}`, "error");
@@ -265,7 +270,7 @@ socketNotificationReceived: function(notification, payload) {
                         });
                     }
                 });
-
+    
                 if (this.requestQueue.length > 0) {
                     this.log("Waiting before processing next batch");
                     await new Promise(resolve => setTimeout(resolve, 5000));
@@ -428,51 +433,64 @@ socketNotificationReceived: function(notification, payload) {
     performUpdateCheck: async function() {
         this.log(`Performing update check. Attempt ${this.updateAttempts + 1} of ${this.settings.maxUpdateAttempts}`, "info");
         let updatesFound = false;
-
-        for (let sign in this.cache) {
-            if (sign === 'version') continue;
-            try {
-                this.log(`Checking for updates for ${sign}`, "debug");
-                const newTomorrowHoroscope = await this.fetchHoroscope(sign, 'tomorrow');
-                if (this.isNewContent(sign, newTomorrowHoroscope)) {
-                    this.log(`New content found for ${sign}, updating cache`, "info");
-                    this.updateCache(sign, 'tomorrow', { data: newTomorrowHoroscope });
-                    updatesFound = true;
-                } else {
-                    this.log(`No new content found for ${sign}`, "debug");
+    
+        try {
+            for (let sign in this.cache) {
+                if (sign === 'version') continue;
+                try {
+                    this.log(`Checking for updates for ${sign}`, "debug");
+                    const newTomorrowHoroscope = await this.fetchHoroscope(sign, 'tomorrow');
+                    if (this.isNewContent(sign, newTomorrowHoroscope)) {
+                        this.log(`New content found for ${sign}, updating cache`, "info");
+                        this.updateCache(sign, 'tomorrow', { data: newTomorrowHoroscope });
+                        updatesFound = true;
+                    } else {
+                        this.log(`No new content found for ${sign}`, "debug");
+                    }
+                } catch (error) {
+                    this.log(`Error checking update for ${sign}: ${error.message}`, "error");
                 }
-            } catch (error) {
-                this.log(`Error checking update for ${sign}: ${error.message}`, "error");
             }
-        }
-
-        if (updatesFound) {
-            this.log("Updates found and applied", "info");
-            this.sendSocketNotification("HOROSCOPES_UPDATED", {});
-            this.lastUpdateCheck = this.getCurrentDate();
-            this.scheduleUpdateWindow();
-        } else {
-            this.updateAttempts++;
-            if (this.updateAttempts < this.settings.maxUpdateAttempts && 
-                (this.getCurrentDate() - this.updateWindowStart) < this.settings.updateWindowDuration) {
-                const nextCheckDelay = Math.min(
-                    30 * 60 * 1000 * Math.pow(2, this.updateAttempts - 1),
-                    this.settings.updateWindowDuration - (this.getCurrentDate() - this.updateWindowStart)
-                );
-                this.log(`No updates found. Next check in ${nextCheckDelay / 60000} minutes`, "info");
-                setTimeout(() => this.performUpdateCheck(), nextCheckDelay);
-            } else {
-                this.log("Update window closed without finding updates", "warn");
-                this.sendSocketNotification("UPDATE_WINDOW_EXPIRED", {
-                    message: "Update window expired without finding new content",
-                    lastUpdateCheck: this.lastUpdateCheck,
-                    attempts: this.updateAttempts
-                });
+    
+            if (updatesFound) {
+                this.log("Updates found and applied", "info");
+                this.sendSocketNotification("HOROSCOPES_UPDATED", {});
                 this.lastUpdateCheck = this.getCurrentDate();
                 this.scheduleUpdateWindow();
+            } else {
+                this.updateAttempts++;
+                if (this.updateAttempts < this.settings.maxUpdateAttempts && 
+                    (this.getCurrentDate() - this.updateWindowStart) < this.settings.updateWindowDuration) {
+                    const nextCheckDelay = Math.min(
+                        30 * 60 * 1000 * Math.pow(2, this.updateAttempts - 1),
+                        this.settings.updateWindowDuration - (this.getCurrentDate() - this.updateWindowStart)
+                    );
+                    this.log(`No updates found. Next check in ${nextCheckDelay / 60000} minutes`, "info");
+                    setTimeout(() => this.performUpdateCheck(), nextCheckDelay);
+                } else {
+                    this.log("Update window closed without finding updates", "warn");
+                    this.sendSocketNotification("UPDATE_WINDOW_EXPIRED", {
+                        message: "Update window expired without finding new content",
+                        lastUpdateCheck: this.lastUpdateCheck,
+                        attempts: this.updateAttempts
+                    });
+                    this.lastUpdateCheck = this.getCurrentDate();
+                    this.scheduleUpdateWindow();
+                }
             }
+        } catch (error) {
+            console.error("Error in performUpdateCheck:", error);
+            this.sendSocketNotification("ERROR", {
+                type: "Update Check Error",
+                message: error.message || "Unknown error occurred during update check"
+            });
         }
     },
+
+    process.on('unhandledRejection', (reason, promise) => {
+        console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+        // You can add additional logging or error reporting here
+    });
 
     isNewContent: function(sign, newHoroscope) {
         const currentDaily = this.cache[sign]?.['daily']?.data;
