@@ -76,20 +76,9 @@ modules: [
 }
 ```
 
-## Date Simulation
+## Caching Mechanism
 
-The module now supports date simulation for testing purposes. You can set a simulated date in two ways:
-
-1. In the module configuration using the `simulateDate` option.
-2. By sending a notification to the module during runtime.
-
-To change the simulated date during runtime, you can use the following notification:
-
-```javascript
-this.sendNotification("SIMULATE_DATE", { date: "05152024 10:30:00" });
-```
-
-This feature is particularly useful for testing the module's behavior on specific dates or times without having to wait for those dates to occur naturally.
+This module implements a caching mechanism that stores horoscopes locally. This helps reduce the number of requests and improves the module's performance. The module handles horoscope updates when necessary.
 
 ## Debugging
 
@@ -102,9 +91,14 @@ When `debug` is set to `true`, the module will display additional information on
 
 This information can be helpful when troubleshooting issues or verifying the module's behavior.
 
-## Caching Mechanism
+## Date Simulation
 
-This module implements a caching mechanism that stores horoscopes locally. This helps reduce the number of requests and improves the module's performance. The module handles horoscope updates when necessary.
+The module now supports date simulation for testing purposes. You can set a simulated date in two ways:
+
+1. In the module configuration using the `simulateDate` option.
+2. By sending a notification to the module during runtime.
+
+This feature is particularly useful for testing the module's behavior on specific dates or times without having to wait for those dates to occur naturally.
 
 ## Updating
 
