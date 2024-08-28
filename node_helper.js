@@ -160,18 +160,18 @@ module.exports = NodeHelper.create({
         return new Date();
     },
 
-getHoroscope: async function(config) {
+    getHoroscope: async function(config) {
         try {
             if (!config.sign || !config.period) {
                 throw new Error(`Invalid config: sign or period missing. Config: ${JSON.stringify(config)}`);
             }
-
+    
             if (!this.cache[config.sign]) {
                 this.cache[config.sign] = {};
             }
             const cachedData = this.cache[config.sign][config.period];
-
-            if (cachedData && this.isSameDay(new Date(cachedData.timestamp), this.getCurrentDate())) {
+    
+            if (!this.config.bypassCache && cachedData && this.isSameDay(new Date(cachedData.timestamp), this.getCurrentDate())) {
                 this.log(`Returning cached horoscope for ${config.sign}, period: ${config.period}`);
                 const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
                 const imagePath = await this.cacheImage(imageUrl, config.sign);
@@ -184,14 +184,14 @@ getHoroscope: async function(config) {
                     imagePath: imagePath 
                 };
             }
-
+    
             this.log(`Fetching new horoscope for ${config.sign}, period: ${config.period}`);
             const horoscope = await this.fetchHoroscope(config.sign, config.period);
             const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
             const imagePath = await this.cacheImage(imageUrl, config.sign);
-
+    
             const extractedHoroscope = this.extractHoroscopeText(horoscope);
-
+    
             const result = { 
                 data: extractedHoroscope,
                 sign: config.sign, 
@@ -199,7 +199,11 @@ getHoroscope: async function(config) {
                 cached: false,
                 imagePath: imagePath
             };
-            this.updateCache(config.sign, config.period, result);
+    
+            if (!this.config.bypassCache) {
+                this.updateCache(config.sign, config.period, result);
+            }
+    
             return result;
         } catch (error) {
             this.log(`Error in getHoroscope for ${config.sign}, ${config.period}: ${error.message}`, "error");

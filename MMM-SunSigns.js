@@ -7,12 +7,14 @@ Module.register("MMM-SunSigns", {
         maxTextHeight: "400px",
         width: "400px",
         fontSize: "1em",
-        debug: false,
         pauseDuration: 10000, // 10 seconds
         scrollSpeed: 7, // pixels per second
         signWaitTime: 50000, // 50 seconds
         startOfWeek: "Sunday",
-        simulateDate: null // Format: "MM/DD/YYYY"
+        simulateDate: null // Format: "MM/DD/YYYY",
+        debug: false,
+        clearCacheOnStart: false,
+        bypassCache: false
     },
 
     start: function() {
@@ -25,15 +27,20 @@ Module.register("MMM-SunSigns", {
         this.lastUpdateAttempt = null;
         this.updateFailures = 0;
         this.transitionState = "idle";
-
+    
         // Ensure that only configured periods are used
         this.config.period = this.config.period.filter(period => 
             ["daily", "tomorrow", "weekly", "monthly", "yearly"].includes(period)
         );
-
+    
+        if (this.config.debug && this.config.clearCacheOnStart) {
+            Log.info(this.name + ": Clearing cache on start");
+            this.sendSocketNotification("CLEAR_CACHE");
+        }
+    
         this.scheduleInitialUpdate();
         this.scheduleMidnightUpdate();
-
+    
         if (this.config.simulateDate) {
             this.sendSocketNotification("SET_SIMULATED_DATE", { date: this.config.simulateDate });
         }

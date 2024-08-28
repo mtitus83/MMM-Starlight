@@ -88,29 +88,15 @@ npm install
 
 This module implements a caching mechanism that stores horoscopes locally. This helps reduce the number of requests and improves the module's performance. The module handles horoscope updates when necessary.
 
-### Cache Clearing Option
-
-| Option               | Description                                            | Default |
-|----------------------|--------------------------------------------------------|---------|
-| `CLEAR_SUNSIGNS_CACHE` | A notification to clear the module's cache             | N/A     |
-
-The `CLEAR_SUNSIGNS_CACHE` option is not a configuration setting, but a notification that can be sent to the module to clear its cache. This is useful for debugging purposes or when you want to force the module to fetch fresh data.
-
-To use this option, you can send a notification to the module from the MagicMirror console or from another module:
-
-```javascript
-this.sendNotification("CLEAR_SUNSIGNS_CACHE");
-```
-
-When this notification is received, the module will clear its cache and fetch new horoscope data on the next update cycle.
-
 ## Debugging
 
 The module includes debugging options to help troubleshoot issues or verify the module's behavior.
 
-| Option    | Description                                                            | Default |
-|-----------|------------------------------------------------------------------------|---------|
-| `debug`   | Enable debug logging and display additional information on the screen. | `false` |
+| Option             | Description                                                            | Default |
+|--------------------|------------------------------------------------------------------------|---------|
+| `debug`            | Enable debug logging and display additional information on the screen. | `false` |
+| `clearCacheOnStart`| Clear the cache when the module starts (requires `debug: true`).       | `false` |
+| `bypassCache`      | Ignore the cache and always fetch new data (requires `debug: true`).   | `false` |
 
 When `debug` is set to `true`, the module will display additional information on the screen, including:
 
@@ -118,6 +104,30 @@ When `debug` is set to `true`, the module will display additional information on
 - Number of update failures
 - Current state of the module
 - The simulated date (if set)
+
+### Clear Cache on Start
+
+When both `debug` and `clearCacheOnStart` are set to `true`, the module will clear its cache every time it starts. This can be useful for testing or when you want to ensure you're always starting with fresh data.
+
+### Bypass Cache
+
+When both `debug` and `bypassCache` are set to `true`, the module will ignore its cache and always fetch new data from the website. This can be useful for testing or when you want to ensure you're always getting the most up-to-date information.
+
+Example configuration with debug options:
+
+```javascript
+{
+    module: "MMM-SunSigns",
+    position: "top_right",
+    config: {
+        zodiacSign: ["aries", "taurus", "gemini"],
+        period: ["daily", "weekly"],
+        debug: true,
+        clearCacheOnStart: true,
+        bypassCache: false
+    }
+}
+```
 
 ### Date Simulation
 
