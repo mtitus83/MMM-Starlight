@@ -411,6 +411,37 @@ module.exports = NodeHelper.create({
         }
     },
 
+    cacheImage: async function(imageUrl, sign) {
+        const imagePath = path.join(this.imageCacheDir, `${sign}.png`);
+
+        try {
+            // Check if image already exists
+            await fs.access(imagePath);
+            this.log(`Image for ${sign} already cached at ${imagePath}`, "debug");
+            return path.relative(__dirname, imagePath);
+        } catch (error) {
+            // Image doesn't exist, download it
+            this.log(`Attempting to download image for ${sign} from ${imageUrl}`, "debug");
+            try {
+                const response = await axios({
+                    url: imageUrl,
+                    method: 'GET',
+                    responseType: 'arraybuffer'
+                });
+                await fs.writeFile(imagePath, response.data);
+                this.log(`Image successfully cached for ${sign} at ${imagePath}`, "debug");
+                return path.relative(__dirname, imagePath);
+            } catch (error) {
+                this.log(`Error caching image for ${sign}: ${error}`, "error");
+                if (error.response) {
+                    this.log(`Status: ${error.response.status}`, "error");
+                    this.log(`Headers: ${JSON.stringify(error.response.headers)}`, "error");
+                }
+                return null;
+            }
+        }
+    },
+
     getCurrentDate: function() {
         if (this.simulatedDate) {
             // Create a new Date object with the current time but simulated date
