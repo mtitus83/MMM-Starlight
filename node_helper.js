@@ -301,16 +301,52 @@ module.exports = NodeHelper.create({
     },
 
     socketNotificationReceived: function(notification, payload) {
-        this.log(`Received socket notification: ${notification}`);
-        if (notification === "UPDATE_HOROSCOPES") {
-            this.log("Received UPDATE_HOROSCOPES notification");
-            this.log(`Payload: ${JSON.stringify(payload)}`);
-            this.queueHoroscopeUpdates(payload.zodiacSigns, payload.periods);
-        } else if (notification === "SET_SIMULATED_DATE") {
-            this.setSimulatedDate(payload.date);
-            this.scheduleUpdateWindow();
-        } else if (notification === "CLEAR_CACHE") {
-            this.clearCache();
+        Log.info(this.name + ": Received socket notification: " + notification);
+        if (notification === "HOROSCOPE_RESULT") {
+            Log.info(this.name + ": Received horoscope result", payload);
+            if (payload.success) {
+                if (!this.horoscopes[payload.sign]) {
+                    this.horoscopes[payload.sign] = {};
+                }
+                this.horoscopes[payload.sign][payload.period] = {
+                    data: payload.data,
+                    cached: payload.cached,
+                    imagePath: payload.imagePath
+                };
+    
+                this.loaded = true;
+                this.updateFailures = 0;
+                Log.info(this.name + ": Horoscope data loaded successfully");
+                Log.info(this.name + ": Current horoscopes:", JSON.stringify(this.horoscopes));
+                if (this.transitionState === "idle") {
+                    this.updateDom();
+                    this.scheduleNextTransition();
+                }
+            } else {
+                Log.error(this.name + ": Failed to fetch horoscope", payload);
+                this.updateFailures++;
+                // Retry in 1 hour if failed
+                setTimeout(() => {
+                    this.updateHoroscopes();
+                }, 60 * 60 * 1000);
+            }
+        } else if (notification === "HOROSCOPES_UPDATED") {
+            Log.info(this.name + ": Horoscopes updated");
+            this.updateDom(1000);
+        } else if (notification === "UPDATE_WINDOW_EXPIRED") {
+            Log.warn(this.name + ": Update window expired without finding new content");
+            Log.warn("Last successful update:", payload.lastUpdateCheck);
+            Log.warn("Number of attempts:", payload.attempts);
+            if (this.config.debug) {
+                this.updateDom(1000); // Update DOM to show debug info
+            }
+        } else if (notification === "ERROR") {
+            Log.error(this.name + ": Received error notification", payload);
+            if (this.config.debug) {
+                this.updateDom(1000); // Update DOM to show error info
+            }
+        } else {
+            Log.warn(this.name + ": Received unknown socket notification: " + notification);
         }
     },
 
@@ -338,16 +374,16 @@ module.exports = NodeHelper.create({
         }
         this.isProcessingQueue = true;
         this.log("Starting to process queue");
-
+    
         try {
             while (this.requestQueue.length > 0) {
                 const batch = this.requestQueue.splice(0, this.settings.maxConcurrentRequests);
                 this.log(`Processing batch of ${batch.length} requests`);
-
+    
                 const promises = batch.map(item => this.getHoroscope(item));
-
+    
                 const results = await Promise.all(promises);
-
+    
                 results.forEach(result => {
                     if (result.error) {
                         this.log(`Error fetching horoscope for ${result.sign}, ${result.period}: ${result.message}`, "error");
@@ -360,6 +396,7 @@ module.exports = NodeHelper.create({
                     } else {
                         const previewText = result.data ? result.data.substring(0, 50) : 'No horoscope text available';
                         this.log(`Successfully fetched horoscope for ${result.sign}, ${result.period}: ${previewText}...`);
+                        this.log(`Full result: ${JSON.stringify(result)}`, "debug");
                         this.sendSocketNotification("HOROSCOPE_RESULT", {
                             success: true,
                             sign: result.sign,
@@ -370,7 +407,7 @@ module.exports = NodeHelper.create({
                         });
                     }
                 });
-
+    
                 if (this.requestQueue.length > 0) {
                     this.log("Waiting before processing next batch");
                     await new Promise(resolve => setTimeout(resolve, 5000));

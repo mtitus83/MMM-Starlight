@@ -87,30 +87,34 @@ Module.register("MMM-SunSigns", {
         wrapper.className = "MMM-SunSigns";
         wrapper.style.width = this.config.width;
         wrapper.style.fontSize = this.config.fontSize;
-
+    
         if (!this.loaded) {
             wrapper.innerHTML = "Loading horoscope...";
             if (this.config.debug) {
                 wrapper.innerHTML += "<br>Last attempt: " + this.lastUpdateAttempt;
                 wrapper.innerHTML += "<br>Update failures: " + this.updateFailures;
             }
-            return wrapper;
+        } else if (Object.keys(this.horoscopes).length === 0) {
+            wrapper.innerHTML = "No horoscope data available.";
+            if (this.config.debug) {
+                wrapper.innerHTML += "<br>Check your configuration and network connection.";
+            }
+        } else {
+            var slideContainer = document.createElement("div");
+            slideContainer.className = "sunsigns-slide-container";
+    
+            var currentSign = this.config.zodiacSign[this.currentSignIndex];
+            var currentPeriod = this.config.period[this.currentPeriodIndex];
+            slideContainer.appendChild(this.createSignElement(currentSign, "current", currentPeriod));
+    
+            var nextIndices = this.getNextIndices();
+            var nextSign = this.config.zodiacSign[nextIndices.signIndex];
+            var nextPeriod = this.config.period[nextIndices.periodIndex];
+            slideContainer.appendChild(this.createSignElement(nextSign, "next", nextPeriod));
+    
+            wrapper.appendChild(slideContainer);
         }
-
-        var slideContainer = document.createElement("div");
-        slideContainer.className = "sunsigns-slide-container";
-
-        var currentSign = this.config.zodiacSign[this.currentSignIndex];
-        var currentPeriod = this.config.period[this.currentPeriodIndex];
-        slideContainer.appendChild(this.createSignElement(currentSign, "current", currentPeriod));
-
-        var nextIndices = this.getNextIndices();
-        var nextSign = this.config.zodiacSign[nextIndices.signIndex];
-        var nextPeriod = this.config.period[nextIndices.periodIndex];
-        slideContainer.appendChild(this.createSignElement(nextSign, "next", nextPeriod));
-
-        wrapper.appendChild(slideContainer);
-
+    
         if (this.config.debug) {
             var debugInfo = document.createElement("div");
             debugInfo.className = "small dimmed";
@@ -120,7 +124,7 @@ Module.register("MMM-SunSigns", {
                                    Simulated Date: ${this.config.simulateDate || "Not set"}`;
             wrapper.appendChild(debugInfo);
         }
-
+    
         return wrapper;
     },
 
