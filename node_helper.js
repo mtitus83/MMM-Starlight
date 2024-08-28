@@ -46,7 +46,118 @@ module.exports = NodeHelper.create({
         }
     },
 
-    // ... (other methods remain the same)
+    initializeCache: async function() {
+        this.cache = {};
+        const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
+        try {
+            const data = await fs.readFile(cacheFile, 'utf8');
+            this.cache = JSON.parse(data);
+            this.log("Cache initialized successfully");
+        } catch (error) {
+            if (error.code !== 'ENOENT') {
+                console.error("Error reading cache file:", error);
+            } else {
+                this.log("No existing cache file found. Starting with empty cache.");
+            }
+            this.cache = {};
+        }
+    },
+
+    saveCache: async function() {
+        const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
+        try {
+            await fs.writeFile(cacheFile, JSON.stringify(this.cache), 'utf8');
+            this.log("Cache saved successfully");
+        } catch (error) {
+            console.error("Error writing cache file:", error);
+        }
+    },
+
+    socketNotificationReceived: function(notification, payload) {
+        this.log(`Received socket notification: ${notification}`);
+        if (notification === "UPDATE_HOROSCOPES") {
+            this.log("Received UPDATE_HOROSCOPES notification");
+            this.log(`Payload: ${JSON.stringify(payload)}`);
+            this.queueHoroscopeUpdates(payload.zodiacSigns, payload.periods);
+        }
+    },
+
+    queueHoroscopeUpdates: function(signs, periods) {
+        this.log(`Queueing updates for signs: ${signs.join(', ')} and periods: ${periods.join(', ')}`);
+        signs.forEach(sign => {
+            periods.forEach(period => {
+                this.requestQueue.push({ sign, period });
+            });
+        });
+        this.log(`Queue size after adding requests: ${this.requestQueue.length}`);
+        this.processQueue().catch(error => {
+            console.error("Error in queueHoroscopeUpdates:", error);
+            this.sendSocketNotification("ERROR", {
+                type: "Queue Processing Error",
+                message: error.message
+            });
+        });
+    },
+
+    processQueue: async function() {
+        if (this.isProcessingQueue) {
+            this.log("Queue is already being processed");
+            return;
+        }
+        this.isProcessingQueue = true;
+        this.log("Starting to process queue");
+
+        try {
+            while (this.requestQueue.length > 0) {
+                const batch = this.requestQueue.splice(0, this.settings.maxConcurrentRequests);
+                this.log(`Processing batch of ${batch.length} requests`);
+
+                const promises = batch.map(item => this.getHoroscope(item).catch(error => ({
+                    error,
+                    sign: item.sign,
+                    period: item.period
+                })));
+
+                const results = await Promise.all(promises);
+
+                results.forEach(result => {
+                    if (result.error) {
+                        this.log(`Error fetching horoscope for ${result.sign}, ${result.period}: ${result.error.message}`);
+                        this.sendSocketNotification("HOROSCOPE_RESULT", {
+                            success: false,
+                            sign: result.sign,
+                            period: result.period,
+                            message: result.error.message
+                        });
+                    } else {
+                        this.log(`Successfully fetched horoscope for ${result.sign}, ${result.period}`);
+                        this.sendSocketNotification("HOROSCOPE_RESULT", {
+                            success: true,
+                            sign: result.sign,
+                            period: result.period,
+                            data: result.data,
+                            cached: result.cached,
+                            imagePath: result.imagePath
+                        });
+                    }
+                });
+
+                if (this.requestQueue.length > 0) {
+                    this.log("Waiting before processing next batch");
+                    await new Promise(resolve => setTimeout(resolve, 5000));
+                }
+            }
+        } catch (error) {
+            console.error("Unexpected error in processQueue:", error);
+            this.sendSocketNotification("ERROR", {
+                type: "Queue Processing Error",
+                message: error.message
+            });
+        } finally {
+            this.isProcessingQueue = false;
+            this.log("Queue processing complete");
+        }
+    },
 
     getHoroscope: async function(config) {
         const cacheKey = `${config.sign}_${config.period}`;
@@ -64,7 +175,26 @@ module.exports = NodeHelper.create({
         let baseUrl = 'https://www.sunsigns.com/horoscopes';
         let url;
 
-        // ... (switch statement for url remains the same)
+        switch (config.period) {
+            case 'daily':
+                url = `${baseUrl}/daily/${config.sign}`;
+                break;
+            case 'tomorrow':
+                url = `${baseUrl}/daily/${config.sign}/tomorrow`;
+                break;
+            case 'weekly':
+                url = `${baseUrl}/weekly/${config.sign}`;
+                break;
+            case 'monthly':
+                url = `${baseUrl}/monthly/${config.sign}`;
+                break;
+            case 'yearly':
+                const currentYear = new Date().getFullYear();
+                url = `${baseUrl}/yearly/${currentYear}/${config.sign}`;
+                break;
+            default:
+                throw new Error(`Invalid period: ${config.period}`);
+        }
 
         let retries = 0;
         while (retries < this.settings.maxRetries) {
