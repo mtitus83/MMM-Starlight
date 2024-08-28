@@ -64,9 +64,9 @@ Module.register("MMM-SunSigns", {
     updateHoroscopes: function() {
         this.lastUpdateAttempt = new Date().toLocaleString();
         Log.info(this.name + ": Sending UPDATE_HOROSCOPES notification");
-        
+
         let periodsToUpdate = this.getPeriodsToUpdate();
-        
+
         this.sendSocketNotification("UPDATE_HOROSCOPES", {
             zodiacSigns: this.config.zodiacSign,
             periods: periodsToUpdate,
@@ -80,6 +80,8 @@ Module.register("MMM-SunSigns", {
         for (let period of this.config.period) {
             switch(period) {
                 case "daily":
+                    // We don't need to update daily, it will be replaced by yesterday's "tomorrow"
+                    break;
                 case "tomorrow":
                     periodsToUpdate.push(period);
                     break;
@@ -115,9 +117,9 @@ Module.register("MMM-SunSigns", {
 
     isStartOfWeek: function(date) {
         if (this.config.startOfWeek === "Sunday") {
-            return date.getDay() === 1; // Monday
-        } else {
             return date.getDay() === 0; // Sunday
+        } else {
+            return date.getDay() === 1; // Monday
         }
     },
 
@@ -313,6 +315,16 @@ Module.register("MMM-SunSigns", {
                     cached: payload.cached,
                     imagePath: payload.imagePath
                 };
+                
+                // If we received a 'tomorrow' horoscope, also update 'daily'
+                if (payload.period === 'tomorrow') {
+                    this.horoscopes[payload.sign]['daily'] = {
+                        data: this.horoscopes[payload.sign]['tomorrow'].data,
+                        cached: true,
+                        imagePath: this.horoscopes[payload.sign]['tomorrow'].imagePath
+                    };
+                }
+                
                 this.loaded = true;
                 this.updateFailures = 0;
                 Log.info(this.name + ": Horoscope data loaded successfully");

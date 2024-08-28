@@ -15,8 +15,7 @@ module.exports = NodeHelper.create({
         this.debug = true;
 
         this.settings = {
-            updateInterval: 12 * 60 * 60 * 1000, // 12 hours
-            cacheDuration: 11 * 60 * 60 * 1000, // 11 hours
+            cacheDuration: 23 * 60 * 60 * 1000, // 23 hours
             maxConcurrentRequests: 2,
             retryDelay: 5 * 60 * 1000, // 5 minutes
             maxRetries: 3
@@ -113,6 +112,13 @@ module.exports = NodeHelper.create({
         this.isProcessingQueue = true;
         this.log("Starting to process queue");
 
+        // Check if it's a new day and swap tomorrow to daily if so
+        const now = new Date();
+        if (this.lastProcessedDay && this.lastProcessedDay !== now.getDate()) {
+            this.swapTomorrowToDaily();
+        }
+        this.lastProcessedDay = now.getDate();
+
         try {
             while (this.requestQueue.length > 0) {
                 const batch = this.requestQueue.splice(0, this.settings.maxConcurrentRequests);
@@ -165,6 +171,17 @@ module.exports = NodeHelper.create({
         }
     },
 
+    swapTomorrowToDaily: function() {
+        this.log("Swapping tomorrow's horoscopes to daily");
+        for (let sign in this.cache) {
+            if (this.cache[sign] && this.cache[sign]['tomorrow']) {
+                this.cache[sign]['daily'] = this.cache[sign]['tomorrow'];
+                delete this.cache[sign]['tomorrow'];
+            }
+        }
+        this.saveCache();
+    },
+
     getHoroscope: async function(config) {
         const cacheKey = `${config.sign}_${config.period}`;
         const cachedData = this.cache[cacheKey];
@@ -212,7 +229,7 @@ module.exports = NodeHelper.create({
                 if (horoscope) {
                     const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
                     const imagePath = await this.cacheImage(imageUrl, config.sign);
-                    
+
                     const result = { 
                         data: horoscope, 
                         sign: config.sign, 
@@ -244,7 +261,7 @@ module.exports = NodeHelper.create({
 
     cacheImage: async function(imageUrl, sign) {
         const imagePath = path.join(this.imageCacheDir, `${sign}.png`);
-        
+
         try {
             // Check if image already exists
             await fs.access(imagePath);
