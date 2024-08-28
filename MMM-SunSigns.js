@@ -28,30 +28,36 @@ Module.register("MMM-SunSigns", {
         this.updateFailures = 0;
         this.transitionState = "idle";
     
+        Log.info(this.name + ": Configuration:", JSON.stringify(this.config));
+    
         // Ensure that only configured periods are used
         this.config.period = this.config.period.filter(period => 
             ["daily", "tomorrow", "weekly", "monthly", "yearly"].includes(period)
         );
+        Log.info(this.name + ": Filtered periods:", JSON.stringify(this.config.period));
     
         if (this.config.debug && this.config.clearCacheOnStart) {
             Log.info(this.name + ": Clearing cache on start");
             this.sendSocketNotification("CLEAR_CACHE");
         }
     
+        Log.info(this.name + ": Scheduling initial update");
         this.scheduleInitialUpdate();
+        Log.info(this.name + ": Scheduling midnight update");
         this.scheduleMidnightUpdate();
     
         if (this.config.simulateDate) {
+            Log.info(this.name + ": Setting simulated date to " + this.config.simulateDate);
             this.sendSocketNotification("SET_SIMULATED_DATE", { date: this.config.simulateDate });
         }
-    },
-
-    getStyles: function() {
-        return ["MMM-SunSigns.css"];
+    
+        Log.info(this.name + ": Start function completed");
     },
 
     scheduleInitialUpdate: function() {
+        Log.info(this.name + ": Scheduling initial update");
         setTimeout(() => {
+            Log.info(this.name + ": Executing initial update");
             this.updateHoroscopes();
         }, 1000);
     },
@@ -75,7 +81,9 @@ Module.register("MMM-SunSigns", {
     updateHoroscopes: function() {
         this.lastUpdateAttempt = new Date().toLocaleString();
         Log.info(this.name + ": Sending UPDATE_HOROSCOPES notification");
-
+        Log.info(this.name + ": Zodiac signs:", JSON.stringify(this.config.zodiacSign));
+        Log.info(this.name + ": Periods:", JSON.stringify(this.config.period));
+    
         this.sendSocketNotification("UPDATE_HOROSCOPES", {
             zodiacSigns: this.config.zodiacSign,
             periods: this.config.period,

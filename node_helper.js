@@ -301,52 +301,20 @@ module.exports = NodeHelper.create({
     },
 
     socketNotificationReceived: function(notification, payload) {
-        Log.info(this.name + ": Received socket notification: " + notification);
-        if (notification === "HOROSCOPE_RESULT") {
-            Log.info(this.name + ": Received horoscope result", payload);
-            if (payload.success) {
-                if (!this.horoscopes[payload.sign]) {
-                    this.horoscopes[payload.sign] = {};
-                }
-                this.horoscopes[payload.sign][payload.period] = {
-                    data: payload.data,
-                    cached: payload.cached,
-                    imagePath: payload.imagePath
-                };
-    
-                this.loaded = true;
-                this.updateFailures = 0;
-                Log.info(this.name + ": Horoscope data loaded successfully");
-                Log.info(this.name + ": Current horoscopes:", JSON.stringify(this.horoscopes));
-                if (this.transitionState === "idle") {
-                    this.updateDom();
-                    this.scheduleNextTransition();
-                }
-            } else {
-                Log.error(this.name + ": Failed to fetch horoscope", payload);
-                this.updateFailures++;
-                // Retry in 1 hour if failed
-                setTimeout(() => {
-                    this.updateHoroscopes();
-                }, 60 * 60 * 1000);
-            }
-        } else if (notification === "HOROSCOPES_UPDATED") {
-            Log.info(this.name + ": Horoscopes updated");
-            this.updateDom(1000);
-        } else if (notification === "UPDATE_WINDOW_EXPIRED") {
-            Log.warn(this.name + ": Update window expired without finding new content");
-            Log.warn("Last successful update:", payload.lastUpdateCheck);
-            Log.warn("Number of attempts:", payload.attempts);
-            if (this.config.debug) {
-                this.updateDom(1000); // Update DOM to show debug info
-            }
-        } else if (notification === "ERROR") {
-            Log.error(this.name + ": Received error notification", payload);
-            if (this.config.debug) {
-                this.updateDom(1000); // Update DOM to show error info
-            }
+        this.log(`Received socket notification: ${notification}`);
+        if (notification === "UPDATE_HOROSCOPES") {
+            this.log("Received UPDATE_HOROSCOPES notification");
+            this.log(`Payload: ${JSON.stringify(payload)}`);
+            this.queueHoroscopeUpdates(payload.zodiacSigns, payload.periods);
+        } else if (notification === "SET_SIMULATED_DATE") {
+            this.log(`Setting simulated date: ${payload.date}`);
+            this.setSimulatedDate(payload.date);
+            this.scheduleUpdateWindow();
+        } else if (notification === "CLEAR_CACHE") {
+            this.log("Clearing cache");
+            this.clearCache();
         } else {
-            Log.warn(this.name + ": Received unknown socket notification: " + notification);
+            this.log(`Unknown notification received: ${notification}`);
         }
     },
 
