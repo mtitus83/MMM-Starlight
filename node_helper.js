@@ -42,13 +42,19 @@ module.exports = NodeHelper.create({
             await fs.mkdir(this.cacheDir, { recursive: true });
             await fs.mkdir(this.imageCacheDir, { recursive: true });
             console.log("Cache directories created successfully");
+    
+            await this.initializeCache();
+            await this.checkCacheTimestamps();
+    
+            this.log("Node helper initialized");
         } catch (error) {
-            console.error("Error creating cache directories:", error);
+            console.error("Error during initialization:", error);
+            this.sendSocketNotification("ERROR", {
+                type: "Initialization Error",
+                message: error.message || "Unknown error occurred during initialization"
+            });
         }
-
-        await this.initializeCache();
-        await this.checkCacheTimestamps();
-
+    
         process.on('unhandledRejection', (reason, promise) => {
             console.error('Unhandled Rejection at:', promise, 'reason:', reason);
             this.sendSocketNotification("ERROR", {
@@ -56,31 +62,6 @@ module.exports = NodeHelper.create({
                 message: reason.message || "Unknown error occurred"
             });
         });
-
-        this.log("Node helper initialized");
-    },
-
-    initializeCache: async function() {
-        const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
-        try {
-            const data = await fs.readFile(cacheFile, 'utf8');
-            const parsedCache = JSON.parse(data);
-            
-            if (parsedCache.version !== CACHE_VERSION) {
-                this.log("Cache version mismatch. Clearing old cache.", "warn");
-                this.cache = { version: CACHE_VERSION };
-            } else {
-                this.cache = parsedCache;
-            }
-            this.log("Cache initialized successfully");
-        } catch (error) {
-            if (error.code !== 'ENOENT') {
-                console.error("Error reading cache file:", error);
-            } else {
-                this.log("No existing cache file found. Starting with empty cache.");
-            }
-            this.cache = { version: CACHE_VERSION };
-        }
     },
 
     saveCache: async function() {
@@ -100,39 +81,47 @@ module.exports = NodeHelper.create({
     },
 
     checkCacheTimestamps: async function() {
-        this.log("Checking cache timestamps", "info");
-        const currentDate = this.getCurrentDate();
-        let updatesNeeded = false;
-
-        for (let sign in this.cache) {
-            if (sign === 'version') continue;
-            for (let period of ['daily', 'tomorrow']) {
-                if (this.cache[sign][period]) {
-                    const cachedDate = new Date(this.cache[sign][period].timestamp);
-                    if (!this.isSameDay(cachedDate, currentDate)) {
-                        this.log(`Stale '${period}' data found for ${sign}. Updating...`, "warn");
-                        if (period === 'tomorrow') {
-                            if (this.cache[sign]['daily']) {
-                                this.cache[sign]['daily'] = this.cache[sign]['tomorrow'];
-                                this.cache[sign]['daily'].timestamp = currentDate.getTime();
-                                this.log(`Updated 'daily' data for ${sign} with previous 'tomorrow' data`, "info");
+        try {
+            this.log("Checking cache timestamps", "info");
+            const currentDate = this.getCurrentDate();
+            let updatesNeeded = false;
+    
+            for (let sign in this.cache) {
+                if (sign === 'version') continue;
+                for (let period of ['daily', 'tomorrow']) {
+                    if (this.cache[sign][period]) {
+                        const cachedDate = new Date(this.cache[sign][period].timestamp);
+                        if (!this.isSameDay(cachedDate, currentDate)) {
+                            this.log(`Stale '${period}' data found for ${sign}. Updating...`, "warn");
+                            if (period === 'tomorrow') {
+                                if (this.cache[sign]['daily']) {
+                                    this.cache[sign]['daily'] = this.cache[sign]['tomorrow'];
+                                    this.cache[sign]['daily'].timestamp = currentDate.getTime();
+                                    this.log(`Updated 'daily' data for ${sign} with previous 'tomorrow' data`, "info");
+                                }
+                                delete this.cache[sign]['tomorrow'];
+                            } else {
+                                delete this.cache[sign]['daily'];
                             }
-                            delete this.cache[sign]['tomorrow'];
-                        } else {
-                            delete this.cache[sign]['daily'];
+                            updatesNeeded = true;
                         }
-                        updatesNeeded = true;
                     }
                 }
             }
-        }
-
-        if (updatesNeeded) {
-            await this.saveCache();
-            this.log("Cache updated due to stale timestamps", "info");
-            this.updateHoroscopes();
-        } else {
-            this.log("All cache timestamps are current", "info");
+    
+            if (updatesNeeded) {
+                await this.saveCache();
+                this.log("Cache updated due to stale timestamps", "info");
+                this.updateHoroscopes();
+            } else {
+                this.log("All cache timestamps are current", "info");
+            }
+        } catch (error) {
+            console.error("Error checking cache timestamps:", error);
+            this.sendSocketNotification("ERROR", {
+                type: "Cache Timestamp Check Error",
+                message: error.message || "Unknown error occurred while checking cache timestamps"
+            });
         }
     },
 
@@ -309,14 +298,26 @@ getHoroscope: async function(config) {
         if (notification === "UPDATE_HOROSCOPES") {
             this.log("Received UPDATE_HOROSCOPES notification");
             this.log(`Payload: ${JSON.stringify(payload)}`);
-            this.queueHoroscopeUpdates(payload.zodiacSigns, payload.periods);
+            this.queueHoroscopeUpdates(payload.zodiacSigns, payload.periods).catch(error => {
+                console.error("Error in queueHoroscopeUpdates:", error);
+                this.sendSocketNotification("ERROR", {
+                    type: "Queue Processing Error",
+                    message: error.message || "Unknown error occurred while queueing horoscope updates"
+                });
+            });
         } else if (notification === "SET_SIMULATED_DATE") {
             this.log(`Setting simulated date: ${payload.date}`);
             this.setSimulatedDate(payload.date);
             this.scheduleUpdateWindow();
         } else if (notification === "CLEAR_CACHE") {
             this.log("Clearing cache");
-            this.clearCache();
+            this.clearCache().catch(error => {
+                console.error("Error clearing cache:", error);
+                this.sendSocketNotification("ERROR", {
+                    type: "Cache Clear Error",
+                    message: error.message || "Unknown error occurred while clearing cache"
+                });
+            });
         } else {
             this.log(`Unknown notification received: ${notification}`);
         }
