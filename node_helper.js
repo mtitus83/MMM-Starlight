@@ -64,12 +64,12 @@ module.exports = NodeHelper.create({
             this.simulatedDate = parsedDate;
             this.log(`Simulated date set to: ${this.simulatedDate.toLocaleString()}`, "warn");
         } else {
-            this.log(`Invalid simulated date format: ${dateString}. Expected format: MMDDYYYY HH:MM:SS`, "error");
+            this.log(`Invalid simulated date format: ${dateString}. Expected format: MM/DD/YYYY HH:MM:SS`, "error");
         }
     },
 
     parseSimulatedDateString: function(dateString) {
-        const regex = /^(\d{2})(\d{2})(\d{4}) (\d{2}):(\d{2}):(\d{2})$/;
+        const regex = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})$/;
         const match = dateString.match(regex);
         if (match) {
             const [, month, day, year, hours, minutes, seconds] = match;

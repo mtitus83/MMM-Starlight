@@ -69,7 +69,7 @@ modules: [
         pauseDuration: 5000, // 5 seconds pause before and after scrolling
         signWaitTime: 60000, // 1 minute
         debug: true,
-        simulateDate: "05152024 10:30:00" // Simulate May 15, 2024 at 10:30 AM
+        simulateDate: "05/15/2024 10:30:00" // Simulate May 15, 2024 at 10:30 AM
     }
 }
 ```
@@ -107,7 +107,7 @@ The module supports date simulation for testing purposes. This feature is partic
 
 | Option         | Description                                                     | Default |
 |----------------|-----------------------------------------------------------------|---------|
-| `simulateDate` | Simulate a specific date for testing. Format: "MMDDYYYY HH:MM:SS" | `null`  |
+| `simulateDate` | Simulate a specific date for testing. Format: "MM/DD/YYYY HH:MM:SS" (24-hour time) | `null`  |
 
 ## Contributing
 

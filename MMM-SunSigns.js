@@ -25,16 +25,16 @@ Module.register("MMM-SunSigns", {
         this.lastUpdateAttempt = null;
         this.updateFailures = 0;
         this.transitionState = "idle";
-
+    
         // Merge user-defined periods with defaults, maintaining order and removing duplicates
         if (this.config.period && Array.isArray(this.config.period)) {
             let mergedPeriods = [...new Set([...this.config.period, ...this.defaults.period])];
             this.config.period = mergedPeriods;
         }
-
+    
         this.scheduleInitialUpdate();
         this.scheduleMidnightUpdate();
-
+    
         if (this.config.simulateDate) {
             this.sendSocketNotification("SET_SIMULATED_DATE", { date: this.config.simulateDate });
         }
