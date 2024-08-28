@@ -34,6 +34,7 @@ Module.register("MMM-SunSigns", {
         this.scheduleInitialUpdate();
         this.scheduleMidnightUpdate();
     },
+
     getStyles: function() {
         return ["MMM-SunSigns.css"];
     },
@@ -183,7 +184,7 @@ Module.register("MMM-SunSigns", {
         var horoscopeTextElement = document.createElement("div");
         horoscopeTextElement.className = "sunsigns-text";
         horoscopeTextElement.innerHTML = this.horoscopes[sign] && this.horoscopes[sign][period] 
-            ? this.horoscopes[sign][period] 
+            ? this.horoscopes[sign][period].data 
             : "Loading " + period + " horoscope for " + sign + "...";
         horoscopeWrapper.appendChild(horoscopeTextElement);
 
@@ -194,7 +195,11 @@ Module.register("MMM-SunSigns", {
             var imageWrapper = document.createElement("div");
             imageWrapper.className = "sunsigns-image-wrapper";
             var image = document.createElement("img");
-            image.src = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
+            if (this.horoscopes[sign] && this.horoscopes[sign][period] && this.horoscopes[sign][period].imagePath) {
+                image.src = this.file(this.horoscopes[sign][period].imagePath);
+            } else {
+                image.src = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
+            }
             image.alt = sign + " zodiac sign";
             image.style.width = this.config.imageWidth;
             imageWrapper.appendChild(image);
@@ -303,7 +308,11 @@ Module.register("MMM-SunSigns", {
                 if (!this.horoscopes[payload.sign]) {
                     this.horoscopes[payload.sign] = {};
                 }
-                this.horoscopes[payload.sign][payload.period] = payload.data;
+                this.horoscopes[payload.sign][payload.period] = {
+                    data: payload.data,
+                    cached: payload.cached,
+                    imagePath: payload.imagePath
+                };
                 this.loaded = true;
                 this.updateFailures = 0;
                 Log.info(this.name + ": Horoscope data loaded successfully");

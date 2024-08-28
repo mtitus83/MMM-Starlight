@@ -8,10 +8,12 @@ module.exports = NodeHelper.create({
     start: async function() {
         console.log("Starting node helper for: " + this.name);
         this.cacheDir = path.join(__dirname, 'cache');
+        this.imageCacheDir = path.join(this.cacheDir, 'images');
         try {
             await fs.mkdir(this.cacheDir, { recursive: true });
+            await fs.mkdir(this.imageCacheDir, { recursive: true });
         } catch (error) {
-            console.error("Error creating cache directory:", error);
+            console.error("Error creating cache directories:", error);
         }
         await this.initializeCache();
         this.requestQueue = [];
@@ -129,7 +131,8 @@ module.exports = NodeHelper.create({
                             sign: result.sign,
                             period: result.period,
                             data: result.data,
-                            cached: result.cached
+                            cached: result.cached,
+                            imagePath: result.imagePath
                         });
                     }
                 });
@@ -193,7 +196,16 @@ module.exports = NodeHelper.create({
                 const horoscope = $('.horoscope-content p').text().trim();
 
                 if (horoscope) {
-                    const result = { data: horoscope, sign: config.sign, period: config.period, cached: false };
+                    const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
+                    const imagePath = await this.cacheImage(imageUrl, config.sign);
+                    
+                    const result = { 
+                        data: horoscope, 
+                        sign: config.sign, 
+                        period: config.period, 
+                        cached: false,
+                        imagePath: imagePath
+                    };
                     this.cache[cacheKey] = {
                         data: result,
                         timestamp: Date.now()
@@ -213,6 +225,24 @@ module.exports = NodeHelper.create({
                     throw new Error(`Max retries reached. Unable to fetch horoscope for ${config.sign}, ${config.period}`);
                 }
             }
+        }
+    },
+
+    cacheImage: async function(imageUrl, sign) {
+        const imagePath = path.join(this.imageCacheDir, `${sign}.png`);
+        
+        try {
+            const response = await axios({
+                url: imageUrl,
+                method: 'GET',
+                responseType: 'arraybuffer'
+            });
+            await fs.writeFile(imagePath, response.data);
+            this.log(`Image cached for ${sign}`);
+            return imagePath;
+        } catch (error) {
+            console.error(`Error caching image for ${sign}:`, error);
+            return null;
         }
     }
 });
