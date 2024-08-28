@@ -332,11 +332,23 @@ socketNotificationReceived: function(notification, payload) {
     },
 
     fetchHoroscope: async function(sign, period) {
-        const url = `https://www.sunsigns.com/horoscopes/${period === 'tomorrow' ? 'daily/' + sign + '/tomorrow' : period + '/' + sign}`;
+        let url;
+        if (period === 'yearly') {
+            const currentYear = new Date().getFullYear();
+            url = `https://www.sunsigns.com/horoscopes/yearly/${currentYear}/${sign}`;
+        } else {
+            url = `https://www.sunsigns.com/horoscopes/${period === 'tomorrow' ? 'daily/' + sign + '/tomorrow' : period + '/' + sign}`;
+        }
         this.log(`Fetching horoscope for ${sign} (${period}) from ${url}`, "debug");
         const response = await axios.get(url, { timeout: 30000 });
         const $ = cheerio.load(response.data);
-        const horoscope = $('.horoscope-content p').text().trim();
+        let horoscope;
+        if (period === 'yearly') {
+            // Adjust this selector based on the actual structure of the yearly horoscope page
+            horoscope = $('.horoscope-content').text().trim();
+        } else {
+            horoscope = $('.horoscope-content p').text().trim();
+        }
         if (!horoscope) {
             throw new Error(`No horoscope content found for ${sign} (${period})`);
         }
