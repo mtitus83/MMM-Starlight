@@ -480,11 +480,6 @@ socketNotificationReceived: function(notification, payload) {
         }
     },
 
-    process.on('unhandledRejection', (reason, promise) => {
-        console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-        // You can add additional logging or error reporting here
-    });
-
     isNewContent: function(sign, newHoroscope) {
         const currentDaily = this.cache[sign]?.['daily']?.data;
         const currentTomorrow = this.cache[sign]?.['tomorrow']?.data;
