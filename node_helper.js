@@ -159,8 +159,15 @@ module.exports = NodeHelper.create({
                 this.log(`Returning cached horoscope for ${config.sign}, period: ${config.period}`);
                 const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
                 const imagePath = await this.cacheImage(imageUrl, config.sign);
+                
+                if (typeof cachedData.data !== 'string') {
+                    this.log(`Cached data for ${config.sign}, ${config.period} is not a string. Type: ${typeof cachedData.data}`, "warn");
+                    // Attempt to convert to string if possible
+                    cachedData.data = String(cachedData.data);
+                }
+                
                 return { 
-                    data: typeof cachedData.data === 'string' ? cachedData.data : "Cached data is not a string",
+                    data: cachedData.data || "No horoscope data available",
                     sign: config.sign, 
                     period: config.period, 
                     cached: true, 
@@ -177,6 +184,10 @@ module.exports = NodeHelper.create({
                 throw new Error(`Fetched horoscope is not a string. Type: ${typeof horoscope}`);
             }
     
+            if (horoscope.trim() === '') {
+                throw new Error(`Fetched horoscope is empty`);
+            }
+    
             const result = { 
                 data: horoscope,
                 sign: config.sign, 
@@ -188,7 +199,6 @@ module.exports = NodeHelper.create({
             return result;
         } catch (error) {
             this.log(`Error in getHoroscope for ${config.sign}, ${config.period}: ${error.message}`, "error");
-            // Instead of throwing, return an error object
             return {
                 error: true,
                 message: error.message,
@@ -202,6 +212,12 @@ module.exports = NodeHelper.create({
         if (!this.cache[sign]) {
             this.cache[sign] = {};
         }
+        
+        if (typeof content.data !== 'string') {
+            this.log(`Attempting to cache non-string data for ${sign}, ${period}. Converting to string.`, "warn");
+            content.data = String(content.data);
+        }
+        
         this.cache[sign][period] = {
             data: content.data,
             timestamp: this.getCurrentDate().getTime()
