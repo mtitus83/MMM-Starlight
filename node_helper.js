@@ -6,10 +6,17 @@ var cheerio = require("cheerio");
 const fs = require('fs').promises;
 const path = require('path');
 
+// Global unhandled promise rejection handler
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    // You can add additional logging or error reporting here
+});
+
 const CACHE_VERSION = 1;
 
 module.exports = NodeHelper.create({
     console.log("MMM-SunSigns NodeHelper is being created");
+    
     start: function() {
         console.log("Starting node helper for: " + this.name);
         this.cacheDir = path.join(__dirname, 'cache');
@@ -35,14 +42,10 @@ module.exports = NodeHelper.create({
 
         this.initialize().catch(error => {
             console.error("Error during initialization:", error);
-            this.sendSocketNotification("ERROR", {
-                type: "Initialization Error",
-                message: error.message || "Unknown error occurred during initialization"
-            });
         });
     },
 
-    initialize: async function() {
+initialize: async function() {
         try {
             await fs.mkdir(this.cacheDir, { recursive: true });
             await fs.mkdir(this.imageCacheDir, { recursive: true });
@@ -50,14 +53,6 @@ module.exports = NodeHelper.create({
 
             await this.initializeCache();
             await this.checkCacheTimestamps();
-
-            process.on('unhandledRejection', (reason, promise) => {
-                console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-                this.sendSocketNotification("ERROR", {
-                    type: "Unhandled Rejection",
-                    message: reason.message || "Unknown error occurred"
-                });
-            });
 
             this.log("Node helper initialized");
         } catch (error) {
@@ -111,7 +106,7 @@ module.exports = NodeHelper.create({
         }
     },
 
-    checkCacheTimestamps: async function() {
+checkCacheTimestamps: async function() {
         try {
             this.log("Checking cache timestamps", "info");
             const currentDate = this.getCurrentDate();
@@ -299,7 +294,7 @@ socketNotificationReceived: function(notification, payload) {
             }
             const cachedData = this.cache[config.sign][config.period];
 
-            if (!this.config.bypassCache && cachedData && this.isSameDay(new Date(cachedData.timestamp), this.getCurrentDate())) {
+            if (cachedData && this.isSameDay(new Date(cachedData.timestamp), this.getCurrentDate())) {
                 this.log(`Returning cached horoscope for ${config.sign}, period: ${config.period}`);
                 const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
                 const imagePath = await this.cacheImage(imageUrl, config.sign);
@@ -318,20 +313,14 @@ socketNotificationReceived: function(notification, payload) {
             const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
             const imagePath = await this.cacheImage(imageUrl, config.sign);
 
-            const extractedHoroscope = this.extractHoroscopeText(horoscope);
-
             const result = { 
-                data: extractedHoroscope,
+                data: horoscope,
                 sign: config.sign, 
                 period: config.period, 
                 cached: false,
                 imagePath: imagePath
             };
-
-            if (!this.config.bypassCache) {
-                this.updateCache(config.sign, config.period, result);
-            }
-
+            this.updateCache(config.sign, config.period, result);
             return result;
         } catch (error) {
             this.log(`Error in getHoroscope for ${config.sign}, ${config.period}: ${error.message}`, "error");
@@ -347,50 +336,14 @@ socketNotificationReceived: function(notification, payload) {
     fetchHoroscope: async function(sign, period) {
         const url = `https://www.sunsigns.com/horoscopes/${period === 'tomorrow' ? 'daily/' + sign + '/tomorrow' : period + '/' + sign}`;
         this.log(`Fetching horoscope for ${sign} (${period}) from ${url}`, "debug");
-        try {
-            const response = await axios.get(url, { timeout: 30000 });
-            const $ = cheerio.load(response.data);
-            const horoscope = $('.horoscope-content p').text().trim();
-            if (!horoscope) {
-                throw new Error(`No horoscope content found for ${sign} (${period})`);
-            }
-            this.log(`Fetched horoscope for ${sign} (${period}). Length: ${horoscope.length} characters`, "debug");
-            return horoscope;
-        } catch (error) {
-            this.log(`Error fetching horoscope for ${sign} (${period}): ${error.message}`, "error");
-            throw error;
+        const response = await axios.get(url, { timeout: 30000 });
+        const $ = cheerio.load(response.data);
+        const horoscope = $('.horoscope-content p').text().trim();
+        if (!horoscope) {
+            throw new Error(`No horoscope content found for ${sign} (${period})`);
         }
-    },
-
-    extractHoroscopeText: function(data) {
-        const extractText = (obj) => {
-            if (typeof obj === 'string') {
-                return obj;
-            } else if (obj && typeof obj === 'object') {
-                if (obj.data) return extractText(obj.data);
-                if (obj.text) return obj.text;
-            }
-            return null;
-        };
-
-        let result = data;
-        let attempts = 0;
-        while (typeof result === 'string' && attempts < 3) {
-            try {
-                result = JSON.parse(result);
-                attempts++;
-            } catch (e) {
-                break;
-            }
-        }
-
-        const extractedText = extractText(result);
-        if (extractedText) {
-            return extractedText;
-        } else {
-            this.log(`Unable to extract horoscope text from: ${JSON.stringify(result)}`, "warn");
-            return "Horoscope text not available. Please try again later.";
-        }
+        this.log(`Fetched horoscope for ${sign} (${period}). Length: ${horoscope.length} characters`, "debug");
+        return horoscope;
     },
 
     updateCache: function(sign, period, content) {
@@ -398,13 +351,11 @@ socketNotificationReceived: function(notification, payload) {
             this.cache[sign] = {};
         }
         
-        let horoscopeText = this.extractHoroscopeText(content.data);
-        
         this.cache[sign][period] = {
-            data: horoscopeText,
+            data: content.data,
             timestamp: this.getCurrentDate().getTime()
         };
-        this.log(`Updated cache for ${sign} (${period}): ${horoscopeText.substring(0, 50)}...`, "debug");
+        this.log(`Updated cache for ${sign} (${period}): ${content.data.substring(0, 50)}...`, "debug");
         this.saveCache();
     },
 
