@@ -144,50 +144,42 @@ module.exports = NodeHelper.create({
         return new Date();
     },
 
-getHoroscope: async function(config) {
+    getHoroscope: async function(config) {
         try {
             if (!config.sign || !config.period) {
                 throw new Error(`Invalid config: sign or period missing. Config: ${JSON.stringify(config)}`);
             }
-
+    
             if (!this.cache[config.sign]) {
                 this.cache[config.sign] = {};
             }
             const cachedData = this.cache[config.sign][config.period];
-
+    
             if (cachedData && this.isSameDay(new Date(cachedData.timestamp), this.getCurrentDate())) {
                 this.log(`Returning cached horoscope for ${config.sign}, period: ${config.period}`);
                 const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
                 const imagePath = await this.cacheImage(imageUrl, config.sign);
                 
-                if (typeof cachedData.data !== 'string') {
-                    this.log(`Cached data for ${config.sign}, ${config.period} is not a string. Type: ${typeof cachedData.data}`, "warn");
-                    // Attempt to convert to string if possible
-                    cachedData.data = String(cachedData.data);
+                let horoscopeText = cachedData.data;
+                if (typeof horoscopeText !== 'string') {
+                    this.log(`Cached data for ${config.sign}, ${config.period} is not a string. Type: ${typeof horoscopeText}`, "warn");
+                    horoscopeText = this.extractHoroscopeText(horoscopeText);
                 }
                 
                 return { 
-                    data: cachedData.data || "No horoscope data available",
+                    data: horoscopeText || "No horoscope data available",
                     sign: config.sign, 
                     period: config.period, 
                     cached: true, 
                     imagePath: imagePath 
                 };
             }
-
+    
             this.log(`Fetching new horoscope for ${config.sign}, period: ${config.period}`);
             const horoscope = await this.fetchHoroscope(config.sign, config.period);
             const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
             const imagePath = await this.cacheImage(imageUrl, config.sign);
-
-            if (typeof horoscope !== 'string') {
-                throw new Error(`Fetched horoscope is not a string. Type: ${typeof horoscope}`);
-            }
-
-            if (horoscope.trim() === '') {
-                throw new Error(`Fetched horoscope is empty`);
-            }
-
+    
             const result = { 
                 data: horoscope,
                 sign: config.sign, 
@@ -213,16 +205,17 @@ getHoroscope: async function(config) {
             this.cache[sign] = {};
         }
         
-        if (typeof content.data !== 'string') {
-            this.log(`Attempting to cache non-string data for ${sign}, ${period}. Converting to string.`, "warn");
-            content.data = String(content.data);
+        let horoscopeText = content.data;
+        if (typeof horoscopeText !== 'string') {
+            this.log(`Attempting to cache non-string data for ${sign}, ${period}. Extracting text.`, "warn");
+            horoscopeText = this.extractHoroscopeText(horoscopeText);
         }
         
         this.cache[sign][period] = {
-            data: content.data,
+            data: horoscopeText,
             timestamp: this.getCurrentDate().getTime()
         };
-        this.log(`Updated cache for ${sign} (${period}): ${content.data.substring(0, 50)}...`, "debug");
+        this.log(`Updated cache for ${sign} (${period}): ${horoscopeText.substring(0, 50)}...`, "debug");
         this.saveCache();
     },
 
@@ -233,16 +226,16 @@ getHoroscope: async function(config) {
         }
         this.isProcessingQueue = true;
         this.log("Starting to process queue");
-
+    
         try {
             while (this.requestQueue.length > 0) {
                 const batch = this.requestQueue.splice(0, this.settings.maxConcurrentRequests);
                 this.log(`Processing batch of ${batch.length} requests`);
-
+    
                 const promises = batch.map(item => this.getHoroscope(item));
-
+    
                 const results = await Promise.all(promises);
-
+    
                 results.forEach(result => {
                     if (result.error) {
                         this.log(`Error fetching horoscope for ${result.sign}, ${result.period}: ${result.message}`, "error");
@@ -253,8 +246,9 @@ getHoroscope: async function(config) {
                             message: result.message
                         });
                     } else {
-                        const previewText = result.data ? result.data.substring(0, 50) : 'No horoscope text available';
+                        const previewText = typeof result.data === 'string' ? result.data.substring(0, 50) : JSON.stringify(result.data).substring(0, 50);
                         this.log(`Successfully fetched horoscope for ${result.sign}, ${result.period}: ${previewText}...`);
+                        this.log(`Full result: ${JSON.stringify(result)}`, "debug");
                         this.sendSocketNotification("HOROSCOPE_RESULT", {
                             success: true,
                             sign: result.sign,
@@ -265,7 +259,7 @@ getHoroscope: async function(config) {
                         });
                     }
                 });
-
+    
                 if (this.requestQueue.length > 0) {
                     this.log("Waiting before processing next batch");
                     await new Promise(resolve => setTimeout(resolve, 5000));
@@ -280,6 +274,26 @@ getHoroscope: async function(config) {
         } finally {
             this.isProcessingQueue = false;
             this.log("Queue processing complete");
+        }
+    },
+
+    extractHoroscopeText: function(data) {
+        if (typeof data === 'string') {
+            return data;
+        } else if (typeof data === 'object') {
+            // If data is an object, it might be the result of a previous fetch
+            // Try to extract the text from known properties
+            if (data.data && typeof data.data === 'string') {
+                return data.data;
+            } else if (data.text && typeof data.text === 'string') {
+                return data.text;
+            } else {
+                // If we can't find a string property, stringify the entire object
+                return JSON.stringify(data);
+            }
+        } else {
+            // For any other type, convert to string
+            return String(data);
         }
     },
 
