@@ -60,19 +60,25 @@ module.exports = NodeHelper.create({
         let updatesNeeded = false;
 
         for (let sign in this.cache) {
-            if (this.cache[sign]['tomorrow']) {
-                const tomorrowTimestamp = new Date(this.cache[sign]['tomorrow'].timestamp);
-                if (tomorrowTimestamp.getDate() !== currentDate.getDate() ||
-                    tomorrowTimestamp.getMonth() !== currentDate.getMonth() ||
-                    tomorrowTimestamp.getFullYear() !== currentDate.getFullYear()) {
-                    this.log(`Stale 'tomorrow' data found for ${sign}. Updating...`, "warn");
-                    if (this.cache[sign]['daily']) {
-                        this.cache[sign]['daily'] = this.cache[sign]['tomorrow'];
-                        this.cache[sign]['daily'].timestamp = currentDate.getTime();
-                        this.log(`Updated 'daily' data for ${sign} with previous 'tomorrow' data`, "info");
+            for (let period of ['daily', 'tomorrow']) {
+                if (this.cache[sign][period]) {
+                    const cachedDate = new Date(this.cache[sign][period].timestamp);
+                    if (!this.isSameDay(cachedDate, currentDate)) {
+                        this.log(`Stale '${period}' data found for ${sign}. Updating...`, "warn");
+                        if (period === 'tomorrow') {
+                            // Move tomorrow's stale data to daily if it exists
+                            if (this.cache[sign]['daily']) {
+                                this.cache[sign]['daily'] = this.cache[sign]['tomorrow'];
+                                this.cache[sign]['daily'].timestamp = currentDate.getTime();
+                                this.log(`Updated 'daily' data for ${sign} with previous 'tomorrow' data`, "info");
+                            }
+                            delete this.cache[sign]['tomorrow'];
+                        } else {
+                            // For daily, just mark it for update
+                            delete this.cache[sign]['daily'];
+                        }
+                        updatesNeeded = true;
                     }
-                    delete this.cache[sign]['tomorrow'];
-                    updatesNeeded = true;
                 }
             }
         }
@@ -80,9 +86,34 @@ module.exports = NodeHelper.create({
         if (updatesNeeded) {
             await this.saveCache();
             this.log("Cache updated due to stale timestamps", "info");
+            // Trigger an update for the stale data
+            this.updateHoroscopes();
         } else {
             this.log("All cache timestamps are current", "info");
         }
+    },
+
+    isSameDay: function(date1, date2) {
+        return date1.getFullYear() === date2.getFullYear() &&
+               date1.getMonth() === date2.getMonth() &&
+               date1.getDate() === date2.getDate();
+    },
+
+    updateHoroscopes: function() {
+        this.lastUpdateAttempt = new Date().toLocaleString();
+        this.log("Sending UPDATE_HOROSCOPES notification", "info");
+
+        // Get all unique signs and periods from the cache
+        const signs = new Set(Object.keys(this.cache));
+        const periods = new Set();
+        for (let sign in this.cache) {
+            Object.keys(this.cache[sign]).forEach(period => periods.add(period));
+        }
+
+        this.sendSocketNotification("UPDATE_HOROSCOPES", {
+            zodiacSigns: Array.from(signs),
+            periods: Array.from(periods),
+        });
     },
 
     log: function(message, level = "info") {
@@ -313,11 +344,14 @@ module.exports = NodeHelper.create({
     },
 
 
-    getHoroscope: async function(config) {
-        const cacheKey = `${config.sign}_${config.period}`;
-        const cachedData = this.cache[cacheKey];
 
-        if (cachedData && (this.getCurrentDate().getTime() - cachedData.timestamp < this.settings.cacheDuration)) {
+    getHoroscope: async function(config) {
+        if (!this.cache[config.sign]) {
+            this.cache[config.sign] = {};
+        }
+        const cachedData = this.cache[config.sign][config.period];
+
+        if (cachedData && this.isSameDay(new Date(cachedData.timestamp), this.getCurrentDate())) {
             this.log(`Returning cached horoscope for ${config.sign}, period: ${config.period}`);
             const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
             const imagePath = await this.cacheImage(imageUrl, config.sign);
@@ -355,36 +389,6 @@ module.exports = NodeHelper.create({
         };
         this.log(`Updated cache for ${sign} (${period})`, "debug");
         this.saveCache();
-    },
-    cacheImage: async function(imageUrl, sign) {
-        const imagePath = path.join(this.imageCacheDir, `${sign}.png`);
-
-        try {
-            // Check if image already exists
-            await fs.access(imagePath);
-            this.log(`Image for ${sign} already cached at ${imagePath}`, "debug");
-            return path.relative(__dirname, imagePath);
-        } catch (error) {
-            // Image doesn't exist, download it
-            this.log(`Attempting to download image for ${sign} from ${imageUrl}`, "debug");
-            try {
-                const response = await axios({
-                    url: imageUrl,
-                    method: 'GET',
-                    responseType: 'arraybuffer'
-                });
-                await fs.writeFile(imagePath, response.data);
-                this.log(`Image successfully cached for ${sign} at ${imagePath}`, "debug");
-                return path.relative(__dirname, imagePath);
-            } catch (error) {
-                this.log(`Error caching image for ${sign}: ${error}`, "error");
-                if (error.response) {
-                    this.log(`Status: ${error.response.status}`, "error");
-                    this.log(`Headers: ${JSON.stringify(error.response.headers)}`, "error");
-                }
-                return null;
-            }
-        }
     },
 
     parseSimulatedDateString: function(dateString) {
