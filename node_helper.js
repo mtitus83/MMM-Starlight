@@ -48,10 +48,10 @@ module.exports = NodeHelper.create({
             await fs.mkdir(this.cacheDir, { recursive: true });
             await fs.mkdir(this.imageCacheDir, { recursive: true });
             console.log("Cache directories created successfully");
-    
+
             await this.initializeCache();
             await this.checkCacheTimestamps();
-    
+
             this.log("Node helper initialized");
         } catch (error) {
             console.error("Error during initialization:", error);
