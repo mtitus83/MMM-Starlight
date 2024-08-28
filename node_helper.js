@@ -144,17 +144,17 @@ module.exports = NodeHelper.create({
         return new Date();
     },
 
-    getHoroscope: async function(config) {
+getHoroscope: async function(config) {
         try {
             if (!config.sign || !config.period) {
                 throw new Error(`Invalid config: sign or period missing. Config: ${JSON.stringify(config)}`);
             }
-    
+
             if (!this.cache[config.sign]) {
                 this.cache[config.sign] = {};
             }
             const cachedData = this.cache[config.sign][config.period];
-    
+
             if (cachedData && this.isSameDay(new Date(cachedData.timestamp), this.getCurrentDate())) {
                 this.log(`Returning cached horoscope for ${config.sign}, period: ${config.period}`);
                 const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
@@ -174,20 +174,20 @@ module.exports = NodeHelper.create({
                     imagePath: imagePath 
                 };
             }
-    
+
             this.log(`Fetching new horoscope for ${config.sign}, period: ${config.period}`);
             const horoscope = await this.fetchHoroscope(config.sign, config.period);
             const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
             const imagePath = await this.cacheImage(imageUrl, config.sign);
-    
+
             if (typeof horoscope !== 'string') {
                 throw new Error(`Fetched horoscope is not a string. Type: ${typeof horoscope}`);
             }
-    
+
             if (horoscope.trim() === '') {
                 throw new Error(`Fetched horoscope is empty`);
             }
-    
+
             const result = { 
                 data: horoscope,
                 sign: config.sign, 
@@ -233,31 +233,27 @@ module.exports = NodeHelper.create({
         }
         this.isProcessingQueue = true;
         this.log("Starting to process queue");
-    
+
         try {
             while (this.requestQueue.length > 0) {
                 const batch = this.requestQueue.splice(0, this.settings.maxConcurrentRequests);
                 this.log(`Processing batch of ${batch.length} requests`);
-    
-                const promises = batch.map(item => this.getHoroscope(item).catch(error => ({
-                    error,
-                    sign: item.sign,
-                    period: item.period
-                })));
-    
+
+                const promises = batch.map(item => this.getHoroscope(item));
+
                 const results = await Promise.all(promises);
-    
+
                 results.forEach(result => {
                     if (result.error) {
-                        this.log(`Error fetching horoscope for ${result.sign}, ${result.period}: ${result.error.message}`, "error");
+                        this.log(`Error fetching horoscope for ${result.sign}, ${result.period}: ${result.message}`, "error");
                         this.sendSocketNotification("HOROSCOPE_RESULT", {
                             success: false,
                             sign: result.sign,
                             period: result.period,
-                            message: result.error.message
+                            message: result.message
                         });
                     } else {
-                        const previewText = typeof result.data === 'string' ? result.data.substring(0, 50) : 'Data is not a string';
+                        const previewText = result.data ? result.data.substring(0, 50) : 'No horoscope text available';
                         this.log(`Successfully fetched horoscope for ${result.sign}, ${result.period}: ${previewText}...`);
                         this.sendSocketNotification("HOROSCOPE_RESULT", {
                             success: true,
@@ -269,7 +265,7 @@ module.exports = NodeHelper.create({
                         });
                     }
                 });
-    
+
                 if (this.requestQueue.length > 0) {
                     this.log("Waiting before processing next batch");
                     await new Promise(resolve => setTimeout(resolve, 5000));
@@ -447,5 +443,22 @@ module.exports = NodeHelper.create({
         const currentDaily = this.cache[sign]?.['daily']?.data;
         const currentTomorrow = this.cache[sign]?.['tomorrow']?.data;
         return newHoroscope !== currentDaily && newHoroscope !== currentTomorrow;
+    },
+
+    updateHoroscopes: function() {
+        this.lastUpdateAttempt = new Date().toLocaleString();
+        this.log("Sending UPDATE_HOROSCOPES notification", "info");
+
+        // Get all unique signs and periods from the cache
+        const signs = new Set(Object.keys(this.cache));
+        const periods = new Set();
+        for (let sign in this.cache) {
+            Object.keys(this.cache[sign]).forEach(period => periods.add(period));
+        }
+
+        this.sendSocketNotification("UPDATE_HOROSCOPES", {
+            zodiacSigns: Array.from(signs),
+            periods: Array.from(periods),
+        });
     },
 });
