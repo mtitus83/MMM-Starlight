@@ -53,8 +53,6 @@ modules: [
 | `pauseDuration`  | Duration to pause before starting to scroll and after scrolling completes, in milliseconds. (default: `10000` // 10 seconds) |
 | `signWaitTime`   | Time to display each sign before rotating to the next, in milliseconds. (default: `50000` // 50 seconds) |
 | `startOfWeek`    | Start of the week. Can be one of "Sunday", or "Monday". (default: `"Sunday"`)                   |
-| `debug`          | Enable debug logging. (default: `false`)                                                        |
-| `simulateDate`   | Simulate a specific date for testing. Format: "MMDDYYYY HH:MM:SS". (default: `null`)            |
 
 ### Example configuration
 
@@ -82,6 +80,12 @@ This module implements a caching mechanism that stores horoscopes locally. This 
 
 ## Debugging
 
+The module includes debugging options to help troubleshoot issues or verify the module's behavior.
+
+| Option    | Description                                                            | Default |
+|-----------|------------------------------------------------------------------------|---------|
+| `debug`   | Enable debug logging and display additional information on the screen. | `false` |
+
 When `debug` is set to `true`, the module will display additional information on the screen, including:
 
 - Last update attempt
@@ -89,16 +93,24 @@ When `debug` is set to `true`, the module will display additional information on
 - Current state of the module
 - The simulated date (if set)
 
-This information can be helpful when troubleshooting issues or verifying the module's behavior.
-
 ## Date Simulation
 
-The module now supports date simulation for testing purposes. You can set a simulated date in two ways:
+The module supports date simulation for testing purposes. This feature is particularly useful for testing the module's behavior on specific dates or times without having to wait for those dates to occur naturally.
+
+| Option         | Description                                                     | Default |
+|----------------|-----------------------------------------------------------------|---------|
+| `simulateDate` | Simulate a specific date for testing. Format: "MMDDYYYY HH:MM:SS" | `null`  |
+
+You can set a simulated date in two ways:
 
 1. In the module configuration using the `simulateDate` option.
 2. By sending a notification to the module during runtime.
 
-This feature is particularly useful for testing the module's behavior on specific dates or times without having to wait for those dates to occur naturally.
+To change the simulated date during runtime, you can use the following notification:
+
+```javascript
+this.sendNotification("SIMULATE_DATE", { date: "05152024 10:30:00" });
+```
 
 ## Updating
 
