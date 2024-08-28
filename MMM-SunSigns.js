@@ -1,7 +1,7 @@
 Module.register("MMM-SunSigns", {
     defaults: {
         zodiacSign: ["taurus"],
-        period: ["daily", "tomorrow", "weekly", "monthly", "yearly"],
+        period: ["daily"],
         showImage: true,
         imageWidth: "100px",
         maxTextHeight: "400px",
@@ -26,11 +26,10 @@ Module.register("MMM-SunSigns", {
         this.updateFailures = 0;
         this.transitionState = "idle";
 
-        // Merge user-defined periods with defaults, maintaining order and removing duplicates
-        if (this.config.period && Array.isArray(this.config.period)) {
-            let mergedPeriods = [...new Set([...this.config.period, ...this.defaults.period])];
-            this.config.period = mergedPeriods;
-        }
+        // Ensure that only configured periods are used
+        this.config.period = this.config.period.filter(period => 
+            ["daily", "tomorrow", "weekly", "monthly", "yearly"].includes(period)
+        );
 
         this.scheduleInitialUpdate();
         this.scheduleMidnightUpdate();
@@ -70,62 +69,10 @@ Module.register("MMM-SunSigns", {
         this.lastUpdateAttempt = new Date().toLocaleString();
         Log.info(this.name + ": Sending UPDATE_HOROSCOPES notification");
 
-        let periodsToUpdate = this.getPeriodsToUpdate();
-
         this.sendSocketNotification("UPDATE_HOROSCOPES", {
             zodiacSigns: this.config.zodiacSign,
-            periods: periodsToUpdate,
+            periods: this.config.period,
         });
-    },
-
-    getPeriodsToUpdate: function() {
-        let now = new Date();
-        let periodsToUpdate = [];
-
-        for (let period of this.config.period) {
-            switch(period) {
-                case "daily":
-                    // We don't need to update daily, it will be replaced by yesterday's "tomorrow"
-                    break;
-                case "tomorrow":
-                    periodsToUpdate.push(period);
-                    break;
-                case "weekly":
-                    if (this.isStartOfWeek(now) || !this.isInCache(period)) {
-                        periodsToUpdate.push(period);
-                    }
-                    break;
-                case "monthly":
-                    if (now.getDate() === 1 || !this.isInCache(period)) {
-                        periodsToUpdate.push(period);
-                    }
-                    break;
-                case "yearly":
-                    if ((now.getMonth() === 0 && now.getDate() === 1) || !this.isInCache(period)) {
-                        periodsToUpdate.push(period);
-                    }
-                    break;
-            }
-        }
-
-        return periodsToUpdate;
-    },
-
-    isInCache: function(period) {
-        for (let sign of this.config.zodiacSign) {
-            if (!this.horoscopes[sign] || !this.horoscopes[sign][period]) {
-                return false;
-            }
-        }
-        return true;
-    },
-
-    isStartOfWeek: function(date) {
-        if (this.config.startOfWeek === "Sunday") {
-            return date.getDay() === 0; // Sunday
-        } else {
-            return date.getDay() === 1; // Monday
-        }
     },
 
     getDom: function() {
@@ -321,15 +268,6 @@ Module.register("MMM-SunSigns", {
                     cached: payload.cached,
                     imagePath: payload.imagePath
                 };
-                
-                // If we received a 'tomorrow' horoscope, also update 'daily'
-                if (payload.period === 'tomorrow') {
-                    this.horoscopes[payload.sign]['daily'] = {
-                        data: this.horoscopes[payload.sign]['tomorrow'].data,
-                        cached: true,
-                        imagePath: this.horoscopes[payload.sign]['tomorrow'].imagePath
-                    };
-                }
                 
                 this.loaded = true;
                 this.updateFailures = 0;
