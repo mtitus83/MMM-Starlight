@@ -6,28 +6,39 @@ const path = require('path');
 
 module.exports = NodeHelper.create({
     start: function() {
-        this.cacheDir = path.join(__dirname, 'cache');
-        this.imageCacheDir = path.join(this.cacheDir, 'images');
-        this.cache = {};
-        this.requestQueue = [];
-        this.isProcessingQueue = false;
-        this.debug = true;
-        this.lastUpdateCheck = null;
-        this.updateWindowStart = null;
-        this.updateAttempts = 0;
-        this.simulatedDate = null;
-
-        this.settings = {
-            cacheDuration: 24 * 60 * 60 * 1000,
-            maxConcurrentRequests: 2,
-            retryDelay: 5 * 60 * 1000,
-            maxRetries: 3,
-            updateWindowStartHour: 1,
-            updateWindowDuration: 6 * 60 * 60 * 1000,
-            maxUpdateAttempts: 6
-        };
-
-        this.initialize();
+        console.log("MMM-SunSigns start function called");
+        Log.info("Starting module: " + this.name);
+        this.horoscopes = {};
+        this.currentSignIndex = 0;
+        this.currentPeriodIndex = 0;
+        this.loaded = false;
+        this.isScrolling = false;
+        this.lastUpdateAttempt = null;
+        this.updateFailures = 0;
+        this.transitionState = "idle";
+        this.loadingState = "initializing";
+    
+        console.log("MMM-SunSigns configuration:", JSON.stringify(this.config));
+    
+        this.config.period = this.config.period.filter(period => 
+            ["daily", "tomorrow", "weekly", "monthly", "yearly"].includes(period)
+        );
+        console.log("MMM-SunSigns filtered periods:", JSON.stringify(this.config.period));
+    
+        this.sendSocketNotification("UPDATE_HOROSCOPES", {
+            zodiacSigns: this.config.zodiacSign,
+            periods: this.config.period,
+        });
+        this.loadingState = "requesting";
+    
+        this.scheduleMidnightUpdate();
+    
+        if (this.config.simulateDate) {
+            console.log("MMM-SunSigns setting simulated date:", this.config.simulateDate);
+            this.sendSocketNotification("SET_SIMULATED_DATE", { date: this.config.simulateDate });
+        }
+    
+        console.log("MMM-SunSigns start function completed");
     },
 
     initialize: async function() {
@@ -81,32 +92,64 @@ module.exports = NodeHelper.create({
     },
 
     socketNotificationReceived: function(notification, payload) {
-        console.log("Received socket notification:", notification);
-        try {
-            if (notification === "UPDATE_HOROSCOPES") {
-                this.preloadHoroscopes(payload.zodiacSigns, payload.periods);
-            } else if (notification === "SET_SIMULATED_DATE") {
-                this.setSimulatedDate(payload.date);
-            } else if (notification === "CLEAR_CACHE") {
-                this.clearCache();
+        Log.info(this.name + ": Received socket notification: " + notification);
+        if (notification === "HOROSCOPE_RESULT") {
+            Log.info(this.name + ": Received horoscope result", payload);
+            if (payload.success) {
+                if (!this.horoscopes[payload.sign]) {
+                    this.horoscopes[payload.sign] = {};
+                }
+                this.horoscopes[payload.sign][payload.period] = {
+                    data: payload.data,
+                    cached: payload.cached,
+                    imagePath: payload.imagePath
+                };
+    
+                this.loaded = true;
+                this.loadingState = "complete";
+                this.updateFailures = 0;
+                Log.info(this.name + ": Horoscope data loaded successfully");
+    
+                if (payload.cached) {
+                    this.updateDom(0); // Update DOM immediately for cached results
+                } else {
+                    this.updateDom(1000); // Slight delay for newly fetched results
+                }
+    
+                if (this.transitionState === "idle") {
+                    this.scheduleNextTransition();
+                }
             } else {
-                console.log("Unknown notification received:", notification);
+                Log.error(this.name + ": Failed to fetch horoscope", payload);
+                this.updateFailures++;
+                this.loadingState = "failed";
+                setTimeout(() => {
+                    this.updateHoroscopes();
+                }, 60 * 60 * 1000);
             }
-        } catch (error) {
-            console.error("Error processing socket notification:", error);
-            this.sendSocketNotification("ERROR", {
-                type: "Socket Notification Error",
-                message: error.message || "Unknown error occurred while processing socket notification"
-            });
-        }
-    },
-            // ... (keep other existing conditions)
-        } catch (error) {
-            console.error("Error processing socket notification:", error);
-            this.sendSocketNotification("ERROR", {
-                type: "Socket Notification Error",
-                message: error.message || "Unknown error occurred while processing socket notification"
-            });
+            this.updateDom();
+        } else if (notification === "HOROSCOPES_UPDATED") {
+            Log.info(this.name + ": Horoscopes updated");
+            this.updateDom(1000);
+        } else if (notification === "UPDATE_WINDOW_EXPIRED") {
+            Log.warn(this.name + ": Update window expired without finding new content");
+            Log.warn("Last successful update:", payload.lastUpdateCheck);
+            Log.warn("Number of attempts:", payload.attempts);
+            this.loadingState = "expired";
+            if (this.config.debug) {
+                this.updateDom(1000);
+            }
+        } else if (notification === "ERROR") {
+            Log.error(this.name + ": Received error notification", payload);
+            this.loadingState = "error";
+            if (this.config.debug) {
+                this.updateDom(1000);
+            }
+        } else if (notification === "CACHE_CLEARED") {
+            Log.info(this.name + ": Cache cleared successfully");
+            this.updateHoroscopes();
+        } else {
+            Log.warn(this.name + ": Received unknown socket notification: " + notification);
         }
     },
 
@@ -177,7 +220,7 @@ module.exports = NodeHelper.create({
             if (!config.sign || !config.period) {
                 throw new Error('Invalid config: sign or period missing. Config: ' + JSON.stringify(config));
             }
-
+    
             const cachedData = this.getCachedHoroscope(config.sign, config.period);
             if (cachedData) {
                 console.log('Returning cached horoscope for', config.sign, 'period:', config.period);
@@ -187,7 +230,7 @@ module.exports = NodeHelper.create({
                 });
                 return cachedData;
             }
-
+    
             console.log('Fetching new horoscope for', config.sign, 'period:', config.period);
             const horoscope = await this.fetchHoroscope(config.sign, config.period);
             const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
@@ -397,11 +440,6 @@ module.exports = NodeHelper.create({
         this.processQueue().catch(error => {
             console.error("Error in processQueue:", error);
         });
-    },
-            }
-        }
-        await Promise.all(promises);
-        console.log('Preloading complete');
     },
 
     clearCache: async function() {
