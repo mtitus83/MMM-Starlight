@@ -84,14 +84,9 @@ module.exports = NodeHelper.create({
         console.log('Received socket notification:', notification);
         try {
             if (notification === "UPDATE_HOROSCOPES") {
-                this.queueHoroscopeUpdates(payload.zodiacSigns, payload.periods);
-            } else if (notification === "SET_SIMULATED_DATE") {
-                this.setSimulatedDate(payload.date);
-            } else if (notification === "CLEAR_CACHE") {
-                this.clearCache();
-            } else {
-                console.log('Unknown notification received:', notification);
+                this.preloadHoroscopes(payload.zodiacSigns, payload.periods);
             }
+            // ... (keep other existing conditions)
         } catch (error) {
             console.error("Error processing socket notification:", error);
             this.sendSocketNotification("ERROR", {
@@ -169,37 +164,25 @@ module.exports = NodeHelper.create({
                 throw new Error('Invalid config: sign or period missing. Config: ' + JSON.stringify(config));
             }
 
-            if (!this.cache[config.sign]) {
-                this.cache[config.sign] = {};
-            }
-            const cachedData = this.cache[config.sign][config.period];
-
-            if (cachedData && this.isSameDay(new Date(cachedData.timestamp), this.getCurrentDate())) {
+            const cachedData = this.getCachedHoroscope(config.sign, config.period);
+            if (cachedData) {
                 console.log('Returning cached horoscope for', config.sign, 'period:', config.period);
-                const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
-                const imagePath = await this.cacheImage(imageUrl, config.sign);
-                return { 
-                    data: cachedData.data,
-                    sign: config.sign, 
-                    period: config.period, 
-                    cached: true, 
-                    imagePath: imagePath 
-                };
-            } else {
-                console.log('Fetching new horoscope for', config.sign, 'period:', config.period);
-                const horoscope = await this.fetchHoroscope(config.sign, config.period);
-                const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
-                const imagePath = await this.cacheImage(imageUrl, config.sign);
-                const result = { 
-                    data: horoscope,
-                    sign: config.sign, 
-                    period: config.period, 
-                    cached: false,
-                    imagePath: imagePath
-                };
-                this.updateCache(config.sign, config.period, result);
-                return result;
+                return cachedData;
             }
+
+            console.log('Fetching new horoscope for', config.sign, 'period:', config.period);
+            const horoscope = await this.fetchHoroscope(config.sign, config.period);
+            const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
+            const imagePath = await this.cacheImage(imageUrl, config.sign);
+            const result = { 
+                data: horoscope,
+                sign: config.sign, 
+                period: config.period, 
+                cached: false,
+                imagePath: imagePath
+            };
+            this.updateCache(config.sign, config.period, result);
+            return result;
         } catch (error) {
             console.error('Error in getHoroscope for', config.sign, config.period, ':', error.message);
             return {
@@ -248,7 +231,8 @@ module.exports = NodeHelper.create({
 
         this.cache[sign][period] = {
             data: content.data,
-            timestamp: this.getCurrentDate().getTime()
+            timestamp: this.getCurrentDate().getTime(),
+            imagePath: content.imagePath
         };
         console.log('Updated cache for', sign, '('+period+'):', content.data.substring(0, 50) + '...');
         this.saveCache();
@@ -352,6 +336,34 @@ module.exports = NodeHelper.create({
         }
     },
 
+    getCachedHoroscope: function(sign, period) {
+        if (!this.cache[sign] || !this.cache[sign][period]) {
+            return null;
+        }
+        const cachedData = this.cache[sign][period];
+        if (this.isSameDay(new Date(cachedData.timestamp), this.getCurrentDate())) {
+            return { 
+                data: cachedData.data,
+                sign: sign, 
+                period: period, 
+                cached: true, 
+                imagePath: cachedData.imagePath 
+            };
+        }
+        return null;
+    },
+
+    preloadHoroscopes: async function(signs, periods) {
+        console.log('Preloading horoscopes for signs:', signs, 'and periods:', periods);
+        const promises = [];
+        for (const sign of signs) {
+            for (const period of periods) {
+                promises.push(this.getHoroscope({ sign, period }));
+            }
+        }
+        await Promise.all(promises);
+        console.log('Preloading complete');
+    },
 
     clearCache: async function() {
         try {
