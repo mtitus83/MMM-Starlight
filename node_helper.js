@@ -215,12 +215,12 @@ module.exports = NodeHelper.create({
         let url;
         if (period === 'yearly') {
             const currentYear = new Date().getFullYear();
-            url = `https://www.sunsigns.com/${sign}-horoscope-${currentYear}/`;
+            url = `https://www.sunsigns.com/horoscopes/yearly/${currentYear}/${sign}`;
         } else {
             url = `https://www.sunsigns.com/horoscopes/${period === 'tomorrow' ? 'daily/' + sign + '/tomorrow' : period + '/' + sign}`;
         }
         console.log('Fetching horoscope for', sign, '('+period+')', 'from', url);
-        
+    
         try {
             const response = await axios.get(url, { timeout: 30000 });
             const $ = cheerio.load(response.data);
