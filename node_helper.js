@@ -6,7 +6,7 @@ const path = require('path');
 
 module.exports = NodeHelper.create({
     start: function() {
-        console.log("Starting node_helper for MMM-SunSigns");
+        console.log("Starting node helper for MMM-SunSigns");
         this.cacheDir = path.join(__dirname, 'cache');
         this.imageCacheDir = path.join(this.cacheDir, 'images');
         this.cache = {};
@@ -42,6 +42,17 @@ module.exports = NodeHelper.create({
         }
     },
 
+    createCacheDirectories: async function() {
+        try {
+            await fs.mkdir(this.cacheDir, { recursive: true });
+            await fs.mkdir(this.imageCacheDir, { recursive: true });
+            console.log("Cache directories created successfully");
+        } catch (error) {
+            console.error("Error creating cache directories:", error);
+            throw error;
+        }
+    },
+
     initializeCache: async function() {
         const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
         try {
@@ -59,6 +70,34 @@ module.exports = NodeHelper.create({
         }
     },
 
+    checkCacheTimestamps: async function() {
+        console.log("Checking cache timestamps");
+        const currentTime = Date.now();
+        let cacheUpdated = false;
+
+        for (const sign in this.cache) {
+            for (const period in this.cache[sign]) {
+                const cacheEntry = this.cache[sign][period];
+                if (currentTime - cacheEntry.timestamp > this.settings.cacheDuration) {
+                    console.log(`Cache expired for ${sign} (${period}). Removing entry.`);
+                    delete this.cache[sign][period];
+                    cacheUpdated = true;
+                }
+            }
+            if (Object.keys(this.cache[sign]).length === 0) {
+                delete this.cache[sign];
+                cacheUpdated = true;
+            }
+        }
+
+        if (cacheUpdated) {
+            await this.saveCache();
+            console.log("Cache updated after timestamp check");
+        } else {
+            console.log("No cache entries expired");
+        }
+    },
+
     saveCache: async function() {
         const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
         try {
@@ -71,7 +110,7 @@ module.exports = NodeHelper.create({
     },
 
     socketNotificationReceived: function(notification, payload) {
-        console.log("Received socket notification:", notification); // Changed Log to console.log
+        console.log("Received socket notification:", notification);
         try {
             if (notification === "UPDATE_HOROSCOPES") {
                 this.preloadHoroscopes(payload.zodiacSigns, payload.periods);
@@ -90,20 +129,28 @@ module.exports = NodeHelper.create({
             });
         }
     },
-    queueHoroscopeUpdates: function(signs, periods) {
-        console.log('Queueing updates for signs:', signs, 'and periods:', periods);
-        signs.forEach(sign => {
-            periods.forEach(period => {
-                this.requestQueue.push({ sign, period });
-            });
-        });
-        console.log('Queue size after adding requests:', this.requestQueue.length);
+
+    preloadHoroscopes: function(signs, periods) {
+        console.log('Preloading horoscopes for signs:', signs, 'and periods:', periods);
+        for (const sign of signs) {
+            for (const period of periods) {
+                const cachedData = this.getCachedHoroscope(sign, period);
+                if (cachedData) {
+                    this.sendSocketNotification("HOROSCOPE_RESULT", {
+                        success: true,
+                        sign: sign,
+                        period: period,
+                        data: cachedData.data,
+                        cached: true,
+                        imagePath: cachedData.imagePath
+                    });
+                } else {
+                    this.requestQueue.push({ sign, period });
+                }
+            }
+        }
         this.processQueue().catch(error => {
-            console.error("Error in queueHoroscopeUpdates:", error);
-            this.sendSocketNotification("ERROR", {
-                type: "Queue Processing Error",
-                message: error.message || "Unknown error occurred while queueing horoscope updates"
-            });
+            console.error("Error in processQueue:", error);
         });
     },
 
@@ -161,10 +208,6 @@ module.exports = NodeHelper.create({
             const cachedData = this.getCachedHoroscope(config.sign, config.period);
             if (cachedData) {
                 console.log('Returning cached horoscope for', config.sign, 'period:', config.period);
-                this.sendSocketNotification("HOROSCOPE_RESULT", {
-                    success: true,
-                    ...cachedData
-                });
                 return cachedData;
             }
 
@@ -180,10 +223,6 @@ module.exports = NodeHelper.create({
                 imagePath: imagePath
             };
             this.updateCache(config.sign, config.period, result);
-            this.sendSocketNotification("HOROSCOPE_RESULT", {
-                success: true,
-                ...result
-            });
             return result;
         } catch (error) {
             console.error('Error in getHoroscope for', config.sign, config.period, ':', error.message);
@@ -205,7 +244,7 @@ module.exports = NodeHelper.create({
             url = `https://www.sunsigns.com/horoscopes/${period === 'tomorrow' ? 'daily/' + sign + '/tomorrow' : period + '/' + sign}`;
         }
         console.log('Fetching horoscope for', sign, '('+period+')', 'from', url);
-    
+
         try {
             const response = await axios.get(url, { timeout: 30000 });
             const $ = cheerio.load(response.data);
@@ -238,6 +277,23 @@ module.exports = NodeHelper.create({
         };
         console.log('Updated cache for', sign, '('+period+'):', content.data.substring(0, 50) + '...');
         this.saveCache();
+    },
+
+    getCachedHoroscope: function(sign, period) {
+        if (!this.cache[sign] || !this.cache[sign][period]) {
+            return null;
+        }
+        const cachedData = this.cache[sign][period];
+        if (this.isSameDay(new Date(cachedData.timestamp), this.getCurrentDate())) {
+            return { 
+                data: cachedData.data,
+                sign: sign, 
+                period: period, 
+                cached: true, 
+                imagePath: cachedData.imagePath 
+            };
+        }
+        return null;
     },
 
     cacheImage: async function(imageUrl, sign) {
@@ -307,76 +363,6 @@ module.exports = NodeHelper.create({
         return date1.getFullYear() === date2.getFullYear() &&
                date1.getMonth() === date2.getMonth() &&
                date1.getDate() === date2.getDate();
-    },
-
-    checkCacheTimestamps: async function() {
-        console.log("Checking cache timestamps");
-        const currentTime = Date.now();
-        let cacheUpdated = false;
-    
-        for (const sign in this.cache) {
-            for (const period in this.cache[sign]) {
-                const cacheEntry = this.cache[sign][period];
-                if (currentTime - cacheEntry.timestamp > this.settings.cacheDuration) {
-                    console.log(`Cache expired for ${sign} (${period}). Removing entry.`);
-                    delete this.cache[sign][period];
-                    cacheUpdated = true;
-                }
-            }
-            // Remove the sign object if it's empty
-            if (Object.keys(this.cache[sign]).length === 0) {
-                delete this.cache[sign];
-                cacheUpdated = true;
-            }
-        }
-    
-        if (cacheUpdated) {
-            await this.saveCache();
-            console.log("Cache updated after timestamp check");
-        } else {
-            console.log("No cache entries expired");
-        }
-    },
-
-    getCachedHoroscope: function(sign, period) {
-        if (!this.cache[sign] || !this.cache[sign][period]) {
-            return null;
-        }
-        const cachedData = this.cache[sign][period];
-        if (this.isSameDay(new Date(cachedData.timestamp), this.getCurrentDate())) {
-            return { 
-                data: cachedData.data,
-                sign: sign, 
-                period: period, 
-                cached: true, 
-                imagePath: cachedData.imagePath 
-            };
-        }
-        return null;
-    },
-
-    preloadHoroscopes: function(signs, periods) {
-        console.log('Preloading horoscopes for signs:', signs, 'and periods:', periods);
-        for (const sign of signs) {
-            for (const period of periods) {
-                const cachedData = this.getCachedHoroscope(sign, period);
-                if (cachedData) {
-                    this.sendSocketNotification("HOROSCOPE_RESULT", {
-                        success: true,
-                        sign: sign,
-                        period: period,
-                        data: cachedData.data,
-                        cached: true,
-                        imagePath: cachedData.imagePath
-                    });
-                } else {
-                    this.requestQueue.push({ sign, period });
-                }
-            }
-        }
-        this.processQueue().catch(error => {
-            console.error("Error in processQueue:", error);
-        });
     },
 
     clearCache: async function() {
