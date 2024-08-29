@@ -6,7 +6,7 @@ const path = require('path');
 
 module.exports = NodeHelper.create({
     start: function() {
-        console.log("Starting node helper for MMM-SunSigns"); // Changed Log to console.log
+        console.log("Starting node_helper for MMM-SunSigns");
         this.cacheDir = path.join(__dirname, 'cache');
         this.imageCacheDir = path.join(this.cacheDir, 'images');
         this.cache = {};
@@ -31,14 +31,14 @@ module.exports = NodeHelper.create({
         this.initialize();
     },
 
-    createCacheDirectories: async function() {
+    initialize: async function() {
         try {
-            await fs.mkdir(this.cacheDir, { recursive: true });
-            await fs.mkdir(this.imageCacheDir, { recursive: true });
-            console.log("Cache directories created successfully");
+            await this.createCacheDirectories();
+            await this.initializeCache();
+            await this.checkCacheTimestamps();
+            console.log("Node helper initialized");
         } catch (error) {
-            console.error("Error creating cache directories:", error);
-            throw error;
+            console.error("Error during initialization:", error);
         }
     },
 
@@ -157,7 +157,7 @@ module.exports = NodeHelper.create({
             if (!config.sign || !config.period) {
                 throw new Error('Invalid config: sign or period missing. Config: ' + JSON.stringify(config));
             }
-    
+
             const cachedData = this.getCachedHoroscope(config.sign, config.period);
             if (cachedData) {
                 console.log('Returning cached horoscope for', config.sign, 'period:', config.period);
@@ -167,7 +167,7 @@ module.exports = NodeHelper.create({
                 });
                 return cachedData;
             }
-    
+
             console.log('Fetching new horoscope for', config.sign, 'period:', config.period);
             const horoscope = await this.fetchHoroscope(config.sign, config.period);
             const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
