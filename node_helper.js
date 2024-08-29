@@ -376,7 +376,7 @@ module.exports = NodeHelper.create({
     },
 
     preloadHoroscopes: function(signs, periods) {
-        console.log("Preloading horoscopes for signs:", signs, "and periods:", periods);
+        console.log('Preloading horoscopes for signs:', signs, 'and periods:', periods);
         for (const sign of signs) {
             for (const period of periods) {
                 const cachedData = this.getCachedHoroscope(sign, period);
