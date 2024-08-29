@@ -6,7 +6,7 @@ const path = require('path');
 
 module.exports = NodeHelper.create({
     start: function() {
-        console.log("Starting node helper for MMM-SunSigns");
+        console.log("Starting node_helper for MMM-SunSigns");
         this.cacheDir = path.join(__dirname, 'cache');
         this.imageCacheDir = path.join(this.cacheDir, 'images');
         this.cache = {};
@@ -208,6 +208,10 @@ module.exports = NodeHelper.create({
             const cachedData = this.getCachedHoroscope(config.sign, config.period);
             if (cachedData) {
                 console.log('Returning cached horoscope for', config.sign, 'period:', config.period);
+                this.sendSocketNotification("HOROSCOPE_RESULT", {
+                    success: true,
+                    ...cachedData
+                });
                 return cachedData;
             }
 
@@ -223,6 +227,10 @@ module.exports = NodeHelper.create({
                 imagePath: imagePath
             };
             this.updateCache(config.sign, config.period, result);
+            this.sendSocketNotification("HOROSCOPE_RESULT", {
+                success: true,
+                ...result
+            });
             return result;
         } catch (error) {
             console.error('Error in getHoroscope for', config.sign, config.period, ':', error.message);
@@ -265,20 +273,6 @@ module.exports = NodeHelper.create({
         }
     },
 
-    updateCache: function(sign, period, content) {
-        if (!this.cache[sign]) {
-            this.cache[sign] = {};
-        }
-
-        this.cache[sign][period] = {
-            data: content.data,
-            timestamp: this.getCurrentDate().getTime(),
-            imagePath: content.imagePath
-        };
-        console.log('Updated cache for', sign, '('+period+'):', content.data.substring(0, 50) + '...');
-        this.saveCache();
-    },
-
     getCachedHoroscope: function(sign, period) {
         if (!this.cache[sign] || !this.cache[sign][period]) {
             return null;
@@ -294,6 +288,20 @@ module.exports = NodeHelper.create({
             };
         }
         return null;
+    },
+
+    updateCache: function(sign, period, content) {
+        if (!this.cache[sign]) {
+            this.cache[sign] = {};
+        }
+
+        this.cache[sign][period] = {
+            data: content.data,
+            timestamp: this.getCurrentDate().getTime(),
+            imagePath: content.imagePath
+        };
+        console.log('Updated cache for', sign, '('+period+'):', content.data.substring(0, 50) + '...');
+        this.saveCache();
     },
 
     cacheImage: async function(imageUrl, sign) {
