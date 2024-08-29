@@ -1,6 +1,3 @@
-console.log("MMM-SunSigns module file is being loaded");
-console.log("MMM-SunSigns module is being registered");
-
 Module.register("MMM-SunSigns", {
     defaults: {
         zodiacSign: ["taurus"],
@@ -21,7 +18,6 @@ Module.register("MMM-SunSigns", {
     },
 
     start: function() {
-        console.log("MMM-SunSigns start function called");
         Log.info("Starting module: " + this.name);
         this.horoscopes = {};
         this.currentSignIndex = 0;
@@ -33,96 +29,69 @@ Module.register("MMM-SunSigns", {
         this.transitionState = "idle";
         this.loadingState = "initializing";
 
-        console.log("MMM-SunSigns configuration:", JSON.stringify(this.config));
-
-        this.config.period = this.config.period.filter(period => 
-            ["daily", "tomorrow", "weekly", "monthly", "yearly"].includes(period)
-        );
-        console.log("MMM-SunSigns filtered periods:", JSON.stringify(this.config.period));
-
+        this.validateConfig();
         this.sendSocketNotification("UPDATE_HOROSCOPES", {
             zodiacSigns: this.config.zodiacSign,
             periods: this.config.period,
         });
-        this.loadingState = "requesting";
-
+        
         this.scheduleMidnightUpdate();
 
         if (this.config.simulateDate) {
-            console.log("MMM-SunSigns setting simulated date:", this.config.simulateDate);
             this.sendSocketNotification("SET_SIMULATED_DATE", { date: this.config.simulateDate });
         }
 
-        console.log("MMM-SunSigns start function completed");
-    },
-        this.currentSignIndex = 0;
-        this.currentPeriodIndex = 0;
-        this.loaded = false;
-        this.isScrolling = false;
-        this.lastUpdateAttempt = null;
-        this.updateFailures = 0;
-        this.transitionState = "idle";
-
-        console.log("MMM-SunSigns configuration:", JSON.stringify(this.config));
-
-        // Ensure that only configured periods are used
-        this.config.period = this.config.period.filter(period => 
-            ["daily", "tomorrow", "weekly", "monthly", "yearly"].includes(period)
-        );
-        console.log("MMM-SunSigns filtered periods:", JSON.stringify(this.config.period));
-
-        this.sendSocketNotification("UPDATE_HOROSCOPES", {
-            zodiacSigns: this.config.zodiacSign,
-            periods: this.config.period,
-        });
-
-        this.scheduleMidnightUpdate();
-
-        if (this.config.simulateDate) {
-            console.log("MMM-SunSigns setting simulated date:", this.config.simulateDate);
-            this.sendSocketNotification("SET_SIMULATED_DATE", { date: this.config.simulateDate });
+        if (this.config.clearCacheOnStart) {
+            this.sendSocketNotification("CLEAR_CACHE");
         }
-
-        console.log("MMM-SunSigns start function completed");
     },
 
     getStyles: function() {
         return ["MMM-SunSigns.css"];
     },
 
-    scheduleInitialUpdate: function() {
-        Log.info(this.name + ": Scheduling initial update");
-        setTimeout(() => {
-            Log.info(this.name + ": Executing initial update");
-            this.sendSocketNotification("UPDATE_HOROSCOPES", {
-                zodiacSigns: this.config.zodiacSign,
-                periods: this.config.period,
-            });
-        }, 1000);
+    validateConfig: function() {
+        const validZodiacSigns = [
+            "aries", "taurus", "gemini", "cancer", "leo", "virgo",
+            "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces"
+        ];
+        const validPeriods = ["daily", "tomorrow", "weekly", "monthly", "yearly"];
+
+        this.config.zodiacSign = Array.isArray(this.config.zodiacSign) ? this.config.zodiacSign : [this.config.zodiacSign];
+        this.config.period = Array.isArray(this.config.period) ? this.config.period : [this.config.period];
+
+        this.config.zodiacSign = this.config.zodiacSign.filter(sign => validZodiacSigns.includes(sign.toLowerCase()));
+        this.config.period = this.config.period.filter(period => validPeriods.includes(period.toLowerCase()));
+
+        if (this.config.zodiacSign.length === 0) {
+            Log.error(this.name + ": No valid zodiac signs configured. Using default: taurus");
+            this.config.zodiacSign = ["taurus"];
+        }
+        if (this.config.period.length === 0) {
+            Log.error(this.name + ": No valid periods configured. Using default: daily");
+            this.config.period = ["daily"];
+        }
     },
 
-    scheduleMidnightUpdate: function() {
+scheduleMidnightUpdate: function() {
+        var self = this;
         var now = new Date();
         var night = new Date(
             now.getFullYear(),
             now.getMonth(),
-            now.getDate() + 1, // the next day
-            0, 0, 0 // at 00:00:00 hours
+            now.getDate() + 1,
+            0, 0, 0
         );
         var msTillMidnight = night.getTime() - now.getTime();
 
-        setTimeout(() => {
-            this.updateHoroscopes();
-            this.scheduleMidnightUpdate(); // Schedule next midnight update
+        setTimeout(function() {
+            self.updateHoroscopes();
+            self.scheduleMidnightUpdate();
         }, msTillMidnight);
     },
 
     updateHoroscopes: function() {
         this.lastUpdateAttempt = new Date().toLocaleString();
-        Log.info(this.name + ": Sending UPDATE_HOROSCOPES notification");
-        Log.info(this.name + ": Zodiac signs:", JSON.stringify(this.config.zodiacSign));
-        Log.info(this.name + ": Periods:", JSON.stringify(this.config.period));
-
         this.sendSocketNotification("UPDATE_HOROSCOPES", {
             zodiacSigns: this.config.zodiacSign,
             periods: this.config.period,
@@ -149,19 +118,19 @@ Module.register("MMM-SunSigns", {
         } else {
             var slideContainer = document.createElement("div");
             slideContainer.className = "sunsigns-slide-container";
-    
+
             var currentSign = this.config.zodiacSign[this.currentSignIndex];
             var currentPeriod = this.config.period[this.currentPeriodIndex];
             slideContainer.appendChild(this.createSignElement(currentSign, "current", currentPeriod));
-    
+
             var nextIndices = this.getNextIndices();
             var nextSign = this.config.zodiacSign[nextIndices.signIndex];
             var nextPeriod = this.config.period[nextIndices.periodIndex];
             slideContainer.appendChild(this.createSignElement(nextSign, "next", nextPeriod));
-    
+
             wrapper.appendChild(slideContainer);
         }
-    
+
         if (this.config.debug) {
             var debugInfo = document.createElement("div");
             debugInfo.className = "small dimmed";
@@ -171,60 +140,8 @@ Module.register("MMM-SunSigns", {
                                    Simulated Date: ${this.config.simulateDate || "Not set"}`;
             wrapper.appendChild(debugInfo);
         }
-    
-        return wrapper;
-    },
 
-    retryFetchHoroscope: function(sign, period, retryCount = 0) {
-        const maxRetries = 3;
-        const retryDelay = 5000; // 5 seconds
-    
-        return new Promise((resolve, reject) => {
-            this.fetchHoroscope(sign, period)
-                .then(resolve)
-                .catch((error) => {
-                    if (retryCount < maxRetries) {
-                        console.log(`Retry ${retryCount + 1} for ${sign} (${period})`);
-                        setTimeout(() => {
-                            this.retryFetchHoroscope(sign, period, retryCount + 1)
-                                .then(resolve)
-                                .catch(reject);
-                        }, retryDelay);
-                    } else {
-                        reject(error);
-                    }
-                });
-        });
-    },
-    
-    validateConfig: function(config) {
-        const validZodiacSigns = [
-            "aries", "taurus", "gemini", "cancer", "leo", "virgo",
-            "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces"
-        ];
-        const validPeriods = ["daily", "tomorrow", "weekly", "monthly", "yearly"];
-    
-        if (!Array.isArray(config.zodiacSign) || config.zodiacSign.length === 0) {
-            throw new Error("zodiacSign must be a non-empty array");
-        }
-    
-        if (!Array.isArray(config.period) || config.period.length === 0) {
-            throw new Error("period must be a non-empty array");
-        }
-    
-        config.zodiacSign.forEach(sign => {
-            if (!validZodiacSigns.includes(sign.toLowerCase())) {
-                throw new Error(`Invalid zodiac sign: ${sign}`);
-            }
-        });
-    
-        config.period.forEach(period => {
-            if (!validPeriods.includes(period.toLowerCase())) {
-                throw new Error(`Invalid period: ${period}`);
-            }
-        });
-    
-        return true;
+        return wrapper;
     },
 
     createSignElement: function(sign, className, period) {
@@ -278,7 +195,7 @@ Module.register("MMM-SunSigns", {
         return slideWrapper;
     },
 
-    formatPeriodText: function(period) {
+formatPeriodText: function(period) {
         if (period === "tomorrow") {
             return "Tomorrow's";
         }
@@ -302,7 +219,7 @@ Module.register("MMM-SunSigns", {
         this.transitionState = "waiting";
         setTimeout(() => {
             this.transitionState = "sliding";
-            this.updateDom(0); // Update DOM immediately
+            this.updateDom(0);
             this.startSlideTransition();
         }, this.config.signWaitTime);
     },
@@ -310,12 +227,12 @@ Module.register("MMM-SunSigns", {
     startSlideTransition: function() {
         var slideContainer = document.querySelector(".MMM-SunSigns .sunsigns-slide-container");
         if (slideContainer) {
-            slideContainer.style.transition = `transform 1000ms ease-in-out`; // Hard-coded 1 second transition
+            slideContainer.style.transition = `transform 1000ms ease-in-out`;
             slideContainer.style.transform = "translateX(-50%)";
 
             setTimeout(() => {
                 this.finishTransition();
-            }, 1000); // Hard-coded 1 second wait
+            }, 1000);
         }
     },
 
@@ -339,7 +256,6 @@ Module.register("MMM-SunSigns", {
     },
 
     startScrolling: function() {
-        var self = this;
         var textWrapper = document.querySelector(".MMM-SunSigns .sunsigns-text-wrapper");
         var textContent = document.querySelector(".MMM-SunSigns .sunsigns-text");
 
@@ -368,9 +284,7 @@ Module.register("MMM-SunSigns", {
     },
 
     socketNotificationReceived: function(notification, payload) {
-        Log.info(this.name + ": Received socket notification: " + notification);
         if (notification === "HOROSCOPE_RESULT") {
-            Log.info(this.name + ": Received horoscope result", payload);
             if (payload.success) {
                 if (!this.horoscopes[payload.sign]) {
                     this.horoscopes[payload.sign] = {};
@@ -382,13 +296,13 @@ Module.register("MMM-SunSigns", {
                 };
 
                 this.loaded = true;
+                this.loadingState = "complete";
                 this.updateFailures = 0;
-                Log.info(this.name + ": Horoscope data loaded successfully");
-                
+
                 if (payload.cached) {
-                    this.updateDom(0); // Update DOM immediately for cached results
+                    this.updateDom(0);
                 } else {
-                    this.updateDom(1000); // Slight delay for newly fetched results
+                    this.updateDom(1000);
                 }
 
                 if (this.transitionState === "idle") {
@@ -397,74 +311,30 @@ Module.register("MMM-SunSigns", {
             } else {
                 Log.error(this.name + ": Failed to fetch horoscope", payload);
                 this.updateFailures++;
+                this.loadingState = "failed";
                 setTimeout(() => {
                     this.updateHoroscopes();
                 }, 60 * 60 * 1000);
             }
+            this.updateDom();
         } else if (notification === "HOROSCOPES_UPDATED") {
             Log.info(this.name + ": Horoscopes updated");
             this.updateDom(1000);
         } else if (notification === "UPDATE_WINDOW_EXPIRED") {
             Log.warn(this.name + ": Update window expired without finding new content");
-            Log.warn("Last successful update:", payload.lastUpdateCheck);
-            Log.warn("Number of attempts:", payload.attempts);
+            this.loadingState = "expired";
             if (this.config.debug) {
                 this.updateDom(1000);
             }
         } else if (notification === "ERROR") {
             Log.error(this.name + ": Received error notification", payload);
+            this.loadingState = "error";
             if (this.config.debug) {
                 this.updateDom(1000);
             }
         } else if (notification === "CACHE_CLEARED") {
             Log.info(this.name + ": Cache cleared successfully");
             this.updateHoroscopes();
-        } else {
-            Log.warn(this.name + ": Received unknown socket notification: " + notification);
-        }
-    },
-                }
-                this.horoscopes[payload.sign][payload.period] = {
-                    data: payload.data,
-                    cached: payload.cached,
-                    imagePath: payload.imagePath
-                };
-    
-                this.loaded = true;
-                this.updateFailures = 0;
-                Log.info(this.name + ": Horoscope data loaded successfully");
-                if (this.transitionState === "idle") {
-                    this.updateDom();
-                    this.scheduleNextTransition();
-                }
-            } else {
-                Log.error(this.name + ": Failed to fetch horoscope", payload);
-                this.updateFailures++;
-                // Retry in 1 hour if failed
-                setTimeout(() => {
-                    this.updateHoroscopes();
-                }, 60 * 60 * 1000);
-            }
-        } else if (notification === "HOROSCOPES_UPDATED") {
-            Log.info(this.name + ": Horoscopes updated");
-            this.updateDom(1000);
-        } else if (notification === "UPDATE_WINDOW_EXPIRED") {
-            Log.warn(this.name + ": Update window expired without finding new content");
-            Log.warn("Last successful update:", payload.lastUpdateCheck);
-            Log.warn("Number of attempts:", payload.attempts);
-            if (this.config.debug) {
-                this.updateDom(1000); // Update DOM to show debug info
-            }
-        } else if (notification === "ERROR") {
-            Log.error(this.name + ": Received error notification", payload);
-            if (this.config.debug) {
-                this.updateDom(1000); // Update DOM to show error info
-            }
-        } else if (notification === "CACHE_CLEARED") {
-            Log.info(this.name + ": Cache cleared successfully");
-            this.updateHoroscopes(); // Fetch new data after cache clear
-        } else {
-            Log.warn(this.name + ": Received unknown socket notification: " + notification);
         }
     },
 
@@ -477,9 +347,6 @@ Module.register("MMM-SunSigns", {
             }
         } else if (notification === "CLEAR_SUNSIGNS_CACHE") {
             this.sendSocketNotification("CLEAR_CACHE");
-            Log.info(this.name + ": Sent CLEAR_CACHE notification to node helper");
         }
     }
 });
-
-console.log("MMM-SunSigns module file has been fully loaded");
