@@ -40,7 +40,11 @@ Module.register("MMM-SunSigns", {
         );
         console.log("MMM-SunSigns filtered periods:", JSON.stringify(this.config.period));
 
-        this.scheduleInitialUpdate();
+        this.sendSocketNotification("UPDATE_HOROSCOPES", {
+            zodiacSigns: this.config.zodiacSign,
+            periods: this.config.period,
+        });
+
         this.scheduleMidnightUpdate();
 
         if (this.config.simulateDate) {
