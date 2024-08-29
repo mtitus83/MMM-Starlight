@@ -323,6 +323,36 @@ module.exports = NodeHelper.create({
                date1.getDate() === date2.getDate();
     },
 
+    checkCacheTimestamps: async function() {
+        console.log("Checking cache timestamps");
+        const currentTime = Date.now();
+        let cacheUpdated = false;
+    
+        for (const sign in this.cache) {
+            for (const period in this.cache[sign]) {
+                const cacheEntry = this.cache[sign][period];
+                if (currentTime - cacheEntry.timestamp > this.settings.cacheDuration) {
+                    console.log(`Cache expired for ${sign} (${period}). Removing entry.`);
+                    delete this.cache[sign][period];
+                    cacheUpdated = true;
+                }
+            }
+            // Remove the sign object if it's empty
+            if (Object.keys(this.cache[sign]).length === 0) {
+                delete this.cache[sign];
+                cacheUpdated = true;
+            }
+        }
+    
+        if (cacheUpdated) {
+            await this.saveCache();
+            console.log("Cache updated after timestamp check");
+        } else {
+            console.log("No cache entries expired");
+        }
+    },
+
+
     clearCache: async function() {
         try {
             this.cache = {};
