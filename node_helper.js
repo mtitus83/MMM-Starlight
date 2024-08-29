@@ -81,11 +81,25 @@ module.exports = NodeHelper.create({
     },
 
     socketNotificationReceived: function(notification, payload) {
-        console.log('Received socket notification:', notification);
+        console.log("Received socket notification:", notification);
         try {
             if (notification === "UPDATE_HOROSCOPES") {
                 this.preloadHoroscopes(payload.zodiacSigns, payload.periods);
+            } else if (notification === "SET_SIMULATED_DATE") {
+                this.setSimulatedDate(payload.date);
+            } else if (notification === "CLEAR_CACHE") {
+                this.clearCache();
+            } else {
+                console.log("Unknown notification received:", notification);
             }
+        } catch (error) {
+            console.error("Error processing socket notification:", error);
+            this.sendSocketNotification("ERROR", {
+                type: "Socket Notification Error",
+                message: error.message || "Unknown error occurred while processing socket notification"
+            });
+        }
+    },
             // ... (keep other existing conditions)
         } catch (error) {
             console.error("Error processing socket notification:", error);
@@ -167,6 +181,10 @@ module.exports = NodeHelper.create({
             const cachedData = this.getCachedHoroscope(config.sign, config.period);
             if (cachedData) {
                 console.log('Returning cached horoscope for', config.sign, 'period:', config.period);
+                this.sendSocketNotification("HOROSCOPE_RESULT", {
+                    success: true,
+                    ...cachedData
+                });
                 return cachedData;
             }
 
@@ -182,6 +200,10 @@ module.exports = NodeHelper.create({
                 imagePath: imagePath
             };
             this.updateCache(config.sign, config.period, result);
+            this.sendSocketNotification("HOROSCOPE_RESULT", {
+                success: true,
+                ...result
+            });
             return result;
         } catch (error) {
             console.error('Error in getHoroscope for', config.sign, config.period, ':', error.message);
@@ -353,12 +375,29 @@ module.exports = NodeHelper.create({
         return null;
     },
 
-    preloadHoroscopes: async function(signs, periods) {
-        console.log('Preloading horoscopes for signs:', signs, 'and periods:', periods);
-        const promises = [];
+    preloadHoroscopes: function(signs, periods) {
+        console.log("Preloading horoscopes for signs:", signs, "and periods:", periods);
         for (const sign of signs) {
             for (const period of periods) {
-                promises.push(this.getHoroscope({ sign, period }));
+                const cachedData = this.getCachedHoroscope(sign, period);
+                if (cachedData) {
+                    this.sendSocketNotification("HOROSCOPE_RESULT", {
+                        success: true,
+                        sign: sign,
+                        period: period,
+                        data: cachedData.data,
+                        cached: true,
+                        imagePath: cachedData.imagePath
+                    });
+                } else {
+                    this.requestQueue.push({ sign, period });
+                }
+            }
+        }
+        this.processQueue().catch(error => {
+            console.error("Error in processQueue:", error);
+        });
+    },
             }
         }
         await Promise.all(promises);

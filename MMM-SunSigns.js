@@ -31,6 +31,37 @@ Module.register("MMM-SunSigns", {
         this.lastUpdateAttempt = null;
         this.updateFailures = 0;
         this.transitionState = "idle";
+        this.loadingState = "initializing";
+
+        console.log("MMM-SunSigns configuration:", JSON.stringify(this.config));
+
+        this.config.period = this.config.period.filter(period => 
+            ["daily", "tomorrow", "weekly", "monthly", "yearly"].includes(period)
+        );
+        console.log("MMM-SunSigns filtered periods:", JSON.stringify(this.config.period));
+
+        this.sendSocketNotification("UPDATE_HOROSCOPES", {
+            zodiacSigns: this.config.zodiacSign,
+            periods: this.config.period,
+        });
+        this.loadingState = "requesting";
+
+        this.scheduleMidnightUpdate();
+
+        if (this.config.simulateDate) {
+            console.log("MMM-SunSigns setting simulated date:", this.config.simulateDate);
+            this.sendSocketNotification("SET_SIMULATED_DATE", { date: this.config.simulateDate });
+        }
+
+        console.log("MMM-SunSigns start function completed");
+    },
+        this.currentSignIndex = 0;
+        this.currentPeriodIndex = 0;
+        this.loaded = false;
+        this.isScrolling = false;
+        this.lastUpdateAttempt = null;
+        this.updateFailures = 0;
+        this.transitionState = "idle";
 
         console.log("MMM-SunSigns configuration:", JSON.stringify(this.config));
 
@@ -103,9 +134,9 @@ Module.register("MMM-SunSigns", {
         wrapper.className = "MMM-SunSigns";
         wrapper.style.width = this.config.width;
         wrapper.style.fontSize = this.config.fontSize;
-    
+
         if (!this.loaded) {
-            wrapper.innerHTML = "Loading horoscope...";
+            wrapper.innerHTML = `Loading horoscope... (${this.loadingState})`;
             if (this.config.debug) {
                 wrapper.innerHTML += "<br>Last attempt: " + this.lastUpdateAttempt;
                 wrapper.innerHTML += "<br>Update failures: " + this.updateFailures;
@@ -343,6 +374,55 @@ Module.register("MMM-SunSigns", {
             if (payload.success) {
                 if (!this.horoscopes[payload.sign]) {
                     this.horoscopes[payload.sign] = {};
+                }
+                this.horoscopes[payload.sign][payload.period] = {
+                    data: payload.data,
+                    cached: payload.cached,
+                    imagePath: payload.imagePath
+                };
+
+                this.loaded = true;
+                this.updateFailures = 0;
+                Log.info(this.name + ": Horoscope data loaded successfully");
+                
+                if (payload.cached) {
+                    this.updateDom(0); // Update DOM immediately for cached results
+                } else {
+                    this.updateDom(1000); // Slight delay for newly fetched results
+                }
+
+                if (this.transitionState === "idle") {
+                    this.scheduleNextTransition();
+                }
+            } else {
+                Log.error(this.name + ": Failed to fetch horoscope", payload);
+                this.updateFailures++;
+                setTimeout(() => {
+                    this.updateHoroscopes();
+                }, 60 * 60 * 1000);
+            }
+        } else if (notification === "HOROSCOPES_UPDATED") {
+            Log.info(this.name + ": Horoscopes updated");
+            this.updateDom(1000);
+        } else if (notification === "UPDATE_WINDOW_EXPIRED") {
+            Log.warn(this.name + ": Update window expired without finding new content");
+            Log.warn("Last successful update:", payload.lastUpdateCheck);
+            Log.warn("Number of attempts:", payload.attempts);
+            if (this.config.debug) {
+                this.updateDom(1000);
+            }
+        } else if (notification === "ERROR") {
+            Log.error(this.name + ": Received error notification", payload);
+            if (this.config.debug) {
+                this.updateDom(1000);
+            }
+        } else if (notification === "CACHE_CLEARED") {
+            Log.info(this.name + ": Cache cleared successfully");
+            this.updateHoroscopes();
+        } else {
+            Log.warn(this.name + ": Received unknown socket notification: " + notification);
+        }
+    },
                 }
                 this.horoscopes[payload.sign][payload.period] = {
                     data: payload.data,
