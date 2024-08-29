@@ -31,23 +31,23 @@ Module.register("MMM-SunSigns", {
         this.lastUpdateAttempt = null;
         this.updateFailures = 0;
         this.transitionState = "idle";
-    
+
         console.log("MMM-SunSigns configuration:", JSON.stringify(this.config));
-    
+
         // Ensure that only configured periods are used
         this.config.period = this.config.period.filter(period => 
             ["daily", "tomorrow", "weekly", "monthly", "yearly"].includes(period)
         );
         console.log("MMM-SunSigns filtered periods:", JSON.stringify(this.config.period));
-    
+
         this.scheduleInitialUpdate();
         this.scheduleMidnightUpdate();
-    
+
         if (this.config.simulateDate) {
             console.log("MMM-SunSigns setting simulated date:", this.config.simulateDate);
             this.sendSocketNotification("SET_SIMULATED_DATE", { date: this.config.simulateDate });
         }
-    
+
         console.log("MMM-SunSigns start function completed");
     },
 
@@ -87,7 +87,7 @@ Module.register("MMM-SunSigns", {
         Log.info(this.name + ": Sending UPDATE_HOROSCOPES notification");
         Log.info(this.name + ": Zodiac signs:", JSON.stringify(this.config.zodiacSign));
         Log.info(this.name + ": Periods:", JSON.stringify(this.config.period));
-    
+
         this.sendSocketNotification("UPDATE_HOROSCOPES", {
             zodiacSigns: this.config.zodiacSign,
             periods: this.config.period,
@@ -138,6 +138,58 @@ Module.register("MMM-SunSigns", {
         }
     
         return wrapper;
+    },
+
+    retryFetchHoroscope: function(sign, period, retryCount = 0) {
+        const maxRetries = 3;
+        const retryDelay = 5000; // 5 seconds
+    
+        return new Promise((resolve, reject) => {
+            this.fetchHoroscope(sign, period)
+                .then(resolve)
+                .catch((error) => {
+                    if (retryCount < maxRetries) {
+                        console.log(`Retry ${retryCount + 1} for ${sign} (${period})`);
+                        setTimeout(() => {
+                            this.retryFetchHoroscope(sign, period, retryCount + 1)
+                                .then(resolve)
+                                .catch(reject);
+                        }, retryDelay);
+                    } else {
+                        reject(error);
+                    }
+                });
+        });
+    },
+    
+    validateConfig: function(config) {
+        const validZodiacSigns = [
+            "aries", "taurus", "gemini", "cancer", "leo", "virgo",
+            "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces"
+        ];
+        const validPeriods = ["daily", "tomorrow", "weekly", "monthly", "yearly"];
+    
+        if (!Array.isArray(config.zodiacSign) || config.zodiacSign.length === 0) {
+            throw new Error("zodiacSign must be a non-empty array");
+        }
+    
+        if (!Array.isArray(config.period) || config.period.length === 0) {
+            throw new Error("period must be a non-empty array");
+        }
+    
+        config.zodiacSign.forEach(sign => {
+            if (!validZodiacSigns.includes(sign.toLowerCase())) {
+                throw new Error(`Invalid zodiac sign: ${sign}`);
+            }
+        });
+    
+        config.period.forEach(period => {
+            if (!validPeriods.includes(period.toLowerCase())) {
+                throw new Error(`Invalid period: ${period}`);
+            }
+        });
+    
+        return true;
     },
 
     createSignElement: function(sign, className, period) {
@@ -293,7 +345,7 @@ Module.register("MMM-SunSigns", {
                     cached: payload.cached,
                     imagePath: payload.imagePath
                 };
-
+    
                 this.loaded = true;
                 this.updateFailures = 0;
                 Log.info(this.name + ": Horoscope data loaded successfully");
@@ -324,6 +376,9 @@ Module.register("MMM-SunSigns", {
             if (this.config.debug) {
                 this.updateDom(1000); // Update DOM to show error info
             }
+        } else if (notification === "CACHE_CLEARED") {
+            Log.info(this.name + ": Cache cleared successfully");
+            this.updateHoroscopes(); // Fetch new data after cache clear
         } else {
             Log.warn(this.name + ": Received unknown socket notification: " + notification);
         }
