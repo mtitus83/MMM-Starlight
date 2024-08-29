@@ -171,7 +171,7 @@ saveCache: async function() {
         console.log("Queue processing complete");
     },
 
-getHoroscope: async function(config) {
+    getHoroscope: async function(config) {
         try {
             if (!config.sign || !config.period) {
                 throw new Error('Invalid config: sign or period missing. Config: ' + JSON.stringify(config));
@@ -220,27 +220,45 @@ getHoroscope: async function(config) {
             url = `https://www.sunsigns.com/horoscopes/${period === 'tomorrow' ? 'daily/' + sign + '/tomorrow' : period + '/' + sign}`;
         }
         console.log('Fetching horoscope for', sign, '('+period+')', 'from', url);
-    
+
         try {
             const response = await axios.get(url, { timeout: 30000 });
             const $ = cheerio.load(response.data);
             let horoscope;
-                if (period === 'yearly' || period === 'monthly') {
-                    horoscope = $('.horoscope-content').text().trim() || $('article.post').text().trim();
-                } else {
-                    horoscope = $('.horoscope-content p').text().trim();
-                }
-                if (!horoscope) {
-                    throw new Error('No horoscope content found for ' + sign + ' (' + period + ')');
-                }
-                console.log('Fetched horoscope for', sign, '('+period+'). Length:', horoscope.length, 'characters');
-                return horoscope;
-            } catch (error) {
-                console.error('Error fetching horoscope for', sign, '('+period+'):', error.message);
-                throw error;
+            if (period === 'yearly' || period === 'monthly') {
+                horoscope = $('.horoscope-content').text().trim() || $('article.post').text().trim();
+                // Clean the horoscope text immediately for both yearly and monthly
+                horoscope = this.cleanHoroscopeText(horoscope, sign, period);
+            } else {
+                horoscope = $('.horoscope-content p').text().trim();
             }
-        },
-    
+            if (!horoscope) {
+                throw new Error('No horoscope content found for ' + sign + ' (' + period + ')');
+            }
+            console.log('Fetched horoscope for', sign, '('+period+'). Length:', horoscope.length, 'characters');
+            return horoscope;
+        } catch (error) {
+            console.error('Error fetching horoscope for', sign, '('+period+'):', error.message);
+            throw error;
+        }
+    },
+   
+    cleanHoroscopeText: function(text, sign, period) {
+        // Create a pattern that works for both yearly and monthly
+        const pattern = new RegExp(`^.*?${sign}\\s+(${period}|Monthly)\\s+Horoscope.*?\\d{2}\\.\\d{2}\\.\\d{4}`, 'is');
+        
+        // Remove the unwanted header text
+        text = text.replace(pattern, '').trim();
+        
+        // Additional cleaning for monthly horoscopes if needed
+        if (period === 'monthly') {
+            // Remove any remaining date headers (e.g., "May 2024")
+            text = text.replace(/^\s*[A-Z][a-z]+ \d{4}\s*/g, '');
+        }
+        
+        return text;
+    },
+
     updateCache: function(sign, period, content) {
         if (!this.cache[sign]) {
             this.cache[sign] = {};
