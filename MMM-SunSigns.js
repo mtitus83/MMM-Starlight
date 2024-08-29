@@ -73,7 +73,7 @@ Module.register("MMM-SunSigns", {
         }
     },
 
-scheduleMidnightUpdate: function() {
+    scheduleMidnightUpdate: function() {
         var self = this;
         var now = new Date();
         var night = new Date(
@@ -83,9 +83,23 @@ scheduleMidnightUpdate: function() {
             0, 0, 0
         );
         var msTillMidnight = night.getTime() - now.getTime();
-
+    
         setTimeout(function() {
+            Log.info(self.name + ": Midnight update triggered.");
+            
+            // Update the cache: move 'tomorrow' to 'daily'
+            for (let sign of self.config.zodiacSign) {
+                if (self.horoscopes[sign] && self.horoscopes[sign]['tomorrow']) {
+                    self.horoscopes[sign]['daily'] = self.horoscopes[sign]['tomorrow'];
+                    delete self.horoscopes[sign]['tomorrow'];
+                    Log.info(self.name + `: Updated cache for ${sign}: 'tomorrow' is now 'daily'`);
+                }
+            }
+    
+            // Trigger update to fetch new 'tomorrow' horoscopes
             self.updateHoroscopes();
+            
+            // Reschedule for next midnight
             self.scheduleMidnightUpdate();
         }, msTillMidnight);
     },
