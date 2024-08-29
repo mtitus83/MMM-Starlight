@@ -209,39 +209,43 @@ getHoroscope: async function(config) {
 
     fetchHoroscope: async function(sign, period) {
         let url;
+        const currentDate = this.getCurrentDate();
         if (period === 'yearly') {
-            const currentYear = new Date().getFullYear();
+            const currentYear = currentDate.getFullYear();
             url = `https://www.sunsigns.com/horoscopes/yearly/${currentYear}/${sign}`;
+        } else if (period === 'monthly') {
+            const month = currentDate.toLocaleString('default', { month: 'long' }).toLowerCase();
+            url = `https://www.sunsigns.com/horoscopes/monthly/${month}-${currentDate.getFullYear()}/${sign}`;
         } else {
             url = `https://www.sunsigns.com/horoscopes/${period === 'tomorrow' ? 'daily/' + sign + '/tomorrow' : period + '/' + sign}`;
         }
         console.log('Fetching horoscope for', sign, '('+period+')', 'from', url);
-
+    
         try {
             const response = await axios.get(url, { timeout: 30000 });
             const $ = cheerio.load(response.data);
             let horoscope;
-            if (period === 'yearly') {
-                horoscope = $('.horoscope-content').text().trim() || $('article.post').text().trim();
-            } else {
-                horoscope = $('.horoscope-content p').text().trim();
+                if (period === 'yearly' || period === 'monthly') {
+                    horoscope = $('.horoscope-content').text().trim() || $('article.post').text().trim();
+                } else {
+                    horoscope = $('.horoscope-content p').text().trim();
+                }
+                if (!horoscope) {
+                    throw new Error('No horoscope content found for ' + sign + ' (' + period + ')');
+                }
+                console.log('Fetched horoscope for', sign, '('+period+'). Length:', horoscope.length, 'characters');
+                return horoscope;
+            } catch (error) {
+                console.error('Error fetching horoscope for', sign, '('+period+'):', error.message);
+                throw error;
             }
-            if (!horoscope) {
-                throw new Error('No horoscope content found for ' + sign + ' (' + period + ')');
-            }
-            console.log('Fetched horoscope for', sign, '('+period+'). Length:', horoscope.length, 'characters');
-            return horoscope;
-        } catch (error) {
-            console.error('Error fetching horoscope for', sign, '('+period+'):', error.message);
-            throw error;
-        }
-    },
-
+        },
+    
     updateCache: function(sign, period, content) {
         if (!this.cache[sign]) {
             this.cache[sign] = {};
         }
-
+    
         this.cache[sign][period] = {
             data: content.data,
             timestamp: this.getCurrentDate().getTime(),
@@ -249,14 +253,39 @@ getHoroscope: async function(config) {
         };
         console.log('Updated cache for', sign, '('+period+'):', content.data.substring(0, 50) + '...');
         this.saveCache();
-    },
-
+    },  
+  
     getCachedHoroscope: function(sign, period) {
         if (!this.cache[sign] || !this.cache[sign][period]) {
             return null;
         }
         const cachedData = this.cache[sign][period];
-        if (this.isSameDay(new Date(cachedData.timestamp), this.getCurrentDate())) {
+        const currentDate = this.getCurrentDate();
+        
+        let isValid = false;
+        switch(period) {
+            case 'daily':
+                isValid = this.isSameDay(new Date(cachedData.timestamp), currentDate);
+                break;
+            case 'tomorrow':
+                const tomorrow = new Date(currentDate);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                isValid = this.isSameDay(new Date(cachedData.timestamp), tomorrow);
+                break;
+            case 'weekly':
+                isValid = this.isInSameWeek(new Date(cachedData.timestamp), currentDate);
+                break;
+            case 'monthly':
+                isValid = this.isSameMonth(new Date(cachedData.timestamp), currentDate);
+                break;
+            case 'yearly':
+                isValid = this.isSameYear(new Date(cachedData.timestamp), currentDate);
+                break;
+            default:
+                isValid = false;
+        }
+    
+        if (isValid) {
             return { 
                 data: cachedData.data,
                 sign: sign, 
@@ -267,74 +296,94 @@ getHoroscope: async function(config) {
         }
         return null;
     },
-
-    cacheImage: async function(imageUrl, sign) {
-        const imagePath = path.join(this.imageCacheDir, sign + '.png');
-
-        try {
-            await fs.access(imagePath);
-            console.log('Image for', sign, 'already cached at', imagePath);
-            return path.relative(__dirname, imagePath);
-        } catch (error) {
-            console.log('Attempting to download image for', sign, 'from', imageUrl);
+    
+        cacheImage: async function(imageUrl, sign) {
+            const imagePath = path.join(this.imageCacheDir, sign + '.png');
+    
             try {
-                const response = await axios({
-                    url: imageUrl,
-                    method: 'GET',
-                    responseType: 'arraybuffer'
-                });
-                await fs.writeFile(imagePath, response.data);
-                console.log('Image successfully cached for', sign, 'at', imagePath);
+                await fs.access(imagePath);
+                console.log('Image for', sign, 'already cached at', imagePath);
                 return path.relative(__dirname, imagePath);
-            } catch (downloadError) {
-                console.error('Error caching image for', sign, ':', downloadError);
-                throw downloadError;
+            } catch (error) {
+                console.log('Attempting to download image for', sign, 'from', imageUrl);
+                try {
+                    const response = await axios({
+                        url: imageUrl,
+                        method: 'GET',
+                        responseType: 'arraybuffer'
+                    });
+                    await fs.writeFile(imagePath, response.data);
+                    console.log('Image successfully cached for', sign, 'at', imagePath);
+                    return path.relative(__dirname, imagePath);
+                } catch (downloadError) {
+                    console.error('Error caching image for', sign, ':', downloadError);
+                    throw downloadError;
+                }
             }
-        }
-    },
-
-    setSimulatedDate: function(dateString) {
-        const parsedDate = this.parseSimulatedDateString(dateString);
-        if (parsedDate) {
-            this.simulatedDate = parsedDate;
-            console.log('Simulated date set to:', this.simulatedDate.toDateString());
-        } else {
-            console.error('Invalid simulated date format:', dateString, '. Expected format: MM/DD/YYYY');
-        }
-    },
-
-    parseSimulatedDateString: function(dateString) {
-        const regex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
-        const match = dateString.match(regex);
-        if (match) {
-            const month = parseInt(match[1]) - 1,
-                  day = parseInt(match[2]),
-                  year = parseInt(match[3]);
-            return new Date(year, month, day);
-        }
-        return null;
-    },
-
-    getCurrentDate: function() {
-        if (this.simulatedDate) {
-            const now = new Date();
-            return new Date(
-                this.simulatedDate.getFullYear(),
-                this.simulatedDate.getMonth(),
-                this.simulatedDate.getDate(),
-                now.getHours(),
-                now.getMinutes(),
-                now.getSeconds(),
-                now.getMilliseconds()
-            );
-        }
-        return new Date();
-    },
-
+        },
+    
+        setSimulatedDate: function(dateString) {
+            const parsedDate = this.parseSimulatedDateString(dateString);
+            if (parsedDate) {
+                this.simulatedDate = parsedDate;
+                console.log('Simulated date set to:', this.simulatedDate.toDateString());
+            } else {
+                console.error('Invalid simulated date format:', dateString, '. Expected format: MM/DD/YYYY');
+            }
+        },
+    
+        parseSimulatedDateString: function(dateString) {
+            const regex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+            const match = dateString.match(regex);
+            if (match) {
+                const month = parseInt(match[1]) - 1,
+                      day = parseInt(match[2]),
+                      year = parseInt(match[3]);
+                return new Date(year, month, day);
+            }
+            return null;
+        },
+    
+        getCurrentDate: function() {
+            if (this.simulatedDate) {
+                const now = new Date();
+                return new Date(
+                    this.simulatedDate.getFullYear(),
+                    this.simulatedDate.getMonth(),
+                    this.simulatedDate.getDate(),
+                    now.getHours(),
+                    now.getMinutes(),
+                    now.getSeconds(),
+                    now.getMilliseconds()
+                );
+            }
+            return new Date();
+        },
+    
     isSameDay: function(date1, date2) {
         return date1.getFullYear() === date2.getFullYear() &&
                date1.getMonth() === date2.getMonth() &&
                date1.getDate() === date2.getDate();
+    },
+    
+    isInSameWeek: function(date1, date2) {
+        const startOfWeek = this.config.startOfWeek === "Monday" ? 1 : 0;
+        const d1 = new Date(date1);
+        const d2 = new Date(date2);
+        d1.setHours(0, 0, 0, 0);
+        d2.setHours(0, 0, 0, 0);
+        const dayDiff = (d2 - d1) / (24 * 60 * 60 * 1000);
+        const adjustedDayDiff = dayDiff + (d1.getDay() - startOfWeek + 7) % 7;
+        return Math.floor(adjustedDayDiff / 7) === 0;
+    },
+    
+    isSameMonth: function(date1, date2) {
+        return date1.getFullYear() === date2.getFullYear() &&
+               date1.getMonth() === date2.getMonth();
+    },
+    
+    isSameYear: function(date1, date2) {
+        return date1.getFullYear() === date2.getFullYear();
     },
 
     checkCacheTimestamps: async function() {

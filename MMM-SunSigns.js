@@ -71,8 +71,8 @@ Module.register("MMM-SunSigns", {
             Log.error(this.name + ": No valid periods configured. Using default: daily");
             this.config.period = ["daily"];
         }
-    },
-
+        },
+    
     scheduleMidnightUpdate: function() {
         var self = this;
         var now = new Date();
@@ -86,30 +86,68 @@ Module.register("MMM-SunSigns", {
     
         setTimeout(function() {
             Log.info(self.name + ": Midnight update triggered.");
-            
-            // Update the cache: move 'tomorrow' to 'daily'
+    
+            // Replace 'daily' with 'tomorrow' in the cache
             for (let sign of self.config.zodiacSign) {
                 if (self.horoscopes[sign] && self.horoscopes[sign]['tomorrow']) {
                     self.horoscopes[sign]['daily'] = self.horoscopes[sign]['tomorrow'];
                     delete self.horoscopes[sign]['tomorrow'];
-                    Log.info(self.name + `: Updated cache for ${sign}: 'tomorrow' is now 'daily'`);
+                    Log.info(self.name + `: Updated cache for ${sign}: 'tomorrow' has replaced 'daily'`);
                 }
             }
     
-            // Trigger update to fetch new 'tomorrow' horoscopes
-            self.updateHoroscopes();
-            
+            let periodsToUpdate = ['tomorrow'];
+    
+            // Check if it's the first day of the week, month, or year
+            const today = self.getCurrentDate();
+            const isFirstDayOfWeek = today.getDay() === (self.config.startOfWeek === "Monday" ? 1 : 0);
+            const isFirstDayOfMonth = today.getDate() === 1;
+            const isFirstDayOfYear = today.getMonth() === 0 && today.getDate() === 1;
+    
+            // Only update weekly if it's the first day of the week and we don't have cached data
+            if (isFirstDayOfWeek && !self.hasCachedDataForPeriod('weekly')) {
+                periodsToUpdate.push('weekly');
+                Log.info(self.name + ": First day of the week. Updating weekly horoscope.");
+            }
+    
+            // Only update monthly if it's the first day of the month and we don't have cached data
+            if (isFirstDayOfMonth && !self.hasCachedDataForPeriod('monthly')) {
+                periodsToUpdate.push('monthly');
+                Log.info(self.name + ": First day of the month. Updating monthly horoscope.");
+            }
+    
+            // Only update yearly if it's the first day of the year and we don't have cached data
+            if (isFirstDayOfYear && !self.hasCachedDataForPeriod('yearly')) {
+                periodsToUpdate.push('yearly');
+                Log.info(self.name + ": First day of the year. Updating yearly horoscope.");
+            }
+    
+            self.updateHoroscopes(periodsToUpdate);
+    
             // Reschedule for next midnight
             self.scheduleMidnightUpdate();
         }, msTillMidnight);
     },
-
-    updateHoroscopes: function() {
+    
+    updateHoroscopes: function(periods = null) {
         this.lastUpdateAttempt = new Date().toLocaleString();
+        Log.info(this.name + ": Sending UPDATE_HOROSCOPES notification");
+        Log.info(this.name + ": Zodiac signs:", JSON.stringify(this.config.zodiacSign));
+        Log.info(this.name + ": Periods:", JSON.stringify(periods || this.config.period));
+    
         this.sendSocketNotification("UPDATE_HOROSCOPES", {
             zodiacSigns: this.config.zodiacSign,
-            periods: this.config.period,
+            periods: periods || this.config.period,
         });
+    },
+
+    hasCachedDataForPeriod: function(period) {
+        for (let sign of this.config.zodiacSign) {
+            if (!this.horoscopes[sign] || !this.horoscopes[sign][period]) {
+                return false;
+            }
+        }
+        return true;
     },
 
     getDom: function() {
@@ -350,6 +388,10 @@ formatPeriodText: function(period) {
             Log.info(this.name + ": Cache cleared successfully");
             this.updateHoroscopes();
         }
+    },
+
+    getCurrentDate: function() {
+        return this.config.simulateDate ? new Date(this.config.simulateDate) : new Date();
     },
 
     notificationReceived: function(notification, payload, sender) {
