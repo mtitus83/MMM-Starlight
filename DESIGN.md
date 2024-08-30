@@ -99,10 +99,4 @@ In `MMM-SunSigns.js`:
 - Image caching reduces bandwidth usage.
 - Scrolling and animations are optimized for smooth performance.
 
-## Future Improvements
-
-- Implement user-configurable update frequencies.
-- Add support for multiple languages.
-- Enhance error recovery mechanisms.
-
 This design document provides an overview of the MMM-SunSigns module's structure and key components. It serves as a guide for understanding the module's functionality and can be used as a reference for future development or troubleshooting.
