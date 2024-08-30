@@ -28,12 +28,13 @@ Module.register("MMM-SunSigns", {
         this.currentPeriodIndex = 0;
         this.loaded = false;
         this.isScrolling = false;
-        
+    
         if (this.config.debug && this.config.test) {
             Log.info(`${this.name}: Debug mode active. Test mode set to '${this.config.test}'`);
         }
-        
+    
         this.sendSocketNotification("INIT_MODULE", this.config);
+        this.scheduleUpdate();
     },
 
     getDom: function() {

@@ -12,6 +12,7 @@ module.exports = NodeHelper.create({
         this.imageDir = path.join(this.cacheDir, 'images');
         this.cache = null;
         this.ensureCacheDirs();
+        this.loadCacheFromFile();
     },
 
     ensureCacheDirs: async function() {
@@ -23,24 +24,34 @@ module.exports = NodeHelper.create({
         }
     },
 
+    loadCacheFromFile: async function() {
+        try {
+            const data = await fs.readFile(this.cacheFile, 'utf8');
+            this.cache = JSON.parse(data);
+            this.log('info', `Cache file loaded from ${this.cache.timestamp}`);
+        } catch (error) {
+            console.error("Error reading cache file:", error);
+            this.cache = null;
+        }
+    },
+
     buildCache: async function(config) {
         this.config = config;
         const zodiacSigns = ['aries', 'taurus', 'gemini', 'cancer', 'leo', 'virgo', 'libra', 'scorpio', 'sagittarius', 'capricorn', 'aquarius', 'pisces'];
         const periods = ['daily', 'tomorrow', 'weekly', 'monthly', 'yearly'];
-        
+
         this.cache = {
             timestamp: new Date().toISOString(),
             horoscopes: {},
             images: {}
         };
 
-        for (let sign of zodiacSigns) {
-            this.cache.horoscopes[sign] = {};
-            for (let period of periods) {
-                await this.fetchHoroscope(sign, period);
-            }
-            await this.fetchImage(sign);
-        }
+        const fetchPromises = zodiacSigns.flatMap(sign => 
+            periods.map(period => this.fetchHoroscope(sign, period))
+                .concat(this.fetchImage(sign))
+        );
+
+        await Promise.all(fetchPromises);
 
         await this.saveCacheToFile();
         this.log('info', `Cache file built successfully at ${this.cache.timestamp}`);
@@ -51,11 +62,21 @@ module.exports = NodeHelper.create({
     },
 
     fetchHoroscope: async function(sign, period) {
+        if (this.cache.horoscopes[sign] && this.cache.horoscopes[sign][period]) {
+            const cachedData = this.cache.horoscopes[sign][period];
+            const cacheAge = new Date() - new Date(cachedData.timestamp);
+            if (cacheAge < this.getCacheValidityPeriod(period)) {
+                this.log('debug', `Using cached ${period} horoscope for ${sign}`);
+                return;
+            }
+        }
+
         const url = this.getHoroscopeUrl(sign, period);
         try {
-            const response = await axios.get(url, { timeout: this.config.timeout });
+            const response = await axios.get(url, { timeout: 10000 }); // 10 seconds timeout
             const $ = cheerio.load(response.data);
             const horoscope = $('.horoscope-content p').text().trim();
+            this.cache.horoscopes[sign] = this.cache.horoscopes[sign] || {};
             this.cache.horoscopes[sign][period] = {
                 content: horoscope,
                 timestamp: new Date().toISOString()
@@ -100,14 +121,19 @@ module.exports = NodeHelper.create({
         }
     },
 
-    loadCacheFromFile: async function() {
-        try {
-            const data = await fs.readFile(this.cacheFile, 'utf8');
-            this.cache = JSON.parse(data);
-            this.log('info', `Cache file loaded from ${this.cache.timestamp}`);
-        } catch (error) {
-            console.error("Error reading cache file:", error);
-            return null;
+    getCacheValidityPeriod: function(period) {
+        switch(period) {
+            case 'daily':
+            case 'tomorrow':
+                return 6 * 60 * 60 * 1000; // 6 hours
+            case 'weekly':
+                return 24 * 60 * 60 * 1000; // 1 day
+            case 'monthly':
+                return 7 * 24 * 60 * 60 * 1000; // 1 week
+            case 'yearly':
+                return 30 * 24 * 60 * 60 * 1000; // 1 month
+            default:
+                return 24 * 60 * 60 * 1000; // 1 day (default)
         }
     },
 
@@ -144,12 +170,8 @@ module.exports = NodeHelper.create({
         if (now.toDateString() !== cacheDate.toDateString()) {
             // Date has changed, update daily and tomorrow
             for (let sign in this.cache.horoscopes) {
-                const oldDaily = this.cache.horoscopes[sign]['daily'].content;
-                const newDaily = this.cache.horoscopes[sign]['tomorrow'].content;
-                this.cache.horoscopes[sign]['daily'] = this.cache.horoscopes[sign]['tomorrow'];
+                await this.fetchHoroscope(sign, 'daily');
                 await this.fetchHoroscope(sign, 'tomorrow');
-                
-                this.log('debug', `For ${sign}:\nOld Daily: "${oldDaily.substring(0, 50)}..."\nNew Daily (was Tomorrow): "${newDaily.substring(0, 50)}..."\nNew Tomorrow: "${this.cache.horoscopes[sign]['tomorrow'].content.substring(0, 50)}..."`);
             }
             this.log('info', `Cache updated: New day (${now.toDateString()}), daily and tomorrow horoscopes updated`);
         }
@@ -167,10 +189,6 @@ module.exports = NodeHelper.create({
 
         this.cache.timestamp = now.toISOString();
         await this.saveCacheToFile();
-        
-        if (testDate) {
-            this.sendSocketNotification("TEST_RESULT", this.getCacheState());
-        }
     },
 
     isNewWeek: function(now, cacheDate) {
@@ -190,7 +208,15 @@ module.exports = NodeHelper.create({
     },
 
     getHoroscope: function(sign, period) {
-        return this.cache.horoscopes[sign][period];
+        if (this.cache.horoscopes[sign] && this.cache.horoscopes[sign][period]) {
+            const cachedData = this.cache.horoscopes[sign][period];
+            const cacheAge = new Date() - new Date(cachedData.timestamp);
+            if (cacheAge < this.getCacheValidityPeriod(period)) {
+                return cachedData;
+            }
+        }
+        this.fetchHoroscope(sign, period);
+        return { content: "Updating horoscope...", timestamp: new Date().toISOString() };
     },
 
     getImage: function(sign) {
@@ -217,7 +243,11 @@ module.exports = NodeHelper.create({
 
     socketNotificationReceived: function(notification, payload) {
         if (notification === "INIT_MODULE") {
-            this.buildCache(payload);
+            if (!this.cache) {
+                this.buildCache(payload);
+            } else {
+                this.sendSocketNotification("CACHE_BUILT");
+            }
         } else if (notification === "GET_HOROSCOPE") {
             const horoscope = this.getHoroscope(payload.sign, payload.period);
             this.sendSocketNotification("HOROSCOPE_RESULT", {
