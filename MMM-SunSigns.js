@@ -2,9 +2,7 @@ const LOG_PREFIX = "MMM-SunSigns:";
 
 function log(message, isError = false, isDebug = false) {
     const logFunc = isError ? console.error : console.log;
-    if (!isDebug || (isDebug && this.config && this.config.debug)) {
-        logFunc(`${LOG_PREFIX} ${message}`);
-    }
+    logFunc(`${LOG_PREFIX} ${message}`);
 }
 
 Module.register("MMM-SunSigns", {
@@ -27,7 +25,7 @@ Module.register("MMM-SunSigns", {
     },
 
     start: function() {
-        log("Starting module: " + this.name);
+        console.log(`${LOG_PREFIX} Starting module`);
         this.horoscopes = {};
         this.currentSignIndex = 0;
         this.currentPeriodIndex = 0;
@@ -41,7 +39,7 @@ Module.register("MMM-SunSigns", {
         this.validateConfig();
         this.initialize();
 
-        log("Sending initial UPDATE_HOROSCOPES notification", false, true);
+        console.log(`${LOG_PREFIX} Sending initial UPDATE_HOROSCOPES notification`);
         this.sendSocketNotification("UPDATE_HOROSCOPES", {
             zodiacSigns: this.config.zodiacSign,
             periods: this.config.period,
@@ -50,12 +48,12 @@ Module.register("MMM-SunSigns", {
         this.scheduleMidnightUpdate();
 
         if (this.config.simulateDate) {
-            log("Setting simulated date: " + this.config.simulateDate, false, true);
+            console.log(`${LOG_PREFIX} Setting simulated date: ${this.config.simulateDate}`);
             this.sendSocketNotification("SET_SIMULATED_DATE", { date: this.config.simulateDate });
         }
 
         if (this.config.clearCacheOnStart) {
-            log("Clearing cache on start", false, true);
+            console.log(`${LOG_PREFIX} Clearing cache on start`);
             this.sendSocketNotification("CLEAR_CACHE");
         }
     },
@@ -72,7 +70,8 @@ Module.register("MMM-SunSigns", {
         return ["MMM-SunSigns.css"];
     },
 
-validateConfig: function() {
+    validateConfig: function() {
+        console.log(`${LOG_PREFIX} Validating configuration`);
         const validZodiacSigns = [
             "aries", "taurus", "gemini", "cancer", "leo", "virgo",
             "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces"
@@ -86,16 +85,17 @@ validateConfig: function() {
         this.config.period = this.config.period.filter(period => validPeriods.includes(period.toLowerCase()));
 
         if (this.config.zodiacSign.length === 0) {
-            log(this.name + ": No valid zodiac signs configured. Using default: taurus", true, true);
+            console.log(`${LOG_PREFIX} No valid zodiac signs configured. Using default: taurus`);
             this.config.zodiacSign = ["taurus"];
         }
         if (this.config.period.length === 0) {
-            log(this.name + ": No valid periods configured. Using default: daily", true, true);
+            console.log(`${LOG_PREFIX} No valid periods configured. Using default: daily`);
             this.config.period = ["daily"];
         }
     },
 
     scheduleMidnightUpdate: function() {
+        console.log(`${LOG_PREFIX} Scheduling midnight update`);
         var self = this;
         var now = new Date();
         var night = new Date(
@@ -105,57 +105,58 @@ validateConfig: function() {
             0, 0, 0
         );
         var msTillMidnight = night.getTime() - now.getTime();
-
+    
         setTimeout(function() {
-            log(self.name + ": Midnight update triggered.", false, true);
-
+            console.log(`${LOG_PREFIX} Midnight update triggered`);
+    
             // Replace 'daily' with 'tomorrow' in the cache
             for (let sign of self.config.zodiacSign) {
                 if (self.horoscopes[sign] && self.horoscopes[sign]['tomorrow']) {
                     self.horoscopes[sign]['daily'] = self.horoscopes[sign]['tomorrow'];
                     delete self.horoscopes[sign]['tomorrow'];
-                    log(self.name + `: Updated cache for ${sign}: 'tomorrow' has replaced 'daily'`, false, true);
+                    console.log(`${LOG_PREFIX} Updated cache for ${sign}: 'tomorrow' has replaced 'daily'`);
                 }
             }
-
+    
             let periodsToUpdate = ['tomorrow'];
-
+    
             // Check if it's the first day of the week, month, or year
             const today = self.getCurrentDate();
             const isFirstDayOfWeek = today.getDay() === (self.config.startOfWeek === "Monday" ? 1 : 0);
             const isFirstDayOfMonth = today.getDate() === 1;
             const isFirstDayOfYear = today.getMonth() === 0 && today.getDate() === 1;
-
+    
             // Only update weekly if it's the first day of the week and we don't have cached data
             if (isFirstDayOfWeek && !self.hasCachedDataForPeriod('weekly')) {
                 periodsToUpdate.push('weekly');
-                log(self.name + ": First day of the week. Updating weekly horoscope.", false, true);
+                console.log(`${LOG_PREFIX} First day of the week. Updating weekly horoscope.`);
             }
-
+    
             // Only update monthly if it's the first day of the month and we don't have cached data
             if (isFirstDayOfMonth && !self.hasCachedDataForPeriod('monthly')) {
                 periodsToUpdate.push('monthly');
-                log(self.name + ": First day of the month. Updating monthly horoscope.", false, true);
+                console.log(`${LOG_PREFIX} First day of the month. Updating monthly horoscope.`);
             }
-
+    
             // Only update yearly if it's the first day of the year and we don't have cached data
             if (isFirstDayOfYear && !self.hasCachedDataForPeriod('yearly')) {
                 periodsToUpdate.push('yearly');
-                log(self.name + ": First day of the year. Updating yearly horoscope.", false, true);
+                console.log(`${LOG_PREFIX} First day of the year. Updating yearly horoscope.`);
             }
-
+    
             self.updateHoroscopes(periodsToUpdate);
-
+    
             // Reschedule for next midnight
             self.scheduleMidnightUpdate();
         }, msTillMidnight);
     },
 
-updateHoroscopes: function(periods = null) {
+    updateHoroscopes: function(periods = null) {
+        console.log(`${LOG_PREFIX} Updating horoscopes for periods: ${periods || 'all'}`);
         this.lastUpdateAttempt = new Date().toLocaleString();
-        log(this.name + ": Sending UPDATE_HOROSCOPES notification", false, true);
-        log(this.name + ": Zodiac signs: " + JSON.stringify(this.config.zodiacSign), false, true);
-        log(this.name + ": Periods: " + JSON.stringify(periods || this.config.period), false, true);
+        console.log(`${LOG_PREFIX} Sending UPDATE_HOROSCOPES notification`);
+        console.log(`${LOG_PREFIX} Zodiac signs: ${JSON.stringify(this.config.zodiacSign)}`);
+        console.log(`${LOG_PREFIX} Periods: ${JSON.stringify(periods || this.config.period)}`);
 
         this.sendSocketNotification("UPDATE_HOROSCOPES", {
             zodiacSigns: this.config.zodiacSign,

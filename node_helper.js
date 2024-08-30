@@ -8,14 +8,12 @@ const path = require('path');
 
 function log(message, isError = false, isDebug = false) {
     const logFunc = isError ? console.error : console.log;
-    if (!isDebug || (isDebug && this.debug)) {
-        logFunc(`MMM-SunSigns: ${message}`);
-    }
+    logFunc(`${LOG_PREFIX} ${message}`);
 }
 
 module.exports = NodeHelper.create({
     start: function() {
-        log("Starting node helper for MMM-SunSigns");
+        console.log(`${LOG_PREFIX} Starting node helper`);
         this.cacheDir = path.join(__dirname, 'cache');
         this.imageCacheDir = path.join(this.cacheDir, 'images');
         this.cache = {};
@@ -90,8 +88,8 @@ module.exports = NodeHelper.create({
         }
     },
 
-socketNotificationReceived: function(notification, payload) {
-        log("Received socket notification: " + notification, false, true);
+    socketNotificationReceived: function(notification, payload) {
+        console.log(`${LOG_PREFIX} Received socket notification: ${notification}`);
         try {
             if (notification === "UPDATE_HOROSCOPES") {
                 this.preloadHoroscopes(payload.zodiacSigns, payload.periods);
@@ -100,10 +98,10 @@ socketNotificationReceived: function(notification, payload) {
             } else if (notification === "CLEAR_CACHE") {
                 this.clearCache();
             } else {
-                log("Unknown notification received: " + notification, false, true);
+                console.log(`${LOG_PREFIX} Unknown notification received: ${notification}`);
             }
         } catch (error) {
-            log("Error processing socket notification: " + error, true, true);
+            console.error(`${LOG_PREFIX} Error processing socket notification: ${error}`);
             this.sendSocketNotification("ERROR", {
                 type: "Socket Notification Error",
                 message: error.message || "Unknown error occurred while processing socket notification"
@@ -112,7 +110,7 @@ socketNotificationReceived: function(notification, payload) {
     },
 
     preloadHoroscopes: function(signs, periods) {
-        log('Preloading horoscopes for signs: ' + signs + ' and periods: ' + periods, false, true);
+        console.log(`${LOG_PREFIX} Preloading horoscopes for signs: ${signs} and periods: ${periods}`);
         for (const sign of signs) {
             for (const period of periods) {
                 const cachedData = this.getCachedHoroscope(sign, period);
@@ -131,7 +129,7 @@ socketNotificationReceived: function(notification, payload) {
             }
         }
         this.processQueue().catch(error => {
-            log("Error in processQueue: " + error, true, true);
+            console.error(`${LOG_PREFIX} Error in processQueue: ${error}`);
         });
     },
 
@@ -180,7 +178,8 @@ socketNotificationReceived: function(notification, payload) {
         log("Queue processing complete", false, true);
     },
 
-getHoroscope: async function(config) {
+    getHoroscope: async function(config) {
+        console.log(`${LOG_PREFIX} Getting horoscope for ${config.sign} (${config.period})`);
         try {
             if (!config.sign || !config.period) {
                 throw new Error('Invalid config: sign or period missing. Config: ' + JSON.stringify(config));
@@ -189,30 +188,28 @@ getHoroscope: async function(config) {
             const cachedData = this.getCachedHoroscope(config.sign, config.period);
             let imagePath;
 
-            // Always try to get the image path, whether we're using cached horoscope data or not
             try {
                 imagePath = await this.cacheImage(`https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`, config.sign);
             } catch (imageError) {
-                log(`Error caching image for ${config.sign}: ${imageError}`, true, true);
-                imagePath = null; // Set to null if image caching fails
+                console.error(`${LOG_PREFIX} Error caching image for ${config.sign}: ${imageError}`);
+                imagePath = null;
             }
 
             const currentTime = this.getCurrentDate().getTime();
 
             if (cachedData) {
                 if (currentTime < cachedData.nextUpdateTime) {
-                    log(`Using cached horoscope for ${config.sign} (${config.period})`, false, true);
-                    cachedData.imagePath = imagePath; // Update the image path in case it has changed
+                    console.log(`${LOG_PREFIX} Using cached horoscope for ${config.sign} (${config.period})`);
+                    cachedData.imagePath = imagePath;
                     return cachedData;
                 } else {
-                    log(`Cached data for ${config.sign} (${config.period}) is due for update. Fetching from source.`, false, true);
+                    console.log(`${LOG_PREFIX} Cached data for ${config.sign} (${config.period}) is due for update. Fetching from source.`);
                 }
             } else {
-                log(`No cached data found for ${config.sign} (${config.period}). Fetching from source.`, false, true);
+                console.log(`${LOG_PREFIX} No cached data found for ${config.sign} (${config.period}). Fetching from source.`);
             }
 
-            // Fetch new data immediately if cache is missing or due for update
-            log(`Fetching new horoscope for ${config.sign} (${config.period}) from source`, false, true);
+            console.log(`${LOG_PREFIX} Fetching new horoscope for ${config.sign} (${config.period}) from source`);
             const horoscope = await this.fetchHoroscope(config.sign, config.period);
             const result = { 
                 data: horoscope,
@@ -225,7 +222,7 @@ getHoroscope: async function(config) {
             this.updateCache(config.sign, config.period, result);
             return result;
         } catch (error) {
-            log(`Error in getHoroscope for ${config.sign} (${config.period}): ${error.message}`, true, true);
+            console.error(`${LOG_PREFIX} Error in getHoroscope for ${config.sign} (${config.period}): ${error.message}`);
             return {
                 error: true,
                 message: error.message,
@@ -234,7 +231,6 @@ getHoroscope: async function(config) {
             };
         }
     },
-
     fetchHoroscope: async function(sign, period) {
         let url;
         const currentDate = this.getCurrentDate();
