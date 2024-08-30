@@ -210,53 +210,74 @@ saveCache: async function() {
     fetchHoroscope: async function(sign, period) {
         let url;
         const currentDate = this.getCurrentDate();
-        if (period === 'yearly') {
-            const currentYear = currentDate.getFullYear();
-            url = `https://www.sunsigns.com/horoscopes/yearly/${currentYear}/${sign}`;
-        } else if (period === 'monthly') {
-            const month = currentDate.toLocaleString('default', { month: 'long' }).toLowerCase();
-            url = `https://www.sunsigns.com/horoscopes/monthly/${month}-${currentDate.getFullYear()}/${sign}`;
-        } else {
-            url = `https://www.sunsigns.com/horoscopes/${period === 'tomorrow' ? 'daily/' + sign + '/tomorrow' : period + '/' + sign}`;
+        const currentYear = currentDate.getFullYear();
+    
+        switch (period) {
+            case 'daily':
+                url = `https://www.sunsigns.com/horoscopes/daily/${sign}`;
+                break;
+            case 'tomorrow':
+                url = `https://www.sunsigns.com/horoscopes/daily/${sign}/tomorrow`;
+                break;
+            case 'weekly':
+                url = `https://www.sunsigns.com/horoscopes/weekly/${sign}`;
+                break;
+            case 'monthly':
+                url = `https://www.sunsigns.com/horoscopes/monthly/${sign}`;
+                break;
+            case 'yearly':
+                url = `https://www.sunsigns.com/horoscopes/yearly/${currentYear}/${sign}`;
+                break;
+            default:
+                throw new Error(`Invalid period: ${period}`);
         }
-        console.log('Fetching horoscope for', sign, '('+period+')', 'from', url);
-
+    
+        console.log(`Fetching horoscope for ${sign} (${period}) from ${url}`);
+    
         try {
             const response = await axios.get(url, { timeout: 30000 });
             const $ = cheerio.load(response.data);
             let horoscope;
+    
             if (period === 'yearly' || period === 'monthly') {
                 horoscope = $('.horoscope-content').text().trim() || $('article.post').text().trim();
-                // Clean the horoscope text immediately for both yearly and monthly
                 horoscope = this.cleanHoroscopeText(horoscope, sign, period);
             } else {
                 horoscope = $('.horoscope-content p').text().trim();
             }
+    
             if (!horoscope) {
-                throw new Error('No horoscope content found for ' + sign + ' (' + period + ')');
+                throw new Error(`No horoscope content found for ${sign} (${period})`);
             }
-            console.log('Fetched horoscope for', sign, '('+period+'). Length:', horoscope.length, 'characters');
+    
+            console.log(`Fetched horoscope for ${sign} (${period}). Length: ${horoscope.length} characters`);
             return horoscope;
         } catch (error) {
-            console.error('Error fetching horoscope for', sign, '('+period+'):', error.message);
+            console.error(`Error fetching horoscope for ${sign} (${period}):`, error.message);
             throw error;
         }
     },
    
     cleanHoroscopeText: function(text, sign, period) {
-        // Create a pattern that works for both yearly and monthly
-        const pattern = new RegExp(`^.*?${sign}\\s+(${period}|Monthly)\\s+Horoscope.*?\\d{2}\\.\\d{2}\\.\\d{4}`, 'is');
-        
-        // Remove the unwanted header text
-        text = text.replace(pattern, '').trim();
-        
-        // Additional cleaning for monthly horoscopes if needed
-        if (period === 'monthly') {
-            // Remove any remaining date headers (e.g., "May 2024")
-            text = text.replace(/^\s*[A-Z][a-z]+ \d{4}\s*/g, '');
+        try {
+            // Create a pattern that works for both yearly and monthly
+            const pattern = new RegExp(`^.*?${sign}\\s+${period}\\s+Horoscope.*?(?:\\d{4})?`, 'is');
+    
+            // Remove the unwanted header text
+            text = text.replace(pattern, '').trim();
+    
+            // Additional cleaning for monthly horoscopes if needed
+            if (period === 'monthly') {
+                // Remove any remaining date headers (e.g., "May 2024")
+                text = text.replace(/^\s*[A-Z][a-z]+(?:\s+\d{4})?\s*/g, '');
+            }
+    
+            console.log(`Cleaned ${period} horoscope for ${sign}:`, text.substring(0, 100) + '...');
+            return text;
+        } catch (error) {
+            console.error(`Error cleaning horoscope text for ${sign} (${period}):`, error);
+            return text; // Return original text if cleaning fails
         }
-        
-        return text;
     },
 
     updateCache: function(sign, period, content) {
