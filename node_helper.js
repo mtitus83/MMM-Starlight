@@ -24,7 +24,7 @@ module.exports = NodeHelper.create({
         this.updateWindowStart = null;
         this.updateAttempts = 0;
         this.simulatedDate = null;
-
+    
         this.settings = {
             cacheDuration: 24 * 60 * 60 * 1000,
             maxConcurrentRequests: 2,
@@ -34,22 +34,22 @@ module.exports = NodeHelper.create({
             updateWindowDuration: 6 * 60 * 60 * 1000,
             maxUpdateAttempts: 6
         };
-
+    
         this.initialize();
     },
-
+    
     initialize: async function() {
         try {
             await this.createCacheDirectories();
             await this.initializeCache();
             await this.checkCacheTimestamps();
-            log("Node helper initialized", false, true);
+            console.log(`${LOG_PREFIX} Node helper initialized`);
         } catch (error) {
-            log("Error during initialization: " + error, true, true);
+            console.error(`${LOG_PREFIX} Error during initialization: ${error}`);
         }
     },
 
-    createCacheDirectories: async function() {
+   createCacheDirectories: async function() {
         try {
             await fs.mkdir(this.cacheDir, { recursive: true });
             await fs.mkdir(this.imageCacheDir, { recursive: true });
@@ -65,13 +65,14 @@ module.exports = NodeHelper.create({
         try {
             const data = await fs.readFile(cacheFile, 'utf8');
             this.cache = JSON.parse(data);
-            log("Cache initialized successfully", false, true);
+            console.log(`${LOG_PREFIX} Cache loaded successfully`);
+            console.log(`${LOG_PREFIX} Cache contents: ${JSON.stringify(this.cache)}`);
         } catch (error) {
             if (error.code === 'ENOENT') {
-                log("No existing cache file found. Starting with empty cache.", false, true);
+                console.log(`${LOG_PREFIX} No existing cache file found. Starting with empty cache.`);
                 this.cache = {};
             } else {
-                log("Error initializing cache: " + error, true, true);
+                console.error(`${LOG_PREFIX} Error initializing cache: ${error}`);
                 throw error;
             }
         }
@@ -81,10 +82,9 @@ module.exports = NodeHelper.create({
         const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
         try {
             await fs.writeFile(cacheFile, JSON.stringify(this.cache), 'utf8');
-            log("Cache saved successfully", false, true);
+            console.log(`${LOG_PREFIX} Cache saved successfully`);
         } catch (error) {
-            log("Error saving cache:", error, true, true);
-            throw error;
+            console.error(`${LOG_PREFIX} Error saving cache: ${error}`);
         }
     },
 
@@ -115,6 +115,7 @@ module.exports = NodeHelper.create({
             for (const period of periods) {
                 const cachedData = this.getCachedHoroscope(sign, period);
                 if (cachedData) {
+                    console.log(`${LOG_PREFIX} Using cached data for ${sign} (${period})`);
                     this.sendSocketNotification("HOROSCOPE_RESULT", {
                         success: true,
                         sign: sign,
@@ -124,6 +125,7 @@ module.exports = NodeHelper.create({
                         imagePath: cachedData.imagePath
                     });
                 } else {
+                    console.log(`${LOG_PREFIX} No cached data for ${sign} (${period}). Adding to request queue.`);
                     this.requestQueue.push({ sign, period });
                 }
             }
@@ -308,13 +310,12 @@ cleanHoroscopeText: function(text, sign, period) {
         if (!this.cache[sign]) {
             this.cache[sign] = {};
         }
-
+    
         const currentTime = this.getCurrentDate().getTime();
         let nextUpdateInterval;
-
-        // If this is the first time we're caching this data, set nextUpdateTime to now
+    
         const isFirstCache = !this.cache[sign][period];
-
+    
         if (isFirstCache) {
             nextUpdateInterval = 0; // Immediate update
         } else {
@@ -336,34 +337,36 @@ cleanHoroscopeText: function(text, sign, period) {
                     nextUpdateInterval = this.getRandomInterval(4, 8); // Default to 4-8 hours
             }
         }
-
+    
         const nextUpdateTime = currentTime + nextUpdateInterval;
-
+    
         this.cache[sign][period] = {
             data: content.data,
             timestamp: currentTime,
             imagePath: content.imagePath,
             nextUpdateTime: nextUpdateTime
         };
-
+    
         const updateDate = new Date(currentTime);
         const nextUpdateDate = new Date(nextUpdateTime);
-        log(`Updated cache for ${sign} (${period}) on ${updateDate.toLocaleString()}. ${isFirstCache ? 'First cache, immediate update scheduled.' : `Next update scheduled for ${nextUpdateDate.toLocaleString()}`}. Data: ${content.data.substring(0, 50)}...`, false, true);
-        this.saveCache();
+        console.log(`${LOG_PREFIX} Updated cache for ${sign} (${period}) on ${updateDate.toLocaleString()}. ${isFirstCache ? 'First cache, immediate update scheduled.' : `Next update scheduled for ${nextUpdateDate.toLocaleString()}`}. Data: ${content.data.substring(0, 50)}...`);
+        
+        this.saveCache();  // Make sure to call this after updating the cache
     },
 
     getCachedHoroscope: function(sign, period) {
+        console.log(`${LOG_PREFIX} Checking cache for ${sign} (${period})`);
         if (!this.cache[sign] || !this.cache[sign][period]) {
-            log(`No cached data found for ${sign} (${period})`, false, true);
+            console.log(`${LOG_PREFIX} No cached data found for ${sign} (${period})`);
             return null;
         }
         const cachedData = this.cache[sign][period];
         const currentDate = this.getCurrentDate();
         const cachedDate = new Date(cachedData.timestamp);
-
+    
         let isValid = false;
         let nextUpdateTime = cachedData.nextUpdateTime;
-
+    
         switch(period) {
             case 'daily':
                 isValid = this.isSameDay(cachedDate, currentDate);
@@ -385,13 +388,13 @@ cleanHoroscopeText: function(text, sign, period) {
             default:
                 isValid = false;
         }
-
+    
         if (!isValid) {
-            log(`Cached data for ${sign} (${period}) has expired. Last updated: ${cachedDate.toLocaleString()}`, false, true);
-            return null; // This will trigger a new fetch
+            console.log(`${LOG_PREFIX} Cached data for ${sign} (${period}) has expired. Last updated: ${cachedDate.toLocaleString()}`);
+            return null;
         }
-
-        log(`Retrieved cached data for ${sign} (${period}). Next update scheduled for: ${new Date(nextUpdateTime).toLocaleString()}`, false, true);
+    
+        console.log(`${LOG_PREFIX} Retrieved valid cached data for ${sign} (${period}). Next update scheduled for: ${new Date(nextUpdateTime).toLocaleString()}`);
         return { 
             data: cachedData.data,
             sign: sign, 
