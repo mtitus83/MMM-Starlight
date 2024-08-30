@@ -191,7 +191,7 @@ saveCache: async function() {
             console.log(`Fetching new horoscope for ${config.sign} (${config.period}) from source`);
             const horoscope = await this.fetchHoroscope(config.sign, config.period);
             const imagePath = await this.cacheImage(`https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`, config.sign);
-            
+    
             const result = { 
                 data: horoscope,
                 sign: config.sign, 
@@ -213,106 +213,106 @@ saveCache: async function() {
             };
         }
     },
-
-    calculateNextUpdateTime: function(period, currentTime) {
-        let nextUpdateTime;
-        const currentDate = new Date(currentTime);
     
-        switch(period) {
-            case 'daily':
-                // Set to 3 AM the next day
-                nextUpdateTime = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 1, 3, 0, 0, 0).getTime();
-                break;
-            case 'tomorrow':
-                // Set to 3 AM two days from now
-                nextUpdateTime = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 2, 3, 0, 0, 0).getTime();
-                break;
-            case 'weekly':
-                // Set to next Monday at 3 AM
-                const daysUntilMonday = (1 + 7 - currentDate.getDay()) % 7;
-                nextUpdateTime = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + daysUntilMonday, 3, 0, 0, 0).getTime();
-                break;
-            case 'monthly':
-                // Set to the 1st of next month at 3 AM
-                nextUpdateTime = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1, 3, 0, 0, 0).getTime();
-                break;
-            case 'yearly':
-                // Set to January 1st of next year at 3 AM
-                nextUpdateTime = new Date(currentDate.getFullYear() + 1, 0, 1, 3, 0, 0, 0).getTime();
-                break;
-            default:
-                // Default to 24 hours from now
-                nextUpdateTime = currentTime + (24 * 60 * 60 * 1000);
-        }
-    
-        return nextUpdateTime;
-    },
-
-    fetchHoroscope: async function(sign, period) {
-        let url;
-        const currentDate = this.getCurrentDate();
-        const currentYear = currentDate.getFullYear();
-    
-        switch (period) {
-            case 'daily':
-                url = `https://www.sunsigns.com/horoscopes/daily/${sign}`;
-                break;
-            case 'tomorrow':
-                url = `https://www.sunsigns.com/horoscopes/daily/${sign}/tomorrow`;
-                break;
-            case 'weekly':
-                url = `https://www.sunsigns.com/horoscopes/weekly/${sign}`;
-                break;
-            case 'monthly':
-                url = `https://www.sunsigns.com/horoscopes/monthly/${sign}`;
-                break;
-            case 'yearly':
-                url = `https://www.sunsigns.com/horoscopes/yearly/${currentYear}/${sign}`;
-                break;
-            default:
-                throw new Error(`Invalid period: ${period}`);
-        }
-    
-        console.log(`Fetching horoscope for ${sign} (${period}) from source`);
-    
-        try {
-            const response = await axios.get(url, { timeout: 30000 });
-            const $ = cheerio.load(response.data);
-            let horoscope;
-    
-            if (period === 'yearly' || period === 'monthly') {
-                horoscope = $('.horoscope-content').text().trim() || $('article.post').text().trim();
-                horoscope = this.cleanHoroscopeText(horoscope, sign, period);
-            } else {
-                horoscope = $('.horoscope-content p').text().trim();
+        calculateNextUpdateTime: function(period, currentTime) {
+            let nextUpdateTime;
+            const currentDate = new Date(currentTime);
+        
+            switch(period) {
+                case 'daily':
+                    // Set to 3 AM the next day
+                    nextUpdateTime = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 1, 3, 0, 0, 0).getTime();
+                    break;
+                case 'tomorrow':
+                    // Set to 3 AM two days from now
+                    nextUpdateTime = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 2, 3, 0, 0, 0).getTime();
+                    break;
+                case 'weekly':
+                    // Set to next Monday at 3 AM
+                    const daysUntilMonday = (1 + 7 - currentDate.getDay()) % 7;
+                    nextUpdateTime = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + daysUntilMonday, 3, 0, 0, 0).getTime();
+                    break;
+                case 'monthly':
+                    // Set to the 1st of next month at 3 AM
+                    nextUpdateTime = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1, 3, 0, 0, 0).getTime();
+                    break;
+                case 'yearly':
+                    // Set to January 1st of next year at 3 AM
+                    nextUpdateTime = new Date(currentDate.getFullYear() + 1, 0, 1, 3, 0, 0, 0).getTime();
+                    break;
+                default:
+                    // Default to 24 hours from now
+                    nextUpdateTime = currentTime + (24 * 60 * 60 * 1000);
             }
+        
+            return nextUpdateTime;
+        },
     
-            if (!horoscope) {
-                throw new Error(`No horoscope content found for ${sign} (${period})`);
+        fetchHoroscope: async function(sign, period) {
+            let url;
+            const currentDate = this.getCurrentDate();
+            const currentYear = currentDate.getFullYear();
+        
+            switch (period) {
+                case 'daily':
+                    url = `https://www.sunsigns.com/horoscopes/daily/${sign}`;
+                    break;
+                case 'tomorrow':
+                    url = `https://www.sunsigns.com/horoscopes/daily/${sign}/tomorrow`;
+                    break;
+                case 'weekly':
+                    url = `https://www.sunsigns.com/horoscopes/weekly/${sign}`;
+                    break;
+                case 'monthly':
+                    url = `https://www.sunsigns.com/horoscopes/monthly/${sign}`;
+                    break;
+                case 'yearly':
+                    url = `https://www.sunsigns.com/horoscopes/yearly/${currentYear}/${sign}`;
+                    break;
+                default:
+                    throw new Error(`Invalid period: ${period}`);
             }
-    
-            console.log(`Fetched horoscope for ${sign} (${period}) from source. Length: ${horoscope.length} characters`);
-            return horoscope;
-        } catch (error) {
-            console.error(`Error fetching horoscope for ${sign} (${period}) from source:`, error.message);
-            throw error;
-        }
-    },
-   
-    cleanHoroscopeText: function(text, sign, period) {
-        try {
-            // Create a pattern that works for both yearly and monthly
-            const pattern = new RegExp(`^.*?${sign}\\s+${period}\\s+Horoscope.*?(?:\\d{4})?`, 'is');
-    
-            // Remove the unwanted header text
-            text = text.replace(pattern, '').trim();
-    
-            // Additional cleaning for monthly horoscopes if needed
-            if (period === 'monthly') {
-                // Remove any remaining date headers (e.g., "May 2024")
-                text = text.replace(/^\s*[A-Z][a-z]+(?:\s+\d{4})?\s*/g, '');
+        
+            console.log(`Fetching horoscope for ${sign} (${period}) from source`);
+        
+            try {
+                const response = await axios.get(url, { timeout: 30000 });
+                const $ = cheerio.load(response.data);
+                let horoscope;
+        
+                if (period === 'yearly' || period === 'monthly') {
+                    horoscope = $('.horoscope-content').text().trim() || $('article.post').text().trim();
+                    horoscope = this.cleanHoroscopeText(horoscope, sign, period);
+                } else {
+                    horoscope = $('.horoscope-content p').text().trim();
+                }
+        
+                if (!horoscope) {
+                    throw new Error(`No horoscope content found for ${sign} (${period})`);
+                }
+        
+                console.log(`Fetched horoscope for ${sign} (${period}) from source. Length: ${horoscope.length} characters`);
+                return horoscope;
+            } catch (error) {
+                console.error(`Error fetching horoscope for ${sign} (${period}) from source:`, error.message);
+                throw error;
             }
-    
+        },
+       
+        cleanHoroscopeText: function(text, sign, period) {
+            try {
+                // Create a pattern that works for both yearly and monthly
+                const pattern = new RegExp(`^.*?${sign}\\s+${period}\\s+Horoscope.*?(?:\\d{4})?`, 'is');
+        
+                // Remove the unwanted header text
+                text = text.replace(pattern, '').trim();
+        
+                // Additional cleaning for monthly horoscopes if needed
+                if (period === 'monthly') {
+                    // Remove any remaining date headers (e.g., "May 2024")
+                    text = text.replace(/^\s*[A-Z][a-z]+(?:\s+\d{4})?\s*/g, '');
+                }
+        
             console.log(`Cleaned ${period} horoscope for ${sign}:`, text.substring(0, 100) + '...');
             return text;
         } catch (error) {
@@ -446,6 +446,23 @@ saveCache: async function() {
 
     getRandomInterval: function(minHours, maxHours) {
         return Math.floor(Math.random() * (maxHours - minHours + 1) + minHours) * 60 * 60 * 1000;
+    },
+
+    cacheImage: async function(url, sign) {
+        const fs = require('fs').promises;
+        const path = require('path');
+        const axios = require('axios');
+    
+        try {
+            const response = await axios.get(url, { responseType: 'arraybuffer' });
+            const imagePath = path.join(this.imageCacheDir, `${sign}.png`);
+            await fs.writeFile(imagePath, response.data);
+            console.log(`Image cached for ${sign} at ${imagePath}`);
+            return imagePath;
+        } catch (error) {
+            console.error(`Error caching image for ${sign}:`, error.message);
+            return null;
+        }
     },
 
     clearCache: async function() {
