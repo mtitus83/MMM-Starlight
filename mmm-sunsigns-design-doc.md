@@ -27,7 +27,7 @@ MMM-SunSigns is a custom module for the Magic Mirror platform that displays horo
 - Implements a sliding transition between different horoscopes
 
 ### 3.2 Data Fetching and Caching
-- Fetches horoscope data from www.sunsigns.com
+- Fetches horoscope data 
 - Caches fetched data to reduce network requests
 - Implements an intelligent update system based on time periods
 
