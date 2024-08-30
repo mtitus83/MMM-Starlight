@@ -26,7 +26,7 @@ module.exports = NodeHelper.create({
         this.updateWindowStart = null;
         this.updateAttempts = 0;
         this.simulatedDate = null;
-    
+
         this.settings = {
             cacheDuration: 24 * 60 * 60 * 1000,
             maxConcurrentRequests: 2,
@@ -36,9 +36,19 @@ module.exports = NodeHelper.create({
             updateWindowDuration: 6 * 60 * 60 * 1000,
             maxUpdateAttempts: 6
         };
-    
-        log("Initializing node helper", false, true);
+
         this.initialize();
+    },
+
+    initialize: async function() {
+        try {
+            await this.createCacheDirectories();
+            await this.initializeCache();
+            await this.checkCacheTimestamps();
+            log("Node helper initialized", false, true);
+        } catch (error) {
+            log("Error during initialization: " + error, true, true);
+        }
     },
 
     createCacheDirectories: async function() {
@@ -47,7 +57,7 @@ module.exports = NodeHelper.create({
             await fs.mkdir(this.imageCacheDir, { recursive: true });
             log("Cache directories created successfully", false, true);
         } catch (error) {
-            log("Error creating cache directories:", error, true, true);
+            log("Error creating cache directories: " + error, true, true);
             throw error;
         }
     },
@@ -63,7 +73,7 @@ module.exports = NodeHelper.create({
                 log("No existing cache file found. Starting with empty cache.", false, true);
                 this.cache = {};
             } else {
-                log("Error initializing cache:", error, true, true);
+                log("Error initializing cache: " + error, true, true);
                 throw error;
             }
         }
