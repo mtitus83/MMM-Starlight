@@ -242,7 +242,7 @@ saveCache: async function() {
                 throw new Error(`Invalid period: ${period}`);
         }
     
-        console.log(`Fetching horoscope for ${sign} (${period}) from source: ${url}`);
+        console.log(`Fetching horoscope for ${sign} (${period}) from source`);
     
         try {
             const response = await axios.get(url, { timeout: 30000 });
@@ -369,7 +369,7 @@ saveCache: async function() {
             return path.relative(__dirname, imagePath);
         } catch (error) {
             // If the file doesn't exist, download and cache it
-            console.log(`Downloading image for ${sign} from source: ${imageUrl}`);
+            console.log(`Downloading image for ${sign} from source`);
             try {
                 const response = await axios({
                     url: imageUrl,
@@ -384,8 +384,8 @@ saveCache: async function() {
                 throw downloadError;
             }
         }
-    },
-    
+    },   
+ 
         setSimulatedDate: function(dateString) {
             const parsedDate = this.parseSimulatedDateString(dateString);
             if (parsedDate) {
