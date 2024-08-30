@@ -9,28 +9,31 @@ Module.register("MMM-SunSigns", {
         maxTextHeight: "400px",
         width: "400px",
         fontSize: "1em",
-        signWaitTime: 120000
-    },
-
-    // Hardcoded values
-    updateInterval: 60 * 60 * 1000, // 1 hour
-    retryDelay: 300000, // 5 minutes
-    maxRetries: 5,
-    requestTimeout: 30000, // 30 seconds
-
-    start: function() {
-        Log.info("Starting module: " + this.name);
-        this.horoscopes = {};
-        this.currentSignIndex = 0;
-        this.currentPeriodIndex = 0;
-        this.loaded = false;
-        this.isScrolling = false;
-        this.scheduleUpdate(1000);
-        this.scheduleRotation();
+        signWaitTime: 120000,
+        updateInterval: 60 * 60 * 1000, // 1 hour
+        startOfWeek: 'Sunday',
+        debug: false,
+        test: null
     },
 
     getStyles: function() {
         return ["MMM-SunSigns.css"];
+    },
+
+    start: function() {
+        Log.info("Starting module: " + this.name);
+        this.horoscopes = {};
+        this.images = {};
+        this.currentSignIndex = 0;
+        this.currentPeriodIndex = 0;
+        this.loaded = false;
+        this.isScrolling = false;
+        
+        if (this.config.debug && this.config.test) {
+            Log.info(`${this.name}: Debug mode active. Test mode set to '${this.config.test}'`);
+        }
+        
+        this.sendSocketNotification("INIT_MODULE", this.config);
     },
 
     getDom: function() {
@@ -40,7 +43,7 @@ Module.register("MMM-SunSigns", {
         wrapper.style.fontSize = this.config.fontSize;
 
         if (!this.loaded) {
-            wrapper.innerHTML = "Loading horoscope...";
+            wrapper.innerHTML = "Loading horoscopes...";
             return wrapper;
         }
 
@@ -90,7 +93,7 @@ Module.register("MMM-SunSigns", {
         var horoscopeTextElement = document.createElement("div");
         horoscopeTextElement.className = "sunsigns-text";
         horoscopeTextElement.innerHTML = this.horoscopes[sign] && this.horoscopes[sign][period] 
-            ? this.horoscopes[sign][period] 
+            ? this.horoscopes[sign][period].content 
             : "Loading " + period + " horoscope for " + sign + "...";
         horoscopeWrapper.appendChild(horoscopeTextElement);
 
@@ -101,7 +104,7 @@ Module.register("MMM-SunSigns", {
             var imageWrapper = document.createElement("div");
             imageWrapper.className = "sunsigns-image-wrapper";
             var image = document.createElement("img");
-            image.src = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
+            image.src = this.images[sign] || `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
             image.alt = sign + " zodiac sign";
             image.style.width = this.config.imageWidth;
             imageWrapper.appendChild(image);
@@ -120,37 +123,10 @@ Module.register("MMM-SunSigns", {
         return period.charAt(0).toUpperCase() + period.slice(1);
     },
 
-    scheduleUpdate: function(delay) {
-        var self = this;
-        var nextLoad = this.updateInterval; // Use hardcoded value
-        if (typeof delay !== "undefined" && delay >= 0) {
-            nextLoad = delay;
-        }
-
-        clearTimeout(this.updateTimer);
-        this.updateTimer = setTimeout(function() {
-            self.updateHoroscopes();
-        }, nextLoad);
-    },
-    
-    updateHoroscopes: function() {
-        this.config.zodiacSign.forEach(sign => {
-            this.config.period.forEach(period => {
-                this.getHoroscope(sign, period);
-            });
-        });
-        this.scheduleUpdate(this.updateInterval); // Use hardcoded value
-    },
-
-    getHoroscope: function(sign, period) {
-        Log.info(this.name + ": Requesting horoscope update for " + sign + ", period: " + period);
-        this.sendSocketNotification("GET_HOROSCOPE", {
-            sign: sign,
-            period: period,
-            timeout: this.requestTimeout, // Use hardcoded value
-            retryDelay: this.retryDelay, // Use hardcoded value
-            maxRetries: this.maxRetries // Use hardcoded value
-        });
+    scheduleUpdate: function() {
+        setInterval(() => {
+            this.sendSocketNotification("UPDATE_CACHE");
+        }, this.config.updateInterval);
     },
 
     scheduleRotation: function() {
@@ -198,35 +174,6 @@ Module.register("MMM-SunSigns", {
         }
     },
 
-    socketNotificationReceived: function(notification, payload) {
-        console.log(this.name + ": Received socket notification:", notification, payload);
-        if (notification === "HOROSCOPE_RESULT") {
-            if (payload.success) {
-                Log.info(this.name + ": Horoscope fetched successfully for " + payload.sign + ", period: " + payload.period);
-                if (!this.horoscopes[payload.sign]) {
-                    this.horoscopes[payload.sign] = {};
-                }
-                this.horoscopes[payload.sign][payload.period] = payload.data;
-                this.loaded = true;
-                if (payload.sign === this.config.zodiacSign[this.currentSignIndex] &&
-                    payload.period === this.config.period[this.currentPeriodIndex]) {
-                    this.updateDom();
-                    this.startScrolling();
-                }
-            } else {
-                Log.error(this.name + ": " + payload.message);
-                if (!this.horoscopes[payload.sign]) {
-                    this.horoscopes[payload.sign] = {};
-                }
-                this.horoscopes[payload.sign][payload.period] = "Unable to fetch " + payload.period + " horoscope for " + payload.sign + ". Error: " + (payload.error || "Unknown error");
-                this.updateDom();
-            }
-        } else if (notification === "UNHANDLED_ERROR") {
-            Log.error(this.name + ": Unhandled error in node helper: " + payload.message + ". Error: " + payload.error);
-            this.horoscopes[this.config.zodiacSign[this.currentSignIndex]][this.config.period[this.currentPeriodIndex]] = "An unexpected error occurred while fetching the horoscope. Please check the logs.";
-            this.updateDom();
-        }
-    },
     startScrolling: function() {
         var self = this;
         clearTimeout(this.scrollTimer);
@@ -274,5 +221,31 @@ Module.register("MMM-SunSigns", {
                 }
             }
         }, 1000);
+    },
+
+    socketNotificationReceived: function(notification, payload) {
+        if (notification === "HOROSCOPE_RESULT") {
+            this.horoscopes[payload.sign] = this.horoscopes[payload.sign] || {};
+            this.horoscopes[payload.sign][payload.period] = payload.data;
+            this.updateDom();
+        } else if (notification === "IMAGE_RESULT") {
+            this.images[payload.sign] = payload.path;
+            this.updateDom();
+        } else if (notification === "CACHE_BUILT") {
+            this.loaded = true;
+            this.updateDom();
+            this.scheduleUpdate();
+            this.scheduleRotation();
+        } else if (notification === "TEST_RESULT") {
+            if (this.config.debug) {
+                Log.info(`${this.name}: Test Result:`, JSON.stringify(payload, null, 2));
+            }
+        }
+    },
+
+    log: function(level, message) {
+        if (level === 'info' || (level === 'debug' && this.config.debug)) {
+            Log.log(`${this.name} [${level.toUpperCase()}]: ${message}`);
+        }
     }
 });
