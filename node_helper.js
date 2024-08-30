@@ -300,40 +300,43 @@ saveCache: async function() {
         }
         const cachedData = this.cache[sign][period];
         const currentDate = this.getCurrentDate();
-        
+        const cachedDate = new Date(cachedData.timestamp);
+    
         let isValid = false;
         switch(period) {
             case 'daily':
-                isValid = this.isSameDay(new Date(cachedData.timestamp), currentDate);
+                isValid = this.isSameDay(cachedDate, currentDate);
                 break;
             case 'tomorrow':
                 const tomorrow = new Date(currentDate);
                 tomorrow.setDate(tomorrow.getDate() + 1);
-                isValid = this.isSameDay(new Date(cachedData.timestamp), tomorrow);
+                isValid = this.isSameDay(cachedDate, tomorrow);
                 break;
             case 'weekly':
-                isValid = this.isInSameWeek(new Date(cachedData.timestamp), currentDate);
+                isValid = this.isInSameWeek(cachedDate, currentDate);
                 break;
             case 'monthly':
-                isValid = this.isSameMonth(new Date(cachedData.timestamp), currentDate);
+                isValid = this.isSameMonth(cachedDate, currentDate);
                 break;
             case 'yearly':
-                isValid = this.isSameYear(new Date(cachedData.timestamp), currentDate);
+                isValid = this.isSameYear(cachedDate, currentDate);
                 break;
             default:
                 isValid = false;
         }
     
-        if (isValid) {
-            return { 
-                data: cachedData.data,
-                sign: sign, 
-                period: period, 
-                cached: true, 
-                imagePath: cachedData.imagePath 
-            };
+        if (!isValid) {
+            return null; // This will trigger a new fetch
         }
-        return null;
+    
+        return { 
+            data: cachedData.data,
+            sign: sign, 
+            period: period, 
+            cached: true, 
+            imagePath: cachedData.imagePath,
+            timestamp: cachedData.timestamp
+        };
     },
     
         cacheImage: async function(imageUrl, sign) {
@@ -404,16 +407,24 @@ saveCache: async function() {
                date1.getMonth() === date2.getMonth() &&
                date1.getDate() === date2.getDate();
     },
-    
+        
     isInSameWeek: function(date1, date2) {
-        const startOfWeek = this.config.startOfWeek === "Monday" ? 1 : 0;
-        const d1 = new Date(date1);
-        const d2 = new Date(date2);
-        d1.setHours(0, 0, 0, 0);
-        d2.setHours(0, 0, 0, 0);
-        const dayDiff = (d2 - d1) / (24 * 60 * 60 * 1000);
-        const adjustedDayDiff = dayDiff + (d1.getDay() - startOfWeek + 7) % 7;
-        return Math.floor(adjustedDayDiff / 7) === 0;
+        const d1 = new Date(Date.UTC(date1.getFullYear(), date1.getMonth(), date1.getDate()));
+        const d2 = new Date(Date.UTC(date2.getFullYear(), date2.getMonth(), date2.getDate()));
+        const dayNum1 = d1.getUTCDay() || 7;
+        const dayNum2 = d2.getUTCDay() || 7;
+        d1.setUTCDate(d1.getUTCDate() + 4 - dayNum1);
+        d2.setUTCDate(d2.getUTCDate() + 4 - dayNum2);
+        return Math.floor((d1.getTime() - new Date(Date.UTC(d1.getUTCFullYear(), 0, 1)).getTime()) / 86400000 / 7) ===
+               Math.floor((d2.getTime() - new Date(Date.UTC(d2.getUTCFullYear(), 0, 1)).getTime()) / 86400000 / 7);
+    },
+
+    getWeekNumber: function(date) {
+        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        const dayNum = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+        return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
     },
     
     isSameMonth: function(date1, date2) {
