@@ -188,7 +188,9 @@ saveCache: async function() {
                 imagePath = null; // Set to null if image caching fails
             }
     
-            if (cachedData) {
+            const currentTime = this.getCurrentDate().getTime();
+    
+            if (cachedData && currentTime < cachedData.nextUpdateTime) {
                 console.log(`Using cached horoscope for ${config.sign} (${config.period})`);
                 cachedData.imagePath = imagePath; // Update the image path in case it has changed
                 return cachedData;
@@ -202,7 +204,7 @@ saveCache: async function() {
                 period: config.period, 
                 cached: false,
                 imagePath: imagePath,
-                timestamp: this.getCurrentDate().getTime()
+                timestamp: currentTime
             };
             this.updateCache(config.sign, config.period, result);
             return result;
@@ -295,16 +297,42 @@ saveCache: async function() {
             this.cache[sign] = {};
         }
     
+        const currentTime = this.getCurrentDate().getTime();
+        let nextUpdateInterval;
+    
+        switch(period) {
+            case 'daily':
+            case 'tomorrow':
+                nextUpdateInterval = this.getRandomInterval(4, 8); // 4-8 hours
+                break;
+            case 'weekly':
+                nextUpdateInterval = this.getRandomInterval(24, 48); // 1-2 days
+                break;
+            case 'monthly':
+                nextUpdateInterval = this.getRandomInterval(72, 120); // 3-5 days
+                break;
+            case 'yearly':
+                nextUpdateInterval = this.getRandomInterval(168, 336); // 7-14 days
+                break;
+            default:
+                nextUpdateInterval = this.getRandomInterval(4, 8); // Default to 4-8 hours
+        }
+    
+        const nextUpdateTime = currentTime + nextUpdateInterval;
+    
         this.cache[sign][period] = {
             data: content.data,
-            timestamp: content.timestamp,
-            imagePath: content.imagePath
+            timestamp: currentTime,
+            imagePath: content.imagePath,
+            nextUpdateTime: nextUpdateTime
         };
-        const updateDate = new Date(content.timestamp);
-        console.log(`Updated cache for ${sign} (${period}) on ${updateDate.toLocaleString()}. Data: ${content.data.substring(0, 50)}...`);
+    
+        const updateDate = new Date(currentTime);
+        const nextUpdateDate = new Date(nextUpdateTime);
+        console.log(`Updated cache for ${sign} (${period}) on ${updateDate.toLocaleString()}. Next update scheduled for ${nextUpdateDate.toLocaleString()}. Data: ${content.data.substring(0, 50)}...`);
         this.saveCache();
     },
-  
+      
     getCachedHoroscope: function(sign, period) {
         if (!this.cache[sign] || !this.cache[sign][period]) {
             console.log(`No cached data found for ${sign} (${period})`);
@@ -315,29 +343,25 @@ saveCache: async function() {
         const cachedDate = new Date(cachedData.timestamp);
     
         let isValid = false;
-        let expirationDate;
+        let nextUpdateTime = cachedData.nextUpdateTime;
+    
         switch(period) {
             case 'daily':
                 isValid = this.isSameDay(cachedDate, currentDate);
-                expirationDate = new Date(cachedDate.getTime() + 24 * 60 * 60 * 1000);
                 break;
             case 'tomorrow':
                 const tomorrow = new Date(currentDate);
                 tomorrow.setDate(tomorrow.getDate() + 1);
                 isValid = this.isSameDay(cachedDate, tomorrow);
-                expirationDate = new Date(cachedDate.getTime() + 24 * 60 * 60 * 1000);
                 break;
             case 'weekly':
                 isValid = this.isInSameWeek(cachedDate, currentDate);
-                expirationDate = new Date(cachedDate.getTime() + 7 * 24 * 60 * 60 * 1000);
                 break;
             case 'monthly':
                 isValid = this.isSameMonth(cachedDate, currentDate);
-                expirationDate = new Date(cachedDate.getFullYear(), cachedDate.getMonth() + 1, 1);
                 break;
             case 'yearly':
                 isValid = this.isSameYear(cachedDate, currentDate);
-                expirationDate = new Date(cachedDate.getFullYear() + 1, 0, 1);
                 break;
             default:
                 isValid = false;
@@ -348,17 +372,18 @@ saveCache: async function() {
             return null; // This will trigger a new fetch
         }
     
-        console.log(`Retrieved cached data for ${sign} (${period}). Expires on: ${expirationDate.toLocaleDateString()}`);
+        console.log(`Retrieved cached data for ${sign} (${period}). Next update scheduled for: ${new Date(nextUpdateTime).toLocaleString()}`);
         return { 
             data: cachedData.data,
             sign: sign, 
             period: period, 
             cached: true, 
             imagePath: cachedData.imagePath,
-            timestamp: cachedData.timestamp
+            timestamp: cachedData.timestamp,
+            nextUpdateTime: nextUpdateTime
         };
     },
-    
+ 
     cacheImage: async function(imageUrl, sign) {
         const imagePath = path.join(this.imageCacheDir, sign + '.png');
     
@@ -484,6 +509,10 @@ saveCache: async function() {
         } else {
             console.log("No cache entries expired");
         }
+    },
+
+    getRandomInterval: function(minHours, maxHours) {
+        return Math.floor(Math.random() * (maxHours - minHours + 1) + minHours) * 60 * 60 * 1000;
     },
 
     clearCache: async function() {
