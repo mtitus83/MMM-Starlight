@@ -2,8 +2,6 @@ Module.register("MMM-SunSigns", {
     defaults: {
         zodiacSign: ["taurus"],
         period: ["daily", "tomorrow"],
-        requestTimeout: 30000,
-        signWaitTime: 120000,
         showImage: true,
         imageWidth: "100px",
         pauseDuration: 10000,
@@ -11,10 +9,14 @@ Module.register("MMM-SunSigns", {
         maxTextHeight: "400px",
         width: "400px",
         fontSize: "1em",
-        updateInterval: 60 * 60 * 1000,
-        retryDelay: 300000,
-        maxRetries: 5
+        signWaitTime: 120000
     },
+
+    // Hardcoded values
+    updateInterval: 60 * 60 * 1000, // 1 hour
+    retryDelay: 300000, // 5 minutes
+    maxRetries: 5,
+    requestTimeout: 30000, // 30 seconds
 
     start: function() {
         Log.info("Starting module: " + this.name);
@@ -120,7 +122,7 @@ Module.register("MMM-SunSigns", {
 
     scheduleUpdate: function(delay) {
         var self = this;
-        var nextLoad = this.config.updateInterval;
+        var nextLoad = this.updateInterval; // Use hardcoded value
         if (typeof delay !== "undefined" && delay >= 0) {
             nextLoad = delay;
         }
@@ -130,14 +132,14 @@ Module.register("MMM-SunSigns", {
             self.updateHoroscopes();
         }, nextLoad);
     },
-
+    
     updateHoroscopes: function() {
         this.config.zodiacSign.forEach(sign => {
             this.config.period.forEach(period => {
                 this.getHoroscope(sign, period);
             });
         });
-        this.scheduleUpdate(this.config.updateInterval);
+        this.scheduleUpdate(this.updateInterval); // Use hardcoded value
     },
 
     getHoroscope: function(sign, period) {
@@ -145,9 +147,9 @@ Module.register("MMM-SunSigns", {
         this.sendSocketNotification("GET_HOROSCOPE", {
             sign: sign,
             period: period,
-            timeout: this.config.requestTimeout,
-            retryDelay: this.config.retryDelay,
-            maxRetries: this.config.maxRetries
+            timeout: this.requestTimeout, // Use hardcoded value
+            retryDelay: this.retryDelay, // Use hardcoded value
+            maxRetries: this.maxRetries // Use hardcoded value
         });
     },
 
@@ -225,7 +227,6 @@ Module.register("MMM-SunSigns", {
             this.updateDom();
         }
     },
-
     startScrolling: function() {
         var self = this;
         clearTimeout(this.scrollTimer);
