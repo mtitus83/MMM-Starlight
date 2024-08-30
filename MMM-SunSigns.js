@@ -2,8 +2,8 @@ const LOG_PREFIX = "MMM-SunSigns:";
 
 function log(message, isError = false, isDebug = false) {
     const logFunc = isError ? console.error : console.log;
-    if (!isDebug || (isDebug && this.config.debug)) {
-        logFunc(`${LOG_PREFIX} ${message}`);
+    if (!isDebug || (isDebug && this.config && this.config.debug)) {
+        logFunc(`MMM-SunSigns: ${message}`);
     }
 }
 
@@ -27,9 +27,8 @@ Module.register("MMM-SunSigns", {
     },
 
     start: function() {
-        log("Starting module: " + this.name, false, true);
+        log("Starting module: " + this.name);
         this.horoscopes = {};
-        this.initialize();
         this.currentSignIndex = 0;
         this.currentPeriodIndex = 0;
         this.loaded = false;
@@ -38,20 +37,25 @@ Module.register("MMM-SunSigns", {
         this.updateFailures = 0;
         this.transitionState = "idle";
         this.loadingState = "initializing";
-
+    
         this.validateConfig();
+        this.initialize();
+    
+        log("Sending initial UPDATE_HOROSCOPES notification", false, true);
         this.sendSocketNotification("UPDATE_HOROSCOPES", {
             zodiacSigns: this.config.zodiacSign,
             periods: this.config.period,
         });
-
+    
         this.scheduleMidnightUpdate();
-
+    
         if (this.config.simulateDate) {
+            log("Setting simulated date: " + this.config.simulateDate, false, true);
             this.sendSocketNotification("SET_SIMULATED_DATE", { date: this.config.simulateDate });
         }
-
+    
         if (this.config.clearCacheOnStart) {
+            log("Clearing cache on start", false, true);
             this.sendSocketNotification("CLEAR_CACHE");
         }
     },

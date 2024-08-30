@@ -9,13 +9,13 @@ const path = require('path');
 function log(message, isError = false, isDebug = false) {
     const logFunc = isError ? console.error : console.log;
     if (!isDebug || (isDebug && this.debug)) {
-        logFunc(`${LOG_PREFIX} ${message}`);
+        logFunc(`MMM-SunSigns: ${message}`);
     }
 }
 
 module.exports = NodeHelper.create({
     start: function() {
-        log("Starting node helper for MMM-SunSigns", false, true);
+        log("Starting node helper for MMM-SunSigns");
         this.cacheDir = path.join(__dirname, 'cache');
         this.imageCacheDir = path.join(this.cacheDir, 'images');
         this.cache = {};
@@ -26,7 +26,7 @@ module.exports = NodeHelper.create({
         this.updateWindowStart = null;
         this.updateAttempts = 0;
         this.simulatedDate = null;
-
+    
         this.settings = {
             cacheDuration: 24 * 60 * 60 * 1000,
             maxConcurrentRequests: 2,
@@ -36,19 +36,9 @@ module.exports = NodeHelper.create({
             updateWindowDuration: 6 * 60 * 60 * 1000,
             maxUpdateAttempts: 6
         };
-
+    
+        log("Initializing node helper", false, true);
         this.initialize();
-    },
-
-    initialize: async function() {
-        try {
-            await this.createCacheDirectories();
-            await this.initializeCache();
-            await this.checkCacheTimestamps();
-            log("Node helper initialized", false, true);
-        } catch (error) {
-            log("Error during initialization:", error, true, true);
-        }
     },
 
     createCacheDirectories: async function() {
