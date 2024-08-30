@@ -333,12 +333,6 @@ saveCache: async function() {
         console.log(`Updated cache for ${sign} (${period}) on ${updateDate.toLocaleString()}. Next update scheduled for ${nextUpdateDate.toLocaleString()}. Data: ${content.data.substring(0, 50)}...`);
         this.saveCache();
     },
-    
-        const updateDate = new Date(currentTime);
-        const nextUpdateDate = new Date(nextUpdateTime);
-        console.log(`Updated cache for ${sign} (${period}) on ${updateDate.toLocaleString()}. ${isFirstCache ? 'First cache, immediate update scheduled.' : `Next update scheduled for ${nextUpdateDate.toLocaleString()}`}. Data: ${content.data.substring(0, 50)}...`);
-        this.saveCache();
-    },
       
     getCachedHoroscope: function(sign, period) {
         console.log(`Checking cache for ${sign} (${period})`);
