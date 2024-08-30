@@ -1,6 +1,6 @@
 # MMM-SunSigns
 
-A MagicMirror² module that displays horoscopes for specified zodiac signs for various time period.
+A MagicMirror² module that displays horoscopes for specified zodiac signs for various time periods.
 
 ## Disclaimer
 
@@ -43,10 +43,7 @@ modules: [
 | Option           | Description                                                                                     |
 |------------------|-------------------------------------------------------------------------------------------------|
 | `zodiacSign`     | An array of zodiac signs to display. (default: `["taurus"]`)                                    |
-| `period`        | An array of period for the horoscope. Can include "daily", "tomorrow", "weekly", "monthly", and "yearly". (default: `["daily", "tomorrow"]`) |
-| `updateInterval` | How often to fetch new horoscopes in milliseconds. (default: `60 * 60 * 1000` // 1 hour)        |
-| `retryDelay`     | Delay before retrying a failed request in milliseconds. (default: `300000` // 5 minutes)        |
-| `maxRetries`     | Maximum number of retries for a failed request. (default: `5`)                                  |
+| `period`         | An array of periods for the horoscope. Can include "daily", "tomorrow", "weekly", "monthly", and "yearly". (default: `["daily", "tomorrow"]`) |
 | `width`          | Width of the module. (default: `"400px"`)                                                       |
 | `fontSize`       | Font size of the horoscope text. (default: `"1em"`)                                             |
 | `showImage`      | Whether to display the zodiac sign image. (default: `true`)                                     |
@@ -55,11 +52,12 @@ modules: [
 | `scrollSpeed`    | Speed of the vertical scrolling in pixels per second. (default: `7`)                            |
 | `pauseDuration`  | Duration to pause before starting to scroll and after scrolling completes, in milliseconds. (default: `10000` // 10 seconds) |
 | `signWaitTime`   | Time to display each sign before rotating to the next, in milliseconds. (default: `120000` // 2 minutes) |
-| `requestTimeout` | Timeout for the HTTP request in milliseconds. (default: `30000` // 30 seconds)                  |
+
+**Note**: The following options have been deprecated and are no longer configurable to provide a more consistent user experience: `updateInterval`, `retryDelay`, `maxRetries`, and `requestTimeout`. These values are now hardcoded in the module.
 
 ### Ordering of Horoscopes
 
-The order in which horoscopes are displayed is determined by the order of the `zodiacSign` and `period` arrays in your configuration. The module will cycle through all period for each sign before moving to the next sign. 
+The order in which horoscopes are displayed is determined by the order of the `zodiacSign` and `period` arrays in your configuration. The module will cycle through all periods for each sign before moving to the next sign. 
 
 For example, if your configuration is:
 
@@ -90,7 +88,6 @@ Then it will cycle back to Aries daily and repeat the sequence.
     config: {
         zodiacSign: ["aries", "taurus", "gemini"],
         period: ["daily", "tomorrow", "weekly", "monthly"],
-        updateInterval: 6 * 60 * 60 * 1000, // 6 hours
         width: "500px",
         maxTextHeight: "300px",
         scrollSpeed: 8,
