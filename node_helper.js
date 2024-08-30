@@ -189,12 +189,12 @@ saveCache: async function() {
             }
     
             if (cachedData) {
-                console.log(`Returning cached horoscope for ${config.sign} (${config.period})`);
+                console.log(`Using cached horoscope for ${config.sign} (${config.period})`);
                 cachedData.imagePath = imagePath; // Update the image path in case it has changed
                 return cachedData;
             }
     
-            console.log(`Fetching new horoscope for ${config.sign} (${config.period})`);
+            console.log(`Fetching new horoscope for ${config.sign} (${config.period}) from source`);
             const horoscope = await this.fetchHoroscope(config.sign, config.period);
             const result = { 
                 data: horoscope,
@@ -242,7 +242,7 @@ saveCache: async function() {
                 throw new Error(`Invalid period: ${period}`);
         }
     
-        console.log(`Fetching horoscope for ${sign} (${period}) from ${url}`);
+        console.log(`Fetching horoscope for ${sign} (${period}) from source: ${url}`);
     
         try {
             const response = await axios.get(url, { timeout: 30000 });
@@ -260,10 +260,10 @@ saveCache: async function() {
                 throw new Error(`No horoscope content found for ${sign} (${period})`);
             }
     
-            console.log(`Fetched horoscope for ${sign} (${period}). Length: ${horoscope.length} characters`);
+            console.log(`Fetched horoscope for ${sign} (${period}) from source. Length: ${horoscope.length} characters`);
             return horoscope;
         } catch (error) {
-            console.error(`Error fetching horoscope for ${sign} (${period}):`, error.message);
+            console.error(`Error fetching horoscope for ${sign} (${period}) from source:`, error.message);
             throw error;
         }
     },
@@ -297,15 +297,17 @@ saveCache: async function() {
     
         this.cache[sign][period] = {
             data: content.data,
-            timestamp: this.getCurrentDate().getTime(),
+            timestamp: content.timestamp,
             imagePath: content.imagePath
         };
-        console.log('Updated cache for', sign, '('+period+'):', content.data.substring(0, 50) + '...');
+        const updateDate = new Date(content.timestamp);
+        console.log(`Updated cache for ${sign} (${period}) on ${updateDate.toLocaleString()}. Data: ${content.data.substring(0, 50)}...`);
         this.saveCache();
-    },  
+    },
   
     getCachedHoroscope: function(sign, period) {
         if (!this.cache[sign] || !this.cache[sign][period]) {
+            console.log(`No cached data found for ${sign} (${period})`);
             return null;
         }
         const cachedData = this.cache[sign][period];
@@ -313,32 +315,40 @@ saveCache: async function() {
         const cachedDate = new Date(cachedData.timestamp);
     
         let isValid = false;
+        let expirationDate;
         switch(period) {
             case 'daily':
                 isValid = this.isSameDay(cachedDate, currentDate);
+                expirationDate = new Date(cachedDate.getTime() + 24 * 60 * 60 * 1000);
                 break;
             case 'tomorrow':
                 const tomorrow = new Date(currentDate);
                 tomorrow.setDate(tomorrow.getDate() + 1);
                 isValid = this.isSameDay(cachedDate, tomorrow);
+                expirationDate = new Date(cachedDate.getTime() + 24 * 60 * 60 * 1000);
                 break;
             case 'weekly':
                 isValid = this.isInSameWeek(cachedDate, currentDate);
+                expirationDate = new Date(cachedDate.getTime() + 7 * 24 * 60 * 60 * 1000);
                 break;
             case 'monthly':
                 isValid = this.isSameMonth(cachedDate, currentDate);
+                expirationDate = new Date(cachedDate.getFullYear(), cachedDate.getMonth() + 1, 1);
                 break;
             case 'yearly':
                 isValid = this.isSameYear(cachedDate, currentDate);
+                expirationDate = new Date(cachedDate.getFullYear() + 1, 0, 1);
                 break;
             default:
                 isValid = false;
         }
     
         if (!isValid) {
+            console.log(`Cached data for ${sign} (${period}) has expired. Last updated: ${cachedDate.toLocaleString()}`);
             return null; // This will trigger a new fetch
         }
     
+        console.log(`Retrieved cached data for ${sign} (${period}). Expires on: ${expirationDate.toLocaleDateString()}`);
         return { 
             data: cachedData.data,
             sign: sign, 
@@ -355,11 +365,11 @@ saveCache: async function() {
         try {
             // Check if the image file already exists
             await fs.access(imagePath);
-            console.log('Image for', sign, 'already cached at', imagePath);
+            console.log(`Image for ${sign} already cached at ${imagePath}`);
             return path.relative(__dirname, imagePath);
         } catch (error) {
             // If the file doesn't exist, download and cache it
-            console.log('Attempting to download image for', sign, 'from', imageUrl);
+            console.log(`Downloading image for ${sign} from source: ${imageUrl}`);
             try {
                 const response = await axios({
                     url: imageUrl,
@@ -367,10 +377,10 @@ saveCache: async function() {
                     responseType: 'arraybuffer'
                 });
                 await fs.writeFile(imagePath, response.data);
-                console.log('Image successfully cached for', sign, 'at', imagePath);
+                console.log(`Image successfully cached for ${sign} at ${imagePath}`);
                 return path.relative(__dirname, imagePath);
             } catch (downloadError) {
-                console.error('Error caching image for', sign, ':', downloadError);
+                console.error(`Error caching image for ${sign} from source:`, downloadError);
                 throw downloadError;
             }
         }
