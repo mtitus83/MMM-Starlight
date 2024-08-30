@@ -53,7 +53,9 @@ modules: [
 | `pauseDuration`  | Duration to pause before starting to scroll and after scrolling completes, in milliseconds. (default: `10000` // 10 seconds) |
 | `signWaitTime`   | Time to display each sign before rotating to the next, in milliseconds. (default: `120000` // 2 minutes) |
 
-**Note**: The following options have been deprecated and are no longer configurable to provide a more consistent user experience: `updateInterval`, `retryDelay`, `maxRetries`, and `requestTimeout`. These values are now hardcoded in the module.
+**Note**: The following options have been deprecated and are no longer configurable to provide a more consistent user experience: `updateInterval`, `retryDelay`, `maxRetries`, and `requestTimeout`.
+
+This version of MMM-SunSigns includes enhanced debug logging capabilities and a new caching mechanism to improve performance and reduce network usage. Use the `debug` option to enable detailed logging, and refer to the module's documentation for more information on the caching system.
 
 ### Ordering of Horoscopes
 
@@ -111,10 +113,4 @@ npm install
 
 If you find any issues or have suggestions for improvements, please open an issue or submit a pull request on the GitHub repository. See DESIGN.md for more information about the modules design.
 
-### New Features
 
-This version of MMM-SunSigns includes enhanced debug logging capabilities and a new caching mechanism to improve performance and reduce network usage. Use the `debug` option to enable detailed logging, and refer to the module's documentation for more information on the caching system.
-
-## License
-
-This project is licensed under the MIT License. See the LICENSE file for details.
