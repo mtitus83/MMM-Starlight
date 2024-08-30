@@ -3,7 +3,7 @@ const LOG_PREFIX = "MMM-SunSigns:";
 function log(message, isError = false, isDebug = false) {
     const logFunc = isError ? console.error : console.log;
     if (!isDebug || (isDebug && this.config && this.config.debug)) {
-        logFunc(`MMM-SunSigns: ${message}`);
+        logFunc(`${LOG_PREFIX} ${message}`);
     }
 }
 
@@ -37,23 +37,23 @@ Module.register("MMM-SunSigns", {
         this.updateFailures = 0;
         this.transitionState = "idle";
         this.loadingState = "initializing";
-    
+
         this.validateConfig();
         this.initialize();
-    
+
         log("Sending initial UPDATE_HOROSCOPES notification", false, true);
         this.sendSocketNotification("UPDATE_HOROSCOPES", {
             zodiacSigns: this.config.zodiacSign,
             periods: this.config.period,
         });
-    
+
         this.scheduleMidnightUpdate();
-    
+
         if (this.config.simulateDate) {
             log("Setting simulated date: " + this.config.simulateDate, false, true);
             this.sendSocketNotification("SET_SIMULATED_DATE", { date: this.config.simulateDate });
         }
-    
+
         if (this.config.clearCacheOnStart) {
             log("Clearing cache on start", false, true);
             this.sendSocketNotification("CLEAR_CACHE");
@@ -61,18 +61,11 @@ Module.register("MMM-SunSigns", {
     },
 
     initialize: function() {
-        this.validateConfig();
+        log("Initializing module", false, true);
         this.shownPeriods = {};
         for (let sign of this.config.zodiacSign) {
             this.shownPeriods[sign] = new Set();
         }
-
-        this.sendSocketNotification("UPDATE_HOROSCOPES", {
-            zodiacSigns: this.config.zodiacSign,
-            periods: this.config.period,
-        });
-
-        this.scheduleMidnightUpdate();
     },
 
     getStyles: function() {
