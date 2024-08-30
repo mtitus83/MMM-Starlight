@@ -176,28 +176,38 @@ saveCache: async function() {
             if (!config.sign || !config.period) {
                 throw new Error('Invalid config: sign or period missing. Config: ' + JSON.stringify(config));
             }
-
+    
             const cachedData = this.getCachedHoroscope(config.sign, config.period);
+            let imagePath;
+    
+            // Always try to get the image path, whether we're using cached horoscope data or not
+            try {
+                imagePath = await this.cacheImage(`https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`, config.sign);
+            } catch (imageError) {
+                console.error(`Error caching image for ${config.sign}:`, imageError);
+                imagePath = null; // Set to null if image caching fails
+            }
+    
             if (cachedData) {
-                console.log('Returning cached horoscope for', config.sign, 'period:', config.period);
+                console.log(`Returning cached horoscope for ${config.sign} (${config.period})`);
+                cachedData.imagePath = imagePath; // Update the image path in case it has changed
                 return cachedData;
             }
-
-            console.log('Fetching new horoscope for', config.sign, 'period:', config.period);
+    
+            console.log(`Fetching new horoscope for ${config.sign} (${config.period})`);
             const horoscope = await this.fetchHoroscope(config.sign, config.period);
-            const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`;
-            const imagePath = await this.cacheImage(imageUrl, config.sign);
             const result = { 
                 data: horoscope,
                 sign: config.sign, 
                 period: config.period, 
                 cached: false,
-                imagePath: imagePath
+                imagePath: imagePath,
+                timestamp: this.getCurrentDate().getTime()
             };
             this.updateCache(config.sign, config.period, result);
             return result;
         } catch (error) {
-            console.error('Error in getHoroscope for', config.sign, config.period, ':', error.message);
+            console.error(`Error in getHoroscope for ${config.sign} (${config.period}):`, error.message);
             return {
                 error: true,
                 message: error.message,
@@ -339,30 +349,32 @@ saveCache: async function() {
         };
     },
     
-        cacheImage: async function(imageUrl, sign) {
-            const imagePath = path.join(this.imageCacheDir, sign + '.png');
+    cacheImage: async function(imageUrl, sign) {
+        const imagePath = path.join(this.imageCacheDir, sign + '.png');
     
+        try {
+            // Check if the image file already exists
+            await fs.access(imagePath);
+            console.log('Image for', sign, 'already cached at', imagePath);
+            return path.relative(__dirname, imagePath);
+        } catch (error) {
+            // If the file doesn't exist, download and cache it
+            console.log('Attempting to download image for', sign, 'from', imageUrl);
             try {
-                await fs.access(imagePath);
-                console.log('Image for', sign, 'already cached at', imagePath);
+                const response = await axios({
+                    url: imageUrl,
+                    method: 'GET',
+                    responseType: 'arraybuffer'
+                });
+                await fs.writeFile(imagePath, response.data);
+                console.log('Image successfully cached for', sign, 'at', imagePath);
                 return path.relative(__dirname, imagePath);
-            } catch (error) {
-                console.log('Attempting to download image for', sign, 'from', imageUrl);
-                try {
-                    const response = await axios({
-                        url: imageUrl,
-                        method: 'GET',
-                        responseType: 'arraybuffer'
-                    });
-                    await fs.writeFile(imagePath, response.data);
-                    console.log('Image successfully cached for', sign, 'at', imagePath);
-                    return path.relative(__dirname, imagePath);
-                } catch (downloadError) {
-                    console.error('Error caching image for', sign, ':', downloadError);
-                    throw downloadError;
-                }
+            } catch (downloadError) {
+                console.error('Error caching image for', sign, ':', downloadError);
+                throw downloadError;
             }
-        },
+        }
+    },
     
         setSimulatedDate: function(dateString) {
             const parsedDate = this.parseSimulatedDateString(dateString);
