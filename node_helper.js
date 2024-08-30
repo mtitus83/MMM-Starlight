@@ -11,10 +11,10 @@ module.exports = NodeHelper.create({
         this.cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
         this.imageDir = path.join(this.cacheDir, 'images');
         this.cache = null;
-        this.ensureCacheDirs();
-        this.loadCacheFromFile();
+        this.ensureCacheDirs().then(() => {
+            this.loadCacheFromFile();
+        });
     },
-
     ensureCacheDirs: async function() {
         try {
             await fs.mkdir(this.cacheDir, { recursive: true });
@@ -26,11 +26,16 @@ module.exports = NodeHelper.create({
 
     loadCacheFromFile: async function() {
         try {
+            await fs.access(this.cacheFile, fs.constants.F_OK);
             const data = await fs.readFile(this.cacheFile, 'utf8');
             this.cache = JSON.parse(data);
             this.log('info', `Cache file loaded from ${this.cache.timestamp}`);
         } catch (error) {
-            console.error("Error reading cache file:", error);
+            if (error.code === 'ENOENT') {
+                this.log('info', "Cache file does not exist. A new cache will be built when the module initializes.");
+            } else {
+                console.error("Error reading cache file:", error);
+            }
             this.cache = null;
         }
     },
