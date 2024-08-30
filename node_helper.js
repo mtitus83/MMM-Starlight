@@ -190,12 +190,19 @@ saveCache: async function() {
     
             const currentTime = this.getCurrentDate().getTime();
     
-            if (cachedData && currentTime < cachedData.nextUpdateTime) {
-                console.log(`Using cached horoscope for ${config.sign} (${config.period})`);
-                cachedData.imagePath = imagePath; // Update the image path in case it has changed
-                return cachedData;
+            if (cachedData) {
+                if (currentTime < cachedData.nextUpdateTime) {
+                    console.log(`Using cached horoscope for ${config.sign} (${config.period})`);
+                    cachedData.imagePath = imagePath; // Update the image path in case it has changed
+                    return cachedData;
+                } else {
+                    console.log(`Cached data for ${config.sign} (${config.period}) is due for update. Fetching from source.`);
+                }
+            } else {
+                console.log(`No cached data found for ${config.sign} (${config.period}). Fetching from source.`);
             }
     
+            // Fetch new data immediately if cache is missing or due for update
             console.log(`Fetching new horoscope for ${config.sign} (${config.period}) from source`);
             const horoscope = await this.fetchHoroscope(config.sign, config.period);
             const result = { 
@@ -300,22 +307,29 @@ saveCache: async function() {
         const currentTime = this.getCurrentDate().getTime();
         let nextUpdateInterval;
     
-        switch(period) {
-            case 'daily':
-            case 'tomorrow':
-                nextUpdateInterval = this.getRandomInterval(4, 8); // 4-8 hours
-                break;
-            case 'weekly':
-                nextUpdateInterval = this.getRandomInterval(24, 48); // 1-2 days
-                break;
-            case 'monthly':
-                nextUpdateInterval = this.getRandomInterval(72, 120); // 3-5 days
-                break;
-            case 'yearly':
-                nextUpdateInterval = this.getRandomInterval(168, 336); // 7-14 days
-                break;
-            default:
-                nextUpdateInterval = this.getRandomInterval(4, 8); // Default to 4-8 hours
+        // If this is the first time we're caching this data, set nextUpdateTime to now
+        const isFirstCache = !this.cache[sign][period];
+    
+        if (isFirstCache) {
+            nextUpdateInterval = 0; // Immediate update
+        } else {
+            switch(period) {
+                case 'daily':
+                case 'tomorrow':
+                    nextUpdateInterval = this.getRandomInterval(4, 8); // 4-8 hours
+                    break;
+                case 'weekly':
+                    nextUpdateInterval = this.getRandomInterval(24, 48); // 1-2 days
+                    break;
+                case 'monthly':
+                    nextUpdateInterval = this.getRandomInterval(72, 120); // 3-5 days
+                    break;
+                case 'yearly':
+                    nextUpdateInterval = this.getRandomInterval(168, 336); // 7-14 days
+                    break;
+                default:
+                    nextUpdateInterval = this.getRandomInterval(4, 8); // Default to 4-8 hours
+            }
         }
     
         const nextUpdateTime = currentTime + nextUpdateInterval;
@@ -329,7 +343,7 @@ saveCache: async function() {
     
         const updateDate = new Date(currentTime);
         const nextUpdateDate = new Date(nextUpdateTime);
-        console.log(`Updated cache for ${sign} (${period}) on ${updateDate.toLocaleString()}. Next update scheduled for ${nextUpdateDate.toLocaleString()}. Data: ${content.data.substring(0, 50)}...`);
+        console.log(`Updated cache for ${sign} (${period}) on ${updateDate.toLocaleString()}. ${isFirstCache ? 'First cache, immediate update scheduled.' : `Next update scheduled for ${nextUpdateDate.toLocaleString()}`}. Data: ${content.data.substring(0, 50)}...`);
         this.saveCache();
     },
       
