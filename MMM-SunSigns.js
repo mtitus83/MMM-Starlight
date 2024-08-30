@@ -1,3 +1,12 @@
+const LOG_PREFIX = "MMM-SunSigns:";
+
+function log(message, isError = false, isDebug = false) {
+    const logFunc = isError ? console.error : console.log;
+    if (!isDebug || (isDebug && this.config.debug)) {
+        logFunc(`${LOG_PREFIX} ${message}`);
+    }
+}
+
 Module.register("MMM-SunSigns", {
     defaults: {
         zodiacSign: ["taurus"],
@@ -18,8 +27,9 @@ Module.register("MMM-SunSigns", {
     },
 
     start: function() {
-        Log.info("Starting module: " + this.name);
+        log("Starting module: " + this.name, false, true);
         this.horoscopes = {};
+        this.initialize();
         this.currentSignIndex = 0;
         this.currentPeriodIndex = 0;
         this.loaded = false;
@@ -34,7 +44,7 @@ Module.register("MMM-SunSigns", {
             zodiacSigns: this.config.zodiacSign,
             periods: this.config.period,
         });
-        
+
         this.scheduleMidnightUpdate();
 
         if (this.config.simulateDate) {
@@ -46,11 +56,26 @@ Module.register("MMM-SunSigns", {
         }
     },
 
+    initialize: function() {
+        this.validateConfig();
+        this.shownPeriods = {};
+        for (let sign of this.config.zodiacSign) {
+            this.shownPeriods[sign] = new Set();
+        }
+
+        this.sendSocketNotification("UPDATE_HOROSCOPES", {
+            zodiacSigns: this.config.zodiacSign,
+            periods: this.config.period,
+        });
+
+        this.scheduleMidnightUpdate();
+    },
+
     getStyles: function() {
         return ["MMM-SunSigns.css"];
     },
 
-    validateConfig: function() {
+validateConfig: function() {
         const validZodiacSigns = [
             "aries", "taurus", "gemini", "cancer", "leo", "virgo",
             "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces"
@@ -64,15 +89,15 @@ Module.register("MMM-SunSigns", {
         this.config.period = this.config.period.filter(period => validPeriods.includes(period.toLowerCase()));
 
         if (this.config.zodiacSign.length === 0) {
-            Log.error(this.name + ": No valid zodiac signs configured. Using default: taurus");
+            log(this.name + ": No valid zodiac signs configured. Using default: taurus", true, true);
             this.config.zodiacSign = ["taurus"];
         }
         if (this.config.period.length === 0) {
-            Log.error(this.name + ": No valid periods configured. Using default: daily");
+            log(this.name + ": No valid periods configured. Using default: daily", true, true);
             this.config.period = ["daily"];
         }
-        },
-    
+    },
+
     scheduleMidnightUpdate: function() {
         var self = this;
         var now = new Date();
@@ -83,58 +108,58 @@ Module.register("MMM-SunSigns", {
             0, 0, 0
         );
         var msTillMidnight = night.getTime() - now.getTime();
-    
+
         setTimeout(function() {
-            Log.info(self.name + ": Midnight update triggered.");
-    
+            log(self.name + ": Midnight update triggered.", false, true);
+
             // Replace 'daily' with 'tomorrow' in the cache
             for (let sign of self.config.zodiacSign) {
                 if (self.horoscopes[sign] && self.horoscopes[sign]['tomorrow']) {
                     self.horoscopes[sign]['daily'] = self.horoscopes[sign]['tomorrow'];
                     delete self.horoscopes[sign]['tomorrow'];
-                    Log.info(self.name + `: Updated cache for ${sign}: 'tomorrow' has replaced 'daily'`);
+                    log(self.name + `: Updated cache for ${sign}: 'tomorrow' has replaced 'daily'`, false, true);
                 }
             }
-    
+
             let periodsToUpdate = ['tomorrow'];
-    
+
             // Check if it's the first day of the week, month, or year
             const today = self.getCurrentDate();
             const isFirstDayOfWeek = today.getDay() === (self.config.startOfWeek === "Monday" ? 1 : 0);
             const isFirstDayOfMonth = today.getDate() === 1;
             const isFirstDayOfYear = today.getMonth() === 0 && today.getDate() === 1;
-    
+
             // Only update weekly if it's the first day of the week and we don't have cached data
             if (isFirstDayOfWeek && !self.hasCachedDataForPeriod('weekly')) {
                 periodsToUpdate.push('weekly');
-                Log.info(self.name + ": First day of the week. Updating weekly horoscope.");
+                log(self.name + ": First day of the week. Updating weekly horoscope.", false, true);
             }
-    
+
             // Only update monthly if it's the first day of the month and we don't have cached data
             if (isFirstDayOfMonth && !self.hasCachedDataForPeriod('monthly')) {
                 periodsToUpdate.push('monthly');
-                Log.info(self.name + ": First day of the month. Updating monthly horoscope.");
+                log(self.name + ": First day of the month. Updating monthly horoscope.", false, true);
             }
-    
+
             // Only update yearly if it's the first day of the year and we don't have cached data
             if (isFirstDayOfYear && !self.hasCachedDataForPeriod('yearly')) {
                 periodsToUpdate.push('yearly');
-                Log.info(self.name + ": First day of the year. Updating yearly horoscope.");
+                log(self.name + ": First day of the year. Updating yearly horoscope.", false, true);
             }
-    
+
             self.updateHoroscopes(periodsToUpdate);
-    
+
             // Reschedule for next midnight
             self.scheduleMidnightUpdate();
         }, msTillMidnight);
     },
-    
-    updateHoroscopes: function(periods = null) {
+
+updateHoroscopes: function(periods = null) {
         this.lastUpdateAttempt = new Date().toLocaleString();
-        Log.info(this.name + ": Sending UPDATE_HOROSCOPES notification");
-        Log.info(this.name + ": Zodiac signs:", JSON.stringify(this.config.zodiacSign));
-        Log.info(this.name + ": Periods:", JSON.stringify(periods || this.config.period));
-    
+        log(this.name + ": Sending UPDATE_HOROSCOPES notification", false, true);
+        log(this.name + ": Zodiac signs: " + JSON.stringify(this.config.zodiacSign), false, true);
+        log(this.name + ": Periods: " + JSON.stringify(periods || this.config.period), false, true);
+
         this.sendSocketNotification("UPDATE_HOROSCOPES", {
             zodiacSigns: this.config.zodiacSign,
             periods: periods || this.config.period,
@@ -257,9 +282,14 @@ formatPeriodText: function(period) {
     getNextIndices: function() {
         let nextPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
         let nextSignIndex = this.currentSignIndex;
+
         if (nextPeriodIndex === 0) {
             nextSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
         }
+
+        log(`Current: Sign ${this.currentSignIndex} (${this.config.zodiacSign[this.currentSignIndex]}), Period ${this.currentPeriodIndex} (${this.config.period[this.currentPeriodIndex]})`, false, true);
+        log(`Next: Sign ${nextSignIndex} (${this.config.zodiacSign[nextSignIndex]}), Period ${nextPeriodIndex} (${this.config.period[nextPeriodIndex]})`, false, true);
+
         return { signIndex: nextSignIndex, periodIndex: nextPeriodIndex };
     },
 
@@ -301,7 +331,14 @@ formatPeriodText: function(period) {
             slideContainer.style.transform = "translateX(0)";
         }
 
-        setTimeout(() => {
+        log(`Transition finished. Now showing: Sign ${this.currentSignIndex} (${this.config.zodiacSign[this.currentSignIndex]}), Period ${this.currentPeriodIndex} (${this.config.period[this.currentPeriodIndex]})`, false, true);
+
+        // Clear any existing timeouts
+        if (this.transitionTimeout) {
+            clearTimeout(this.transitionTimeout);
+        }
+
+        this.transitionTimeout = setTimeout(() => {
             this.transitionState = "scrolling";
             this.startScrolling();
         }, this.config.pauseDuration);
@@ -323,7 +360,12 @@ formatPeriodText: function(period) {
                 textContent.style.transition = `transform ${scrollDuration}ms linear`;
                 textContent.style.transform = `translateY(-${scrollDistance}px)`;
 
-                setTimeout(() => {
+                // Clear any existing timeouts
+                if (this.scrollTimeout) {
+                    clearTimeout(this.scrollTimeout);
+                }
+
+                this.scrollTimeout = setTimeout(() => {
                     this.isScrolling = false;
                     this.transitionState = "idle";
                     this.scheduleNextTransition();
@@ -333,6 +375,8 @@ formatPeriodText: function(period) {
                 this.scheduleNextTransition();
             }
         }
+
+        log(`Scrolling started/finished for: Sign ${this.currentSignIndex} (${this.config.zodiacSign[this.currentSignIndex]}), Period ${this.currentPeriodIndex} (${this.config.period[this.currentPeriodIndex]})`, false, true);
     },
 
     socketNotificationReceived: function(notification, payload) {
@@ -361,7 +405,7 @@ formatPeriodText: function(period) {
                     this.scheduleNextTransition();
                 }
             } else {
-                Log.error(this.name + ": Failed to fetch horoscope", payload);
+                log(this.name + ": Failed to fetch horoscope", payload, true, true);
                 this.updateFailures++;
                 this.loadingState = "failed";
                 setTimeout(() => {
@@ -370,22 +414,22 @@ formatPeriodText: function(period) {
             }
             this.updateDom();
         } else if (notification === "HOROSCOPES_UPDATED") {
-            Log.info(this.name + ": Horoscopes updated");
+            log(this.name + ": Horoscopes updated", false, true);
             this.updateDom(1000);
         } else if (notification === "UPDATE_WINDOW_EXPIRED") {
-            Log.warn(this.name + ": Update window expired without finding new content");
+            log(this.name + ": Update window expired without finding new content", false, true);
             this.loadingState = "expired";
             if (this.config.debug) {
                 this.updateDom(1000);
             }
         } else if (notification === "ERROR") {
-            Log.error(this.name + ": Received error notification", payload);
+            log(this.name + ": Received error notification", payload, true, true);
             this.loadingState = "error";
             if (this.config.debug) {
                 this.updateDom(1000);
             }
         } else if (notification === "CACHE_CLEARED") {
-            Log.info(this.name + ": Cache cleared successfully");
+            log(this.name + ": Cache cleared successfully", false, true);
             this.updateHoroscopes();
         }
     },

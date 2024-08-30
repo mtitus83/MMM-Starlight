@@ -1,12 +1,21 @@
+const LOG_PREFIX = "MMM-SunSigns:";
+
 const NodeHelper = require("node_helper");
 const axios = require("axios");
 const cheerio = require("cheerio");
 const fs = require('fs').promises;
 const path = require('path');
 
+function log(message, isError = false, isDebug = false) {
+    const logFunc = isError ? console.error : console.log;
+    if (!isDebug || (isDebug && this.debug)) {
+        logFunc(`${LOG_PREFIX} ${message}`);
+    }
+}
+
 module.exports = NodeHelper.create({
     start: function() {
-        console.log("Starting node helper for MMM-SunSigns");
+        log("Starting node helper for MMM-SunSigns", false, true);
         this.cacheDir = path.join(__dirname, 'cache');
         this.imageCacheDir = path.join(this.cacheDir, 'images');
         this.cache = {};
@@ -36,9 +45,9 @@ module.exports = NodeHelper.create({
             await this.createCacheDirectories();
             await this.initializeCache();
             await this.checkCacheTimestamps();
-            console.log("Node helper initialized");
+            log("Node helper initialized", false, true);
         } catch (error) {
-            console.error("Error during initialization:", error);
+            log("Error during initialization:", error, true, true);
         }
     },
 
@@ -46,9 +55,9 @@ module.exports = NodeHelper.create({
         try {
             await fs.mkdir(this.cacheDir, { recursive: true });
             await fs.mkdir(this.imageCacheDir, { recursive: true });
-            console.log("Cache directories created successfully");
+            log("Cache directories created successfully", false, true);
         } catch (error) {
-            console.error("Error creating cache directories:", error);
+            log("Error creating cache directories:", error, true, true);
             throw error;
         }
     },
@@ -58,31 +67,31 @@ module.exports = NodeHelper.create({
         try {
             const data = await fs.readFile(cacheFile, 'utf8');
             this.cache = JSON.parse(data);
-            console.log("Cache initialized successfully");
+            log("Cache initialized successfully", false, true);
         } catch (error) {
             if (error.code === 'ENOENT') {
-                console.log("No existing cache file found. Starting with empty cache.");
+                log("No existing cache file found. Starting with empty cache.", false, true);
                 this.cache = {};
             } else {
-                console.error("Error initializing cache:", error);
+                log("Error initializing cache:", error, true, true);
                 throw error;
             }
         }
     },
 
-saveCache: async function() {
+    saveCache: async function() {
         const cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
         try {
             await fs.writeFile(cacheFile, JSON.stringify(this.cache), 'utf8');
-            console.log("Cache saved successfully");
+            log("Cache saved successfully", false, true);
         } catch (error) {
-            console.error("Error saving cache:", error);
+            log("Error saving cache:", error, true, true);
             throw error;
         }
     },
 
-    socketNotificationReceived: function(notification, payload) {
-        console.log("Received socket notification:", notification);
+socketNotificationReceived: function(notification, payload) {
+        log("Received socket notification: " + notification, false, true);
         try {
             if (notification === "UPDATE_HOROSCOPES") {
                 this.preloadHoroscopes(payload.zodiacSigns, payload.periods);
@@ -91,10 +100,10 @@ saveCache: async function() {
             } else if (notification === "CLEAR_CACHE") {
                 this.clearCache();
             } else {
-                console.log("Unknown notification received:", notification);
+                log("Unknown notification received: " + notification, false, true);
             }
         } catch (error) {
-            console.error("Error processing socket notification:", error);
+            log("Error processing socket notification: " + error, true, true);
             this.sendSocketNotification("ERROR", {
                 type: "Socket Notification Error",
                 message: error.message || "Unknown error occurred while processing socket notification"
@@ -103,7 +112,7 @@ saveCache: async function() {
     },
 
     preloadHoroscopes: function(signs, periods) {
-        console.log('Preloading horoscopes for signs:', signs, 'and periods:', periods);
+        log('Preloading horoscopes for signs: ' + signs + ' and periods: ' + periods, false, true);
         for (const sign of signs) {
             for (const period of periods) {
                 const cachedData = this.getCachedHoroscope(sign, period);
@@ -122,26 +131,26 @@ saveCache: async function() {
             }
         }
         this.processQueue().catch(error => {
-            console.error("Error in processQueue:", error);
+            log("Error in processQueue: " + error, true, true);
         });
     },
 
     processQueue: async function() {
         if (this.isProcessingQueue) {
-            console.log("Queue is already being processed");
+            log("Queue is already being processed", false, true);
             return;
         }
         this.isProcessingQueue = true;
-        console.log("Starting to process queue");
+        log("Starting to process queue", false, true);
 
         while (this.requestQueue.length > 0) {
             const batch = this.requestQueue.splice(0, this.settings.maxConcurrentRequests);
-            console.log('Processing batch of', batch.length, 'requests');
+            log('Processing batch of ' + batch.length + ' requests', false, true);
 
             const results = await Promise.all(batch.map(this.getHoroscope.bind(this)));
             results.forEach(result => {
                 if (result.error) {
-                    console.error('Error fetching horoscope for', result.sign, result.period, ':', result.message);
+                    log('Error fetching horoscope for ' + result.sign + ' (' + result.period + '): ' + result.message, true, true);
                     this.sendSocketNotification("HOROSCOPE_RESULT", {
                         success: false,
                         sign: result.sign,
@@ -149,7 +158,7 @@ saveCache: async function() {
                         message: result.message
                     });
                 } else {
-                    console.log('Successfully fetched horoscope for', result.sign, result.period);
+                    log('Successfully fetched horoscope for ' + result.sign + ' (' + result.period + ')', false, true);
                     this.sendSocketNotification("HOROSCOPE_RESULT", {
                         success: true,
                         sign: result.sign,
@@ -162,48 +171,48 @@ saveCache: async function() {
             });
 
             if (this.requestQueue.length > 0) {
-                console.log("Waiting before processing next batch");
+                log("Waiting before processing next batch", false, true);
                 await new Promise(resolve => setTimeout(resolve, 5000));
             }
         }
 
         this.isProcessingQueue = false;
-        console.log("Queue processing complete");
+        log("Queue processing complete", false, true);
     },
 
-    getHoroscope: async function(config) {
+getHoroscope: async function(config) {
         try {
             if (!config.sign || !config.period) {
                 throw new Error('Invalid config: sign or period missing. Config: ' + JSON.stringify(config));
             }
-    
+
             const cachedData = this.getCachedHoroscope(config.sign, config.period);
             let imagePath;
-    
+
             // Always try to get the image path, whether we're using cached horoscope data or not
             try {
                 imagePath = await this.cacheImage(`https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${config.sign}/wrappable.png`, config.sign);
             } catch (imageError) {
-                console.error(`Error caching image for ${config.sign}:`, imageError);
+                log(`Error caching image for ${config.sign}: ${imageError}`, true, true);
                 imagePath = null; // Set to null if image caching fails
             }
-    
+
             const currentTime = this.getCurrentDate().getTime();
-    
+
             if (cachedData) {
                 if (currentTime < cachedData.nextUpdateTime) {
-                    console.log(`Using cached horoscope for ${config.sign} (${config.period})`);
+                    log(`Using cached horoscope for ${config.sign} (${config.period})`, false, true);
                     cachedData.imagePath = imagePath; // Update the image path in case it has changed
                     return cachedData;
                 } else {
-                    console.log(`Cached data for ${config.sign} (${config.period}) is due for update. Fetching from source.`);
+                    log(`Cached data for ${config.sign} (${config.period}) is due for update. Fetching from source.`, false, true);
                 }
             } else {
-                console.log(`No cached data found for ${config.sign} (${config.period}). Fetching from source.`);
+                log(`No cached data found for ${config.sign} (${config.period}). Fetching from source.`, false, true);
             }
-    
+
             // Fetch new data immediately if cache is missing or due for update
-            console.log(`Fetching new horoscope for ${config.sign} (${config.period}) from source`);
+            log(`Fetching new horoscope for ${config.sign} (${config.period}) from source`, false, true);
             const horoscope = await this.fetchHoroscope(config.sign, config.period);
             const result = { 
                 data: horoscope,
@@ -216,7 +225,7 @@ saveCache: async function() {
             this.updateCache(config.sign, config.period, result);
             return result;
         } catch (error) {
-            console.error(`Error in getHoroscope for ${config.sign} (${config.period}):`, error.message);
+            log(`Error in getHoroscope for ${config.sign} (${config.period}): ${error.message}`, true, true);
             return {
                 error: true,
                 message: error.message,
@@ -230,7 +239,7 @@ saveCache: async function() {
         let url;
         const currentDate = this.getCurrentDate();
         const currentYear = currentDate.getFullYear();
-    
+
         switch (period) {
             case 'daily':
                 url = `https://www.sunsigns.com/horoscopes/daily/${sign}`;
@@ -250,51 +259,51 @@ saveCache: async function() {
             default:
                 throw new Error(`Invalid period: ${period}`);
         }
-    
-        console.log(`Fetching horoscope for ${sign} (${period}) from source`);
-    
+
+        log(`Fetching horoscope for ${sign} (${period}) from source`, false, true);
+
         try {
             const response = await axios.get(url, { timeout: 30000 });
             const $ = cheerio.load(response.data);
             let horoscope;
-    
+
             if (period === 'yearly' || period === 'monthly') {
                 horoscope = $('.horoscope-content').text().trim() || $('article.post').text().trim();
                 horoscope = this.cleanHoroscopeText(horoscope, sign, period);
             } else {
                 horoscope = $('.horoscope-content p').text().trim();
             }
-    
+
             if (!horoscope) {
                 throw new Error(`No horoscope content found for ${sign} (${period})`);
             }
-    
-            console.log(`Fetched horoscope for ${sign} (${period}) from source. Length: ${horoscope.length} characters`);
+
+            log(`Fetched horoscope for ${sign} (${period}) from source. Length: ${horoscope.length} characters`, false, true);
             return horoscope;
         } catch (error) {
-            console.error(`Error fetching horoscope for ${sign} (${period}) from source:`, error.message);
+            log(`Error fetching horoscope for ${sign} (${period}) from source: ${error.message}`, true, true);
             throw error;
         }
     },
-   
-    cleanHoroscopeText: function(text, sign, period) {
+
+cleanHoroscopeText: function(text, sign, period) {
         try {
             // Create a pattern that works for both yearly and monthly
             const pattern = new RegExp(`^.*?${sign}\\s+${period}\\s+Horoscope.*?(?:\\d{4})?`, 'is');
-    
+
             // Remove the unwanted header text
             text = text.replace(pattern, '').trim();
-    
+
             // Additional cleaning for monthly horoscopes if needed
             if (period === 'monthly') {
                 // Remove any remaining date headers (e.g., "May 2024")
                 text = text.replace(/^\s*[A-Z][a-z]+(?:\s+\d{4})?\s*/g, '');
             }
-    
-            console.log(`Cleaned ${period} horoscope for ${sign}:`, text.substring(0, 100) + '...');
+
+            log(`Cleaned ${period} horoscope for ${sign}: ${text.substring(0, 100)}...`, false, true);
             return text;
         } catch (error) {
-            console.error(`Error cleaning horoscope text for ${sign} (${period}):`, error);
+            log(`Error cleaning horoscope text for ${sign} (${period}): ${error}`, true, true);
             return text; // Return original text if cleaning fails
         }
     },
@@ -303,13 +312,13 @@ saveCache: async function() {
         if (!this.cache[sign]) {
             this.cache[sign] = {};
         }
-    
+
         const currentTime = this.getCurrentDate().getTime();
         let nextUpdateInterval;
-    
+
         // If this is the first time we're caching this data, set nextUpdateTime to now
         const isFirstCache = !this.cache[sign][period];
-    
+
         if (isFirstCache) {
             nextUpdateInterval = 0; // Immediate update
         } else {
@@ -331,34 +340,34 @@ saveCache: async function() {
                     nextUpdateInterval = this.getRandomInterval(4, 8); // Default to 4-8 hours
             }
         }
-    
+
         const nextUpdateTime = currentTime + nextUpdateInterval;
-    
+
         this.cache[sign][period] = {
             data: content.data,
             timestamp: currentTime,
             imagePath: content.imagePath,
             nextUpdateTime: nextUpdateTime
         };
-    
+
         const updateDate = new Date(currentTime);
         const nextUpdateDate = new Date(nextUpdateTime);
-        console.log(`Updated cache for ${sign} (${period}) on ${updateDate.toLocaleString()}. ${isFirstCache ? 'First cache, immediate update scheduled.' : `Next update scheduled for ${nextUpdateDate.toLocaleString()}`}. Data: ${content.data.substring(0, 50)}...`);
+        log(`Updated cache for ${sign} (${period}) on ${updateDate.toLocaleString()}. ${isFirstCache ? 'First cache, immediate update scheduled.' : `Next update scheduled for ${nextUpdateDate.toLocaleString()}`}. Data: ${content.data.substring(0, 50)}...`, false, true);
         this.saveCache();
     },
-      
+
     getCachedHoroscope: function(sign, period) {
         if (!this.cache[sign] || !this.cache[sign][period]) {
-            console.log(`No cached data found for ${sign} (${period})`);
+            log(`No cached data found for ${sign} (${period})`, false, true);
             return null;
         }
         const cachedData = this.cache[sign][period];
         const currentDate = this.getCurrentDate();
         const cachedDate = new Date(cachedData.timestamp);
-    
+
         let isValid = false;
         let nextUpdateTime = cachedData.nextUpdateTime;
-    
+
         switch(period) {
             case 'daily':
                 isValid = this.isSameDay(cachedDate, currentDate);
@@ -380,13 +389,13 @@ saveCache: async function() {
             default:
                 isValid = false;
         }
-    
+
         if (!isValid) {
-            console.log(`Cached data for ${sign} (${period}) has expired. Last updated: ${cachedDate.toLocaleString()}`);
+            log(`Cached data for ${sign} (${period}) has expired. Last updated: ${cachedDate.toLocaleString()}`, false, true);
             return null; // This will trigger a new fetch
         }
-    
-        console.log(`Retrieved cached data for ${sign} (${period}). Next update scheduled for: ${new Date(nextUpdateTime).toLocaleString()}`);
+
+        log(`Retrieved cached data for ${sign} (${period}). Next update scheduled for: ${new Date(nextUpdateTime).toLocaleString()}`, false, true);
         return { 
             data: cachedData.data,
             sign: sign, 
@@ -397,18 +406,18 @@ saveCache: async function() {
             nextUpdateTime: nextUpdateTime
         };
     },
- 
+
     cacheImage: async function(imageUrl, sign) {
         const imagePath = path.join(this.imageCacheDir, sign + '.png');
-    
+
         try {
             // Check if the image file already exists
             await fs.access(imagePath);
-            console.log(`Image for ${sign} already cached at ${imagePath}`);
+            log(`Image for ${sign} already cached at ${imagePath}`, false, true);
             return path.relative(__dirname, imagePath);
         } catch (error) {
             // If the file doesn't exist, download and cache it
-            console.log(`Downloading image for ${sign} from source`);
+            log(`Downloading image for ${sign} from source`, false, true);
             try {
                 const response = await axios({
                     url: imageUrl,
@@ -416,59 +425,59 @@ saveCache: async function() {
                     responseType: 'arraybuffer'
                 });
                 await fs.writeFile(imagePath, response.data);
-                console.log(`Image successfully cached for ${sign} at ${imagePath}`);
+                log(`Image successfully cached for ${sign} at ${imagePath}`, false, true);
                 return path.relative(__dirname, imagePath);
             } catch (downloadError) {
-                console.error(`Error caching image for ${sign} from source:`, downloadError);
+                log(`Error caching image for ${sign} from source: ${downloadError}`, true, true);
                 throw downloadError;
             }
         }
     },   
- 
-        setSimulatedDate: function(dateString) {
-            const parsedDate = this.parseSimulatedDateString(dateString);
-            if (parsedDate) {
-                this.simulatedDate = parsedDate;
-                console.log('Simulated date set to:', this.simulatedDate.toDateString());
-            } else {
-                console.error('Invalid simulated date format:', dateString, '. Expected format: MM/DD/YYYY');
-            }
-        },
-    
-        parseSimulatedDateString: function(dateString) {
-            const regex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
-            const match = dateString.match(regex);
-            if (match) {
-                const month = parseInt(match[1]) - 1,
-                      day = parseInt(match[2]),
-                      year = parseInt(match[3]);
-                return new Date(year, month, day);
-            }
-            return null;
-        },
-    
-        getCurrentDate: function() {
-            if (this.simulatedDate) {
-                const now = new Date();
-                return new Date(
-                    this.simulatedDate.getFullYear(),
-                    this.simulatedDate.getMonth(),
-                    this.simulatedDate.getDate(),
-                    now.getHours(),
-                    now.getMinutes(),
-                    now.getSeconds(),
-                    now.getMilliseconds()
-                );
-            }
-            return new Date();
-        },
-    
+
+    setSimulatedDate: function(dateString) {
+        const parsedDate = this.parseSimulatedDateString(dateString);
+        if (parsedDate) {
+            this.simulatedDate = parsedDate;
+            log('Simulated date set to: ' + this.simulatedDate.toDateString(), false, true);
+        } else {
+            log('Invalid simulated date format: ' + dateString + '. Expected format: MM/DD/YYYY', true, false);
+        }
+    },
+
+    parseSimulatedDateString: function(dateString) {
+        const regex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+        const match = dateString.match(regex);
+        if (match) {
+            const month = parseInt(match[1]) - 1,
+                  day = parseInt(match[2]),
+                  year = parseInt(match[3]);
+            return new Date(year, month, day);
+        }
+        return null;
+    },
+
+    getCurrentDate: function() {
+        if (this.simulatedDate) {
+            const now = new Date();
+            return new Date(
+                this.simulatedDate.getFullYear(),
+                this.simulatedDate.getMonth(),
+                this.simulatedDate.getDate(),
+                now.getHours(),
+                now.getMinutes(),
+                now.getSeconds(),
+                now.getMilliseconds()
+            );
+        }
+        return new Date();
+    },
+
     isSameDay: function(date1, date2) {
         return date1.getFullYear() === date2.getFullYear() &&
                date1.getMonth() === date2.getMonth() &&
                date1.getDate() === date2.getDate();
     },
-        
+
     isInSameWeek: function(date1, date2) {
         const d1 = new Date(Date.UTC(date1.getFullYear(), date1.getMonth(), date1.getDate()));
         const d2 = new Date(Date.UTC(date2.getFullYear(), date2.getMonth(), date2.getDate()));
@@ -487,18 +496,18 @@ saveCache: async function() {
         const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
         return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
     },
-    
+
     isSameMonth: function(date1, date2) {
         return date1.getFullYear() === date2.getFullYear() &&
                date1.getMonth() === date2.getMonth();
     },
-    
+
     isSameYear: function(date1, date2) {
         return date1.getFullYear() === date2.getFullYear();
     },
 
     checkCacheTimestamps: async function() {
-        console.log("Checking cache timestamps");
+        log("Checking cache timestamps", false, true);
         const currentTime = Date.now();
         let cacheUpdated = false;
 
@@ -506,7 +515,7 @@ saveCache: async function() {
             for (const period in this.cache[sign]) {
                 const cacheEntry = this.cache[sign][period];
                 if (currentTime - cacheEntry.timestamp > this.settings.cacheDuration) {
-                    console.log(`Cache expired for ${sign} (${period}). Removing entry.`);
+                    log(`Cache expired for ${sign} (${period}). Removing entry.`, false, true);
                     delete this.cache[sign][period];
                     cacheUpdated = true;
                 }
@@ -519,9 +528,9 @@ saveCache: async function() {
 
         if (cacheUpdated) {
             await this.saveCache();
-            console.log("Cache updated after timestamp check");
+            log("Cache updated after timestamp check", false, true);
         } else {
-            console.log("No cache entries expired");
+            log("No cache entries expired", false, true);
         }
     },
 
@@ -533,10 +542,10 @@ saveCache: async function() {
         try {
             this.cache = {};
             await this.saveCache();
-            console.log("Cache cleared successfully");
+            log("Cache cleared successfully", false, true);
             this.sendSocketNotification("CACHE_CLEARED", {});
         } catch (error) {
-            console.error("Error clearing cache:", error);
+            log("Error clearing cache: " + error, true, true);
             this.sendSocketNotification("ERROR", {
                 type: "Cache Clear Error",
                 message: error.message || "Unknown error occurred while clearing cache"
@@ -545,4 +554,4 @@ saveCache: async function() {
     }
 });
 
-console.log("MMM-SunSigns node_helper file has been fully loaded");
+log("MMM-SunSigns node_helper file has been fully loaded", false, true);
