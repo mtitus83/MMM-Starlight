@@ -44,6 +44,7 @@ modules: [
 |------------------|-------------------------------------------------------------------------------------------------|
 | `zodiacSign`     | An array of zodiac signs to display. (default: `["taurus"]`)                                    |
 | `period`         | An array of periods for the horoscope. Can include "daily", "tomorrow", "weekly", "monthly", and "yearly". (default: `["daily", "tomorrow"]`) |
+| `startOfWeek`    | Define the start of the week for weekly horoscope updates. Can be "Sunday" or "Monday". (default: `"Sunday"`) |
 | `width`          | Width of the module. (default: `"400px"`)                                                       |
 | `fontSize`       | Font size of the horoscope text. (default: `"1em"`)                                             |
 | `showImage`      | Whether to display the zodiac sign image. (default: `true`)                                     |
@@ -54,7 +55,6 @@ modules: [
 | `signWaitTime`   | Time to display each sign before rotating to the next, in milliseconds. (default: `120000` // 2 minutes) |
 | `debug`          | Enable debug mode for additional logging. (default: `false`)                                    |
 | `test`           | Simulate date changes for testing. Can be "daily", "weekly", "monthly", or "yearly". Only works when `debug` is `true`. (default: `null`) |
-| `startOfWeek`    | Define the start of the week for weekly horoscope updates. Can be "Sunday" or "Monday". (default: `"Sunday"`) |
 
 **Note**: The following options have been deprecated and are no longer configurable to provide a more consistent user experience: `updateInterval`, `retryDelay`, `maxRetries`, and `requestTimeout`.
 
