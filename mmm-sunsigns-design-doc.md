@@ -27,9 +27,13 @@ MMM-SunSigns is a custom module for the Magic Mirror platform that displays horo
 - Implements a sliding transition between different horoscopes
 
 ### 3.2 Data Fetching and Caching
-- Fetches horoscope data 
+- Fetches horoscope data from www.sunsigns.com
 - Caches fetched data to reduce network requests
 - Implements an intelligent update system based on time periods
+- Uses timestamps for cache management and update scheduling:
+  - Each cached horoscope entry includes a timestamp of when it was fetched
+  - Timestamps are used to determine when cached data should be refreshed
+  - The module uses timestamps to schedule updates at appropriate intervals (e.g., daily at midnight)
 
 ### 3.3 Image Handling
 - Displays zodiac sign images alongside horoscopes
@@ -46,16 +50,19 @@ MMM-SunSigns is a custom module for the Magic Mirror platform that displays horo
 
 1. The main module initiates a request for horoscope data.
 2. The node helper checks the cache for existing data.
-3. If cached data is available and still valid, it's returned immediately.
+3. If cached data is available and still valid (based on timestamps), it's returned immediately.
 4. If no valid cached data exists, the node helper fetches new data from the external source.
-5. Fetched data is cached for future use.
+5. Fetched data is cached for future use, with a new timestamp.
 6. The main module receives the data and updates the display.
 
 ## 5. Update Mechanism
 
-- Daily horoscopes are updated at midnight.
+- At midnight:
+  - The "tomorrow" horoscope becomes the new "daily" horoscope.
+  - A new "tomorrow" horoscope is fetched.
 - Weekly, monthly, and yearly horoscopes are updated on the first day of their respective periods.
 - The module implements a retry mechanism for failed updates.
+- Timestamps are used to determine when to trigger these updates and to ensure data freshness.
 
 ## 6. Configuration Options
 
@@ -91,12 +98,5 @@ MMM-SunSigns is a custom module for the Magic Mirror platform that displays horo
 - Uses caching to reduce network requests and improve load times
 - Implements efficient DOM updates to minimize performance impact
 - Lazy-loads images to improve initial load time
-
-## 10. Future Enhancements
-
-- Support for additional horoscope sources
-- Integration with other Magic Mirror modules (e.g., calendar for more accurate period transitions)
-- Customizable themes or color schemes
-- Support for localization/multiple languages
 
 This design document provides an overview of the MMM-SunSigns module's structure and functionality. It can be used as a reference for understanding the module's capabilities and for planning future enhancements or troubleshooting.
