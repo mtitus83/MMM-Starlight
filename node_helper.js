@@ -35,10 +35,18 @@ module.exports = NodeHelper.create({
     },
 
     checkAndUpdateHoroscope: async function(sign, period) {
-        const url = this.getHoroscopeUrl(sign, period);
+        const now = new Date();
         const cachedData = this.cache.horoscopes[sign]?.[period];
     
-        this.log('debug', `Checking horoscope for ${sign} (${period}) at ${new Date().toISOString()}`);
+        // Check if it's time to update based on the period
+        if (!this.shouldCheckForUpdate(sign, period, now)) {
+            this.log('debug', `Not time to check ${period} horoscope for ${sign} yet.`);
+            return;
+        }
+    
+        const url = this.getHoroscopeUrl(sign, period);
+        
+        this.log('debug', `Checking horoscope for ${sign} (${period}) at ${now.toISOString()}`);
     
         try {
             const response = await axios.get(url, {
@@ -57,6 +65,9 @@ module.exports = NodeHelper.create({
                     this.log('debug', `No changes in content for ${sign} (${period}). Updating last check time.`);
                     this.updateLastCheckTime(sign, period);
                 }
+    
+                // Mark as checked for this period
+                this.markAsCheckedForPeriod(sign, period, now);
             } else {
                 this.log('error', `Unexpected status code ${response.status} when fetching horoscope for ${sign} (${period})`);
             }
@@ -68,11 +79,82 @@ module.exports = NodeHelper.create({
         }
     },
 
+    markAsCheckedForPeriod: function(sign, period, now) {
+        if (!this.cache.horoscopes[sign]) {
+            this.cache.horoscopes[sign] = {};
+        }
+        if (!this.cache.horoscopes[sign][period]) {
+            this.cache.horoscopes[sign][period] = {};
+        }
+        
+        this.cache.horoscopes[sign][period].lastChecked = now.toISOString();
+        this.cache.horoscopes[sign][period].nextCheckDate = this.getNextCheckDate(period, now).toISOString();
+        
+        this.saveCacheToFile();
+    },
+
+    getNextCheckDate: function(period, now) {
+        const nextCheck = new Date(now);
+        switch(period) {
+            case 'daily':
+            case 'tomorrow':
+                nextCheck.setMinutes(nextCheck.getMinutes() + 45);
+                break;
+            case 'weekly':
+                nextCheck.setDate(nextCheck.getDate() + 7);
+                break;
+            case 'monthly':
+                nextCheck.setMonth(nextCheck.getMonth() + 1);
+                nextCheck.setDate(1);
+                break;
+            case 'yearly':
+                nextCheck.setFullYear(nextCheck.getFullYear() + 1);
+                nextCheck.setMonth(0);
+                nextCheck.setDate(1);
+                break;
+        }
+        return nextCheck;
+    },
+
     updateLastCheckTime: function(sign, period) {
         if (this.cache.horoscopes[sign]?.[period]) {
             this.cache.horoscopes[sign][period].lastChecked = new Date().toISOString();
             this.saveCacheToFile();
         }
+    },
+
+    shouldCheckForUpdate: function(sign, period, now) {
+        const cachedData = this.cache.horoscopes[sign]?.[period];
+        if (!cachedData) return true; // Always check if no cached data
+    
+        const lastChecked = new Date(cachedData.lastChecked);
+    
+        switch(period) {
+            case 'daily':
+            case 'tomorrow':
+                // Check every 45 minutes as before
+                return (now - lastChecked) >= 45 * 60 * 1000;
+            case 'weekly':
+                // Check on the start day of the week
+                return now.getDay() === this.getStartOfWeekDay() && this.isFirstCheckOfDay(lastChecked, now);
+            case 'monthly':
+                // Check on the first day of the month
+                return now.getDate() === 1 && this.isFirstCheckOfDay(lastChecked, now);
+            case 'yearly':
+                // Check on the first day of the year
+                return now.getMonth() === 0 && now.getDate() === 1 && this.isFirstCheckOfDay(lastChecked, now);
+            default:
+                return false;
+        }
+    },
+    
+    isFirstCheckOfDay: function(lastChecked, now) {
+        return lastChecked.getDate() !== now.getDate() || lastChecked.getMonth() !== now.getMonth() || lastChecked.getFullYear() !== now.getFullYear();
+    },
+    
+    getStartOfWeekDay: function() {
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        return days.indexOf(this.config.startOfWeek || 'Sunday');
     },
 
     getHoroscopeUrl: function(sign, period) {
