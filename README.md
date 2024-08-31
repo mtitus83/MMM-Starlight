@@ -2,6 +2,10 @@
 
 A MagicMirror² module that displays horoscopes for specified zodiac signs for various time periods.
 
+# Rebranding
+
+** Pleae make sure to update your config's module name to MMM-SunSigns to maintain compatibility **
+
 ## Disclaimer
 
 **IMPORTANT**: This MagicMirror² module was created by an AI assistant and is not officially supported or maintained by a human developer. Use at your own risk. While efforts have been made to ensure its functionality, there may be unforeseen issues or limitations. If you encounter any problems, feel free to contribute to its improvement, but please note that there is no official support channel for this module.
