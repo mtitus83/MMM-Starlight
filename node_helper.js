@@ -11,6 +11,7 @@ module.exports = NodeHelper.create({
         this.cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
         this.imageDir = path.join(this.cacheDir, 'images');
         this.cache = null;
+        this.lastCacheUpdateLog = null; // Initialize this variable
         this.ensureCacheDirs().then(() => {
             this.loadCacheFromFile();
         });
@@ -235,7 +236,12 @@ module.exports = NodeHelper.create({
     saveCacheToFile: async function() {
         try {
             await fs.writeFile(this.cacheFile, JSON.stringify(this.cache, null, 2));
-            this.log('info', `Cache file updated at ${new Date().toISOString()}`);
+            
+            const now = new Date();
+            if (!this.lastCacheUpdateLog || (now - this.lastCacheUpdateLog) > 5 * 60 * 1000) { // 5 minutes
+                this.log('info', `Cache file updated at ${now.toISOString()}`);
+                this.lastCacheUpdateLog = now;
+            }
         } catch (error) {
             console.error("Error writing cache file:", error);
         }
