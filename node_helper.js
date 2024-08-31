@@ -143,7 +143,9 @@ module.exports = NodeHelper.create({
             this.cache.images[sign] = imagePath;
             this.log('debug', `Fetched image for ${sign} from ${url}`);
         } catch (error) {
-            console.error(`Error fetching image for ${sign}:`, error);
+            this.log('error', `Error fetching image for ${sign}: ${error.message}`);
+            // Don't store the image path if fetch failed
+            this.cache.images[sign] = null;
         }
     },
 

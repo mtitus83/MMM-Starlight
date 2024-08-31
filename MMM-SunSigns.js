@@ -116,8 +116,8 @@ Module.register("MMM-SunSigns", {
             imageWrapper.className = "sunsigns-image-wrapper";
             var image = document.createElement("img");
             
-            // Use a publicly accessible image URL for testing
-            let imageSrc = `https://www.astrology-zodiac-signs.com/images/${sign}.png`;
+            // Use the correct URL format
+            let imageSrc = this.images[sign] || `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
             
             this.log('debug', `Setting image source for ${sign}: ${imageSrc}`);
             
