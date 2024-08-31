@@ -136,17 +136,26 @@ module.exports = NodeHelper.create({
                 }
             });
             const $ = cheerio.load(response.data);
-            let horoscope;
+            let horoscope = '';
             
-            if (period === 'yearly' || period === 'monthly' || period === 'weekly') {
-                // For yearly, monthly, and weekly horoscopes, we concatenate all paragraphs
-                horoscope = $('.horoscope-content p').map((_, el) => $(el).text().trim()).get().join('\n\n');
-            } else {
-                // For daily and tomorrow, we take the first paragraph
-                horoscope = $('.horoscope-content p').first().text().trim();
+            // Try different selectors to find the horoscope content
+            const selectors = [
+                '.horoscope-content p',
+                '.article-content p',
+                '#horoscope-content',
+                '.entry-content p'
+            ];
+    
+            for (let selector of selectors) {
+                const elements = $(selector);
+                if (elements.length > 0) {
+                    horoscope = elements.map((_, el) => $(el).text().trim()).get().join('\n\n');
+                    break;
+                }
             }
             
             if (!horoscope) {
+                this.log('error', `No horoscope content found for ${period} ${sign}. HTML structure: ${$.html()}`);
                 throw new Error('No horoscope content found on the page');
             }
             
@@ -155,10 +164,11 @@ module.exports = NodeHelper.create({
                 content: horoscope,
                 timestamp: new Date().toISOString()
             };
-            this.log('debug', `Successfully fetched ${period} horoscope for ${sign}`);
+            this.log('debug', `Successfully fetched ${period} horoscope for ${sign}. Content length: ${horoscope.length}`);
         } catch (error) {
             this.log('error', `Error fetching ${period} horoscope for ${sign}: ${error.message}`);
             this.log('error', `Full error: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`);
+            this.log('error', `URL attempted: ${url}`);
             
             // Use cached data if available, otherwise use a placeholder message
             if (this.cache.horoscopes[sign] && this.cache.horoscopes[sign][period]) {
