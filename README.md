@@ -1,6 +1,10 @@
-# MMM-Starlight
+# MMM-SunSigns
 
-A MagicMirror² module that displays horoscopes for specified zodiac signs for various time period.
+A MagicMirror² module that displays horoscopes for specified zodiac signs for various time periods.
+
+# Rebranding
+
+** Pleae make sure to update your config's module name to MMM-SunSigns to maintain compatibility **
 
 ## Disclaimer
 
@@ -14,11 +18,11 @@ cd ~/MagicMirror/modules
 ```
 2. Clone this repository:
 ```
-git clone https://github.com/mtitus83/MMM-Starlight.git
+git clone https://github.com/mtitus83/MMM-SunSigns.git
 ```
 3. Install the dependencies:
 ```
-cd MMM-Starlight
+cd MMM-SunSigns
 npm install
 ```
 
@@ -29,7 +33,7 @@ Add the following configuration block to the modules array in the `config/config
 ```javascript
 modules: [
     {
-        module: "MMM-Starlight",
+        module: "MMM-SunSigns",
         position: "top_right",
         config: {
             // See below for configurable options
@@ -43,10 +47,8 @@ modules: [
 | Option           | Description                                                                                     |
 |------------------|-------------------------------------------------------------------------------------------------|
 | `zodiacSign`     | An array of zodiac signs to display. (default: `["taurus"]`)                                    |
-| `period`        | An array of period for the horoscope. Can include "daily", "tomorrow", "weekly", "monthly", and "yearly". (default: `["daily", "tomorrow"]`) |
-| `updateInterval` | How often to fetch new horoscopes in milliseconds. (default: `60 * 60 * 1000` // 1 hour)        |
-| `retryDelay`     | Delay before retrying a failed request in milliseconds. (default: `300000` // 5 minutes)        |
-| `maxRetries`     | Maximum number of retries for a failed request. (default: `5`)                                  |
+| `period`         | An array of periods for the horoscope. Can include "daily", "tomorrow", "weekly", "monthly", and "yearly". (default: `["daily", "tomorrow"]`) |
+| `startOfWeek`    | Define the start of the week for weekly horoscope updates. Can be "Sunday" or "Monday". (default: `"Sunday"`) |
 | `width`          | Width of the module. (default: `"400px"`)                                                       |
 | `fontSize`       | Font size of the horoscope text. (default: `"1em"`)                                             |
 | `showImage`      | Whether to display the zodiac sign image. (default: `true`)                                     |
@@ -55,11 +57,16 @@ modules: [
 | `scrollSpeed`    | Speed of the vertical scrolling in pixels per second. (default: `7`)                            |
 | `pauseDuration`  | Duration to pause before starting to scroll and after scrolling completes, in milliseconds. (default: `10000` // 10 seconds) |
 | `signWaitTime`   | Time to display each sign before rotating to the next, in milliseconds. (default: `120000` // 2 minutes) |
-| `requestTimeout` | Timeout for the HTTP request in milliseconds. (default: `30000` // 30 seconds)                  |
+| `debug`          | Enable debug mode for additional logging. (default: `false`)                                    |
+| `test`           | Simulate date changes for testing. Can be "daily", "weekly", "monthly", or "yearly". Only works when `debug` is `true`. (default: `null`) |
+
+**Note**: The following options have been deprecated and are no longer configurable to provide a more consistent user experience: `updateInterval`, `retryDelay`, `maxRetries`, and `requestTimeout`.
+
+This version of MMM-SunSigns includes enhanced debug logging capabilities and a new caching mechanism to improve performance and reduce network usage. Use the `debug` option to enable detailed logging, and refer to the module's documentation for more information on the caching system.
 
 ### Ordering of Horoscopes
 
-The order in which horoscopes are displayed is determined by the order of the `zodiacSign` and `period` arrays in your configuration. The module will cycle through all period for each sign before moving to the next sign. 
+The order in which horoscopes are displayed is determined by the order of the `zodiacSign` and `period` arrays in your configuration. The module will cycle through all periods for each sign before moving to the next sign. 
 
 For example, if your configuration is:
 
@@ -85,12 +92,11 @@ Then it will cycle back to Aries daily and repeat the sequence.
 
 ```javascript
 {
-    module: "MMM-Starlight",
+    module: "MMM-SunSigns",
     position: "top_right",
     config: {
         zodiacSign: ["aries", "taurus", "gemini"],
         period: ["daily", "tomorrow", "weekly", "monthly"],
-        updateInterval: 6 * 60 * 60 * 1000, // 6 hours
         width: "500px",
         maxTextHeight: "300px",
         scrollSpeed: 8,
@@ -102,18 +108,16 @@ Then it will cycle back to Aries daily and repeat the sequence.
 
 ## Updating
 
-To update the module to the latest version, navigate to your MMM-Starlight folder and pull the latest changes:
+To update the module to the latest version, navigate to your MMM-SunSigns folder and pull the latest changes:
 
 ```
-cd ~/MagicMirror/modules/MMM-Starlight
+cd ~/MagicMirror/modules/MMM-SunSigns
 git pull
 npm install
 ```
 
 ## Contributing
 
-If you find any issues or have suggestions for improvements, please open an issue or submit a pull request on the GitHub repository.
+If you find any issues or have suggestions for improvements, please open an issue or submit a pull request on the GitHub repository. See DESIGN.md for more information about the modules design.
 
-## License
 
-This project is licensed under the MIT License. See the LICENSE file for details.
