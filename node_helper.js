@@ -425,13 +425,13 @@ module.exports = NodeHelper.create({
                 this.log('debug', "Cache not found, building new cache");
                 this.buildCache(payload).then(() => {
                     this.log('debug', "Cache built, sending initial data");
-                    this.sendInitialData(payload);
+                    this.sendHoroscopesToMain();  // Replace sendInitialData with this new function
                 }).catch(error => {
                     this.log('error', `Error building cache: ${error}`);
                 });
             } else {
                 this.log('debug', "Cache found, sending initial data");
-                this.sendInitialData(payload);
+                this.sendHoroscopesToMain();  // Replace sendInitialData with this new function
             }
         } else if (notification === "GET_HOROSCOPE") {
             const horoscope = this.getHoroscope(payload.sign, payload.period);
@@ -446,8 +446,27 @@ module.exports = NodeHelper.create({
                 sign: payload.sign,
                 path: imagePath
             });
-        } else if (notification === "UPDATE_CACHE") {
-            this.updateCache();
+        } else if (notification === "CHECK_FOR_UPDATES") {
+            this.checkForUpdates();
         }
+    },
+
+    sendHoroscopesToMain: function() {
+        for (let sign of this.config.zodiacSign) {
+            for (let period of this.config.period) {
+                const horoscope = this.getHoroscope(sign, period);
+                this.sendSocketNotification("HOROSCOPE_RESULT", {
+                    sign: sign,
+                    period: period,
+                    data: horoscope
+                });
+            }
+            const imagePath = this.getImage(sign);
+            this.sendSocketNotification("IMAGE_RESULT", {
+                sign: sign,
+                path: imagePath
+            });
+        }
+        this.sendSocketNotification("CACHE_BUILT");
     },
 });
