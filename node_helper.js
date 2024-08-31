@@ -24,6 +24,27 @@ module.exports = NodeHelper.create({
         }
     },
 
+    sendInitialData: function(config) {
+        this.log('debug', "Sending initial data from cache");
+        for (let sign of config.zodiacSign) {
+            for (let period of config.period) {
+                const horoscope = this.getHoroscope(sign, period);
+                this.sendSocketNotification("HOROSCOPE_RESULT", {
+                    sign: sign,
+                    period: period,
+                    data: horoscope
+                });
+            }
+            const imagePath = this.getImage(sign);
+            this.sendSocketNotification("IMAGE_RESULT", {
+                sign: sign,
+                path: imagePath
+            });
+        }
+        this.sendSocketNotification("CACHE_BUILT");
+    },
+
+
     loadCacheFromFile: async function() {
         try {
             await fs.access(this.cacheFile, fs.constants.F_OK);
@@ -246,12 +267,15 @@ module.exports = NodeHelper.create({
         }
     },
 
+
     socketNotificationReceived: function(notification, payload) {
         if (notification === "INIT_MODULE") {
             if (!this.cache) {
-                this.buildCache(payload);
+                this.buildCache(payload).then(() => {
+                    this.sendInitialData(payload);
+                });
             } else {
-                this.sendSocketNotification("CACHE_BUILT");
+                this.sendInitialData(payload);
             }
         } else if (notification === "GET_HOROSCOPE") {
             const horoscope = this.getHoroscope(payload.sign, payload.period);
@@ -269,5 +293,5 @@ module.exports = NodeHelper.create({
         } else if (notification === "UPDATE_CACHE") {
             this.updateCache();
         }
-    }
+    },
 });

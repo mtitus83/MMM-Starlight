@@ -2,7 +2,7 @@
 
 ## Overview
 
-MMM-SunSigns is a MagicMirror² module designed to display horoscopes for various zodiac signs and time periods. It features a caching mechanism, periodic updates, and a user-friendly display with rotating horoscopes and images.
+MMM-SunSigns is a MagicMirror² module designed to display horoscopes for various zodiac signs and time periods. It features a robust caching mechanism, periodic updates, and a user-friendly display with rotating horoscopes and images. The module aims to provide a seamless and efficient way to view daily, weekly, monthly, and yearly horoscopes for multiple zodiac signs.
 
 ## Module Structure
 
@@ -15,88 +15,89 @@ The module consists of two main files:
 ### 1. Configuration
 
 The module accepts various configuration options, including:
-- Zodiac signs to display
-- Horoscope periods (daily, tomorrow, weekly, monthly, yearly)
-- Display settings (width, font size, image display)
-- Debug and test modes
+- `zodiacSign`: An array of zodiac signs to display (e.g., ["aries", "taurus"])
+- `period`: An array of horoscope periods (e.g., ["daily", "tomorrow", "weekly", "monthly", "yearly"])
+- Display settings:
+  - `width`: Width of the module
+  - `fontSize`: Font size for the horoscope text
+  - `showImage`: Boolean to toggle zodiac sign image display
+  - `imageWidth`: Width of the zodiac sign image
+- `maxTextHeight`: Maximum height of the text area before scrolling
+- `scrollSpeed`: Speed of vertical scrolling in pixels per second
+- `pauseDuration`: Duration to pause before and after scrolling
+- `signWaitTime`: Time to display each sign before rotating to the next
+- `debug`: Boolean to enable detailed logging for debugging
+- `test`: Option to simulate date changes for testing cache updates
+- `startOfWeek`: Define the start of the week for weekly horoscope updates
 
 ### 2. Caching Mechanism
 
-The caching system is implemented in `node_helper.js` and includes:
-- `buildCache()`: Initializes the cache with horoscopes for all signs and periods.
-- `updateCache()`: Periodically updates the cache based on time changes.
-- `saveCacheToFile()`: Persists the cache to disk.
-- `loadCacheFromFile()`: Loads the cache from disk on startup.
+The caching system, implemented in `node_helper.js`, includes:
+
+- `buildCache()`: Initializes the cache with horoscopes for all signs and periods. It fetches data in parallel for improved performance.
+- `updateCache()`: Periodically updates the cache based on time changes. It handles daily, weekly, monthly, and yearly updates.
+- `saveCacheToFile()`: Persists the cache to disk as a JSON file.
+- `loadCacheFromFile()`: Loads the cache from disk on startup, creating a new one if it doesn't exist.
+- `getCacheValidityPeriod()`: Determines how long cached data remains valid for each period type.
+
+The cache structure is designed to store horoscopes and image paths for all zodiac signs and periods, even those not currently configured for display. This allows for quick configuration changes without requiring immediate data fetching.
 
 ### 3. Data Fetching
 
-The `fetchHoroscope()` function in `node_helper.js` is responsible for retrieving horoscope data. It handles network requests and parsing of the response.
+The `fetchHoroscope()` function in `node_helper.js` is responsible for retrieving horoscope data. It:
+- Handles network requests to the horoscope data source
+- Parses the HTML response to extract the horoscope text
+- Implements error handling and logging
+- Updates the cache with new data
 
 ### 4. Display Management
 
 In `MMM-SunSigns.js`:
-- `getDom()`: Builds the module's DOM structure.
-- `createSignElement()`: Creates individual horoscope display elements.
-- `slideToNext()`: Manages the transition between different horoscopes.
-- `startScrolling()`: Handles vertical scrolling for long horoscope texts.
+- `getDom()`: Builds the module's DOM structure based on the current configuration and cached data.
+- `createSignElement()`: Creates individual horoscope display elements, including text and images.
+- `slideToNext()`: Manages the transition between different horoscopes and zodiac signs.
+- `startScrolling()`: Handles vertical scrolling for long horoscope texts, implementing smooth scroll and pause functionality.
 
 ### 5. Update Scheduling
 
-- `scheduleUpdate()`: Sets up periodic cache updates.
-- `scheduleRotation()`: Manages the rotation between different zodiac signs and periods.
+- `scheduleUpdate()`: Sets up periodic cache updates to ensure fresh data.
+- `scheduleRotation()`: Manages the rotation between different zodiac signs and periods for display.
 
 ### 6. Debug and Test Functionality
 
-- `log()`: Conditional logging based on debug mode.
-- `simulateDateChange()`: Allows for testing of date-based cache updates.
-
-## Key Functions
-
-### In `node_helper.js`:
-
-1. `buildCache()`
-   - Purpose: Initializes the cache with all horoscope data.
-   - Note: This function is crucial for the module's startup process.
-
-2. `updateCache(testDate)`
-   - Purpose: Updates the cache based on date changes.
-   - Key feature: Handles the transition of "tomorrow" becoming "daily".
-
-3. `fetchHoroscope(sign, period)`
-   - Purpose: Retrieves horoscope data from the external source.
-   - Note: Implements error handling and retries.
-
-### In `MMM-SunSigns.js`:
-
-1. `getDom()`
-   - Purpose: Constructs the module's visual representation.
-   - Key feature: Dynamically creates elements based on configuration.
-
-2. `slideToNext()`
-   - Purpose: Manages the transition between different horoscopes.
-   - Note: Implements smooth animations for user experience.
-
-3. `startScrolling()`
-   - Purpose: Handles vertical scrolling for long horoscope texts.
-   - Key feature: Implements pause and resume functionality.
+- `log()`: Conditional logging based on debug mode for easier troubleshooting.
+- `simulateDateChange()`: Allows for testing of date-based cache updates without waiting for actual time to pass.
 
 ## Data Flow
 
-1. On startup, `node_helper.js` builds or loads the cache.
-2. `MMM-SunSigns.js` requests data from the helper.
-3. The helper provides cached data or fetches new data if necessary.
-4. `MMM-SunSigns.js` displays the data and manages rotations/scrolling.
-5. Periodic updates are triggered to refresh the cache and display.
+1. On startup:
+   - `node_helper.js` checks for an existing cache file.
+   - If found, it loads the cache; if not, it builds a new cache.
+2. `MMM-SunSigns.js` initializes and sends an "INIT_MODULE" notification to the helper.
+3. The helper responds with cached data or newly fetched data if the cache was just built.
+4. `MMM-SunSigns.js` receives the data and updates its internal state.
+5. The module displays the data, managing rotations and scrolling as configured.
+6. Periodic updates are triggered to refresh the cache and display.
 
-## Error Handling
+## Error Handling and Resilience
 
-- Network errors are handled with retries in `fetchHoroscope()`.
-- If data is unavailable, the module falls back to cached data or displays error messages.
+- Network errors during fetching are logged, and the module falls back to cached data.
+- If cached data is unavailable or expired, the module displays a "Updating horoscope..." message.
+- The module continues to function with partial data if some horoscopes or images fail to load.
 
 ## Performance Considerations
 
-- The caching mechanism reduces network requests and improves load times.
-- Image caching reduces bandwidth usage.
-- Scrolling and animations are optimized for smooth performance.
+- Parallel fetching during cache building improves initial load time.
+- The caching mechanism significantly reduces network requests after initial setup.
+- Image caching reduces bandwidth usage and improves load times for returning users.
+- Scrolling and animations are optimized for smooth performance, with configurable speeds and pauses.
 
-This design document provides an overview of the MMM-SunSigns module's structure and key components. It serves as a guide for understanding the module's functionality and can be used as a reference for future development or troubleshooting.
+## Future Improvements
+
+Potential areas for future enhancement include:
+- Implementing a more sophisticated retry mechanism for failed network requests.
+- Adding support for multiple languages in horoscopes.
+- Creating a user interface for dynamically changing module configuration.
+- Implementing more advanced caching strategies, such as partial cache updates.
+
+This design document provides a comprehensive overview of the MMM-SunSigns module's structure, functionality, and design considerations. It serves as a guide for understanding the module's operation and can be used as a reference for future development, troubleshooting, or module customization.
