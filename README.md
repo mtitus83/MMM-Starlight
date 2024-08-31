@@ -2,9 +2,11 @@
 
 A MagicMirror² module that displays horoscopes for specified zodiac signs for various time periods.
 
-# Rebranding
+## Rebranding
 
-** Pleae make sure to update your config's module name to MMM-SunSigns to maintain compatibility **
+**THIS PROJECT AND MODULE HAVE BEEN RENAMED; THIS MAY BE A BREAKING CHANGE FOR SOME** 
+
+Pleae make sure to update your config's module name to `MMM-Starlight` to maintain compatibility. Please see the Configuration section for info on correct configuration.
 
 ## Disclaimer
 
