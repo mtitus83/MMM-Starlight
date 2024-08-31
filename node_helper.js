@@ -277,6 +277,26 @@ module.exports = NodeHelper.create({
         }
     },
 
+    fetchImage: async function(sign) {
+        const imageUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
+        const imagePath = path.join(this.imageDir, `${sign}.png`);
+
+        try {
+            const response = await axios({
+                method: 'get',
+                url: imageUrl,
+                responseType: 'arraybuffer'
+            });
+
+            await fs.writeFile(imagePath, response.data);
+
+            this.cache.images[sign] = imagePath;
+            this.log('debug', `Image for ${sign} fetched and saved to ${imagePath}`);
+        } catch (error) {
+            this.log('error', `Error fetching image for ${sign}: ${error.message}`);
+            this.cache.images[sign] = null;
+        }
+    },
 
     getCacheState: function() {
         return {
