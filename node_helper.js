@@ -37,6 +37,8 @@ module.exports = NodeHelper.create({
         const url = this.getHoroscopeUrl(sign, period);
         const cachedData = this.cache.horoscopes[sign]?.[period];
     
+        this.log('debug', `Checking horoscope for ${sign} (${period}) at ${new Date().toISOString()}`);
+    
         try {
             const response = await axios.get(url, {
                 headers: {
@@ -48,17 +50,17 @@ module.exports = NodeHelper.create({
                 const newContent = this.parseHoroscopeContent(response.data);
                 
                 if (!cachedData || newContent !== cachedData.content) {
-                    // Content has changed or is new, update cache
+                    this.log('debug', `New content found for ${sign} (${period}). Updating cache.`);
                     this.updateCache(sign, period, newContent);
-                    console.log(`Updated horoscope for ${sign} (${period}).`);
                 } else {
-                    // Content hasn't changed, just update last check time
+                    this.log('debug', `No changes in content for ${sign} (${period}). Updating last check time.`);
                     this.updateLastCheckTime(sign, period);
-                    console.log(`Horoscope for ${sign} (${period}) hasn't changed.`);
                 }
+            } else {
+                this.log('error', `Unexpected status code ${response.status} when fetching horoscope for ${sign} (${period})`);
             }
         } catch (error) {
-            console.error(`Error checking horoscope for ${sign} (${period}):`, error);
+            this.log('error', `Error checking horoscope for ${sign} (${period}): ${error.message}`);
         }
     },
 
@@ -245,6 +247,8 @@ module.exports = NodeHelper.create({
         tomorrow.setDate(tomorrow.getDate() + 1);
         tomorrow.setHours(0, 0, 0, 0);
     
+        let validityPeriod;
+    
         switch(period) {
             case 'daily':
             case 'tomorrow':
@@ -252,24 +256,32 @@ module.exports = NodeHelper.create({
                 const nextCheck = new Date(now);
                 nextCheck.setDate(nextCheck.getDate() + 1);
                 nextCheck.setHours(3, 0, 0, 0);
-                return nextCheck.getTime() - now.getTime();
+                validityPeriod = nextCheck.getTime() - now.getTime();
+                break;
             case 'weekly':
                 // Valid for the current week (until next Monday 3 AM)
                 const nextMonday = new Date(now);
                 nextMonday.setDate(nextMonday.getDate() + (1 + 7 - nextMonday.getDay()) % 7);
                 nextMonday.setHours(3, 0, 0, 0);
-                return nextMonday.getTime() - now.getTime();
+                validityPeriod = nextMonday.getTime() - now.getTime();
+                break;
             case 'monthly':
                 // Valid for the current month (until 3 AM on the 1st of next month)
                 const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1, 3, 0, 0, 0);
-                return nextMonth.getTime() - now.getTime();
+                validityPeriod = nextMonth.getTime() - now.getTime();
+                break;
             case 'yearly':
                 // Valid for the current year (until January 1st 3 AM of next year)
                 const nextYear = new Date(now.getFullYear() + 1, 0, 1, 3, 0, 0, 0);
-                return nextYear.getTime() - now.getTime();
+                validityPeriod = nextYear.getTime() - now.getTime();
+                break;
             default:
-                return 24 * 60 * 60 * 1000; // 1 day (default)
+                validityPeriod = 24 * 60 * 60 * 1000; // 1 day (default)
         }
+    
+        const expirationDate = new Date(now.getTime() + validityPeriod);
+        this.log('debug', `Cache for ${period} will expire at: ${expirationDate.toISOString()}`);
+        return validityPeriod;
     },
 
     shouldRefetchHoroscope: function(lastFetchTime, period) {
@@ -341,16 +353,25 @@ module.exports = NodeHelper.create({
         this.updateCache(newDate);
     },
 
-
     updateCache: function(sign, period, content) {
         if (!this.cache.horoscopes[sign]) {
             this.cache.horoscopes[sign] = {};
         }
+    
+        // Check for rotation from tomorrow to today
+        if (period === 'daily' && this.cache.horoscopes[sign]?.tomorrow) {
+            this.log('debug', `Rotating tomorrow's horoscope to today for ${sign} at ${new Date().toISOString()}`);
+            this.cache.horoscopes[sign].daily = this.cache.horoscopes[sign].tomorrow;
+            delete this.cache.horoscopes[sign].tomorrow;
+        }
+    
+        this.log('debug', `Updating cache for ${sign} (${period}) at ${new Date().toISOString()}`);
         this.cache.horoscopes[sign][period] = {
             content: content,
             timestamp: new Date().toISOString(),
             lastChecked: new Date().toISOString()
         };
+    
         this.saveCacheToFile();
         this.sendSocketNotification("HOROSCOPE_UPDATED", { sign, period, data: content });
     },

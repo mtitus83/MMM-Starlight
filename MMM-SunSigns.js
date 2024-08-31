@@ -165,10 +165,12 @@ Module.register("MMM-SunSigns", {
 
     scheduleUpdate: function() {
         // Perform an initial check
+        this.log('debug', `Executing initial update check at ${new Date().toISOString()}`);
         this.sendSocketNotification("CHECK_FOR_UPDATES");
     
         // Set up regular interval checks
         setInterval(() => {
+            this.log('debug', `Executing 45-minute update check at ${new Date().toISOString()}`);
             this.sendSocketNotification("CHECK_FOR_UPDATES");
         }, 45 * 60 * 1000); // Check every 45 minutes
     },
