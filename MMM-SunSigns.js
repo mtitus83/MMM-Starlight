@@ -38,15 +38,19 @@ Module.register("MMM-SunSigns", {
     },
 
     getDom: function() {
+        this.log('debug', "Building DOM");
         var wrapper = document.createElement("div");
         wrapper.className = "MMM-SunSigns";
         wrapper.style.width = this.config.width;
         wrapper.style.fontSize = this.config.fontSize;
 
         if (!this.loaded) {
+            this.log('debug', "Module not loaded yet, displaying loading message");
             wrapper.innerHTML = "Loading horoscopes...";
             return wrapper;
         }
+
+        this.log('debug', `Current sign index: ${this.currentSignIndex}, period index: ${this.currentPeriodIndex}`);
 
         if (this.config.zodiacSign.length === 1 && this.config.period.length === 1) {
             wrapper.classList.add("single-sign");
@@ -69,10 +73,12 @@ Module.register("MMM-SunSigns", {
             wrapper.appendChild(slideContainer);
         }
 
+        this.log('debug', "DOM built successfully");
         return wrapper;
     },
 
     createSignElement: function(sign, className, period) {
+        this.log('debug', `Creating sign element for ${sign}, ${period}`);
         var slideWrapper = document.createElement("div");
         slideWrapper.className = "sunsigns-slide-wrapper " + className;
 
@@ -93,9 +99,13 @@ Module.register("MMM-SunSigns", {
 
         var horoscopeTextElement = document.createElement("div");
         horoscopeTextElement.className = "sunsigns-text";
-        horoscopeTextElement.innerHTML = this.horoscopes[sign] && this.horoscopes[sign][period] 
-            ? this.horoscopes[sign][period].content 
-            : "Loading " + period + " horoscope for " + sign + "...";
+        if (this.horoscopes[sign] && this.horoscopes[sign][period]) {
+            horoscopeTextElement.innerHTML = this.horoscopes[sign][period].content;
+            this.log('debug', `Horoscope content found for ${sign}, ${period}`);
+        } else {
+            horoscopeTextElement.innerHTML = "Loading " + period + " horoscope for " + sign + "...";
+            this.log('debug', `No horoscope content found for ${sign}, ${period}`);
+        }
         horoscopeWrapper.appendChild(horoscopeTextElement);
 
         textContent.appendChild(horoscopeWrapper);
@@ -110,10 +120,10 @@ Module.register("MMM-SunSigns", {
             image.style.width = this.config.imageWidth;
             imageWrapper.appendChild(image);
             contentWrapper.appendChild(imageWrapper);
+            this.log('debug', `Image added for ${sign}`);
         }
 
         slideWrapper.appendChild(contentWrapper);
-
         return slideWrapper;
     },
 
@@ -225,28 +235,31 @@ Module.register("MMM-SunSigns", {
     },
 
     socketNotificationReceived: function(notification, payload) {
+        this.log('debug', `Received socket notification: ${notification}`);
         if (notification === "HOROSCOPE_RESULT") {
-            this.horoscopes[payload.sign] = this.horoscopes[payload.sign] || {};
+            this.log('debug', `Received horoscope for ${payload.sign}, ${payload.period}`);
+            if (!this.horoscopes[payload.sign]) {
+                this.horoscopes[payload.sign] = {};
+            }
             this.horoscopes[payload.sign][payload.period] = payload.data;
             this.updateDom();
         } else if (notification === "IMAGE_RESULT") {
+            this.log('debug', `Received image path for ${payload.sign}`);
             this.images[payload.sign] = payload.path;
             this.updateDom();
         } else if (notification === "CACHE_BUILT") {
+            this.log('debug', "Cache built notification received");
             this.loaded = true;
             this.updateDom();
             this.scheduleUpdate();
             this.scheduleRotation();
-        } else if (notification === "TEST_RESULT") {
-            if (this.config.debug) {
-                Log.info(`${this.name}: Test Result:`, JSON.stringify(payload, null, 2));
-            }
         }
     },
 
     log: function(level, message) {
         if (level === 'info' || (level === 'debug' && this.config.debug)) {
-            Log.log(`${this.name} [${level.toUpperCase()}]: ${message}`);
+            const timestamp = new Date().toISOString();
+            Log.log(`[${timestamp}] ${this.name} [${level.toUpperCase()}]: ${message}`);
         }
     }
 });

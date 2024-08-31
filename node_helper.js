@@ -26,6 +26,8 @@ module.exports = NodeHelper.create({
 
     sendInitialData: function(config) {
         this.log('debug', "Sending initial data from cache");
+        this.log('debug', `Cache contents: ${JSON.stringify(this.cache, null, 2)}`);
+        
         for (let sign of config.zodiacSign) {
             for (let period of config.period) {
                 const horoscope = this.getHoroscope(sign, period);
@@ -34,16 +36,18 @@ module.exports = NodeHelper.create({
                     period: period,
                     data: horoscope
                 });
+                this.log('debug', `Sent horoscope for ${sign}, ${period}`);
             }
             const imagePath = this.getImage(sign);
             this.sendSocketNotification("IMAGE_RESULT", {
                 sign: sign,
                 path: imagePath
             });
+            this.log('debug', `Sent image path for ${sign}`);
         }
         this.sendSocketNotification("CACHE_BUILT");
+        this.log('debug', "Sent CACHE_BUILT notification");
     },
-
 
     loadCacheFromFile: async function() {
         try {
@@ -126,16 +130,19 @@ module.exports = NodeHelper.create({
         }
     },
 
-    getHoroscopeUrl: function(sign, period) {
-        let baseUrl = 'https://www.sunsigns.com/horoscopes';
-        if (period === 'tomorrow') {
-            return `${baseUrl}/daily/${sign}/tomorrow`;
-        } else if (period === 'yearly') {
-            const currentYear = new Date().getFullYear();
-            return `${baseUrl}/yearly/${currentYear}/${sign}`;
-        } else {
-            return `${baseUrl}/${period}/${sign}`;
+    getHoroscope: function(sign, period) {
+        this.log('debug', `Getting horoscope for ${sign}, ${period}`);
+        if (this.cache && this.cache.horoscopes && this.cache.horoscopes[sign] && this.cache.horoscopes[sign][period]) {
+            const cachedData = this.cache.horoscopes[sign][period];
+            const cacheAge = new Date() - new Date(cachedData.timestamp);
+            if (cacheAge < this.getCacheValidityPeriod(period)) {
+                this.log('debug', `Using cached horoscope for ${sign}, ${period}`);
+                return cachedData;
+            }
         }
+        this.log('debug', `Cache miss or expired for ${sign}, ${period}. Fetching new data.`);
+        this.fetchHoroscope(sign, period);
+        return { content: "Updating horoscope...", timestamp: new Date().toISOString() };
     },
 
     saveCacheToFile: async function() {
@@ -246,7 +253,8 @@ module.exports = NodeHelper.create({
     },
 
     getImage: function(sign) {
-        return this.cache.images[sign];
+        this.log('debug', `Getting image for ${sign}`);
+        return this.cache && this.cache.images && this.cache.images[sign] ? this.cache.images[sign] : null;
     },
 
     getCacheState: function() {
@@ -262,19 +270,24 @@ module.exports = NodeHelper.create({
     },
 
     log: function(level, message) {
-        if (level === 'info' || (level === 'debug' && this.config.debug)) {
-            console.log(`${this.name} [${level.toUpperCase()}]: ${message}`);
-        }
+        const timestamp = new Date().toISOString();
+        console.log(`[${timestamp}] ${this.name} [${level.toUpperCase()}]: ${message}`);
     },
 
-
     socketNotificationReceived: function(notification, payload) {
+        this.log('debug', `Received notification: ${notification}`);
         if (notification === "INIT_MODULE") {
+            this.config = payload;
             if (!this.cache) {
+                this.log('debug', "Cache not found, building new cache");
                 this.buildCache(payload).then(() => {
+                    this.log('debug', "Cache built, sending initial data");
                     this.sendInitialData(payload);
+                }).catch(error => {
+                    this.log('error', `Error building cache: ${error}`);
                 });
             } else {
+                this.log('debug', "Cache found, sending initial data");
                 this.sendInitialData(payload);
             }
         } else if (notification === "GET_HOROSCOPE") {
@@ -294,4 +307,5 @@ module.exports = NodeHelper.create({
             this.updateCache();
         }
     },
+
 });
