@@ -1,97 +1,119 @@
-# MMM-SunSigns Module Design Document
+# MMM-SunSigns
 
-## Overview
+A MagicMirror² module that displays horoscopes for specified zodiac signs for various time periods.
 
-MMM-SunSigns is a MagicMirror² module designed to display horoscopes for various zodiac signs and time periods. It features a robust caching mechanism, periodic updates, and a user-friendly display with rotating horoscopes and images. The module aims to provide a seamless and efficient way to view daily, weekly, monthly, and yearly horoscopes for multiple zodiac signs.
+## Disclaimer
 
-## Module Structure
+**IMPORTANT**: This MagicMirror² module was created by an AI assistant and is not officially supported or maintained by a human developer. Use at your own risk. While efforts have been made to ensure its functionality, there may be unforeseen issues or limitations. If you encounter any problems, feel free to contribute to its improvement, but please note that there is no official support channel for this module.
 
-The module consists of two main files:
-1. `MMM-SunSigns.js`: The main module file that handles the display and user interface.
-2. `node_helper.js`: A Node.js helper that manages data fetching, caching, and updates.
+## Installation
 
-## Key Components
+1. Navigate to your MagicMirror's `modules` folder:
+```
+cd ~/MagicMirror/modules
+```
+2. Clone this repository:
+```
+git clone https://github.com/mtitus83/MMM-SunSigns.git
+```
+3. Install the dependencies:
+```
+cd MMM-SunSigns
+npm install
+```
 
-### 1. Configuration
+## Configuration
 
-The module accepts various configuration options, including:
-- `zodiacSign`: An array of zodiac signs to display (e.g., ["aries", "taurus"])
-- `period`: An array of horoscope periods (e.g., ["daily", "tomorrow", "weekly", "monthly", "yearly"])
-- Display settings:
-  - `width`: Width of the module
-  - `fontSize`: Font size for the horoscope text
-  - `showImage`: Boolean to toggle zodiac sign image display
-  - `imageWidth`: Width of the zodiac sign image
-- `maxTextHeight`: Maximum height of the text area before scrolling
-- `scrollSpeed`: Speed of vertical scrolling in pixels per second
-- `pauseDuration`: Duration to pause before and after scrolling
-- `signWaitTime`: Time to display each sign before rotating to the next
-- `debug`: Boolean to enable detailed logging for debugging
-- `test`: Option to simulate date changes for testing cache updates
-- `startOfWeek`: Define the start of the week for weekly horoscope updates
+Add the following configuration block to the modules array in the `config/config.js` file:
 
-### 2. Caching Mechanism
+```javascript
+modules: [
+    {
+        module: "MMM-SunSigns",
+        position: "top_right",
+        config: {
+            // See below for configurable options
+        }
+    }
+]
+```
 
-The caching system, implemented in `node_helper.js`, includes:
+### Options
 
-- `buildCache()`: Initializes the cache with horoscopes for all signs and periods. It fetches data in parallel for improved performance.
-- `updateCache()`: Periodically updates the cache based on time changes. It handles daily, weekly, monthly, and yearly updates.
-- `saveCacheToFile()`: Persists the cache to disk as a JSON file.
-- `loadCacheFromFile()`: Loads the cache from disk on startup, creating a new one if it doesn't exist.
-- `getCacheValidityPeriod()`: Determines how long cached data remains valid for each period type.
+| Option           | Description                                                                                     |
+|------------------|-------------------------------------------------------------------------------------------------|
+| `zodiacSign`     | An array of zodiac signs to display. (default: `["taurus"]`)                                    |
+| `period`         | An array of periods for the horoscope. Can include "daily", "tomorrow", "weekly", "monthly", and "yearly". (default: `["daily", "tomorrow"]`) |
+| `startOfWeek`    | Define the start of the week for weekly horoscope updates. Can be "Sunday" or "Monday". (default: `"Sunday"`) |
+| `width`          | Width of the module. (default: `"400px"`)                                                       |
+| `fontSize`       | Font size of the horoscope text. (default: `"1em"`)                                             |
+| `showImage`      | Whether to display the zodiac sign image. (default: `true`)                                     |
+| `imageWidth`     | Width of the zodiac sign image. (default: `"100px"`)                                            |
+| `maxTextHeight`  | Maximum height of the text area before scrolling. (default: `"400px"`)                          |
+| `scrollSpeed`    | Speed of the vertical scrolling in pixels per second. (default: `7`)                            |
+| `pauseDuration`  | Duration to pause before starting to scroll and after scrolling completes, in milliseconds. (default: `10000` // 10 seconds) |
+| `signWaitTime`   | Time to display each sign before rotating to the next, in milliseconds. (default: `120000` // 2 minutes) |
+| `debug`          | Enable debug mode for additional logging. (default: `false`)                                    |
+| `test`           | Simulate date changes for testing. Can be "daily", "weekly", "monthly", or "yearly". Only works when `debug` is `true`. (default: `null`) |
 
-The cache structure is designed to store horoscopes and image paths for all zodiac signs and periods, even those not currently configured for display. This allows for quick configuration changes without requiring immediate data fetching.
+**Note**: The following options have been deprecated and are no longer configurable to provide a more consistent user experience: `updateInterval`, `retryDelay`, `maxRetries`, and `requestTimeout`.
 
-### 3. Data Fetching
+This version of MMM-SunSigns includes enhanced debug logging capabilities and a new caching mechanism to improve performance and reduce network usage. Use the `debug` option to enable detailed logging, and refer to the module's documentation for more information on the caching system.
 
-The `fetchHoroscope()` function in `node_helper.js` is responsible for retrieving horoscope data. It:
-- Handles network requests to the horoscope data source with an increased timeout of 30 seconds for improved reliability.
-- Parses the HTML response to extract the horoscope text
-- Implements error handling and logging
-- Updates the cache with new data
+### Ordering of Horoscopes
 
-### 4. Display Management
+The order in which horoscopes are displayed is determined by the order of the `zodiacSign` and `period` arrays in your configuration. The module will cycle through all periods for each sign before moving to the next sign. 
 
-In `MMM-SunSigns.js`:
-- `getDom()`: Builds the module's DOM structure based on the current configuration and cached data.
-- `createSignElement()`: Creates individual horoscope display elements, including text and images.
-- `slideToNext()`: Manages the transition between different horoscopes and zodiac signs.
-- `startScrolling()`: Handles vertical scrolling for long horoscope texts, implementing smooth scroll and pause functionality.
+For example, if your configuration is:
 
-### 5. Update Scheduling
+```javascript
+{
+    zodiacSign: ["aries", "taurus"],
+    period: ["daily", "tomorrow", "weekly"]
+}
+```
 
-- `scheduleUpdate()`: Sets up periodic cache updates to ensure fresh data.
-- `scheduleRotation()`: Manages the rotation between different zodiac signs and periods for display.
+The horoscopes will be displayed in this order:
 
-### 6. Debug and Test Functionality
+1. Aries daily
+2. Aries tomorrow
+3. Aries weekly
+4. Taurus daily
+5. Taurus tomorrow
+6. Taurus weekly
 
-- `log()`: Conditional logging based on debug mode for easier troubleshooting.
-- `simulateDateChange()`: Allows for testing of date-based cache updates without waiting for actual time to pass.
+Then it will cycle back to Aries daily and repeat the sequence.
 
-## Data Flow
+### Example configuration
 
-1. On startup:
-   - `node_helper.js` checks for an existing cache file.
-   - If found, it loads the cache; if not, it builds a new cache.
-2. `MMM-SunSigns.js` initializes and sends an "INIT_MODULE" notification to the helper.
-3. The helper responds with cached data or newly fetched data if the cache was just built.
-4. `MMM-SunSigns.js` receives the data and updates its internal state.
-5. The module displays the data, managing rotations and scrolling as configured.
-6. Periodic updates are triggered to refresh the cache and display.
+```javascript
+{
+    module: "MMM-SunSigns",
+    position: "top_right",
+    config: {
+        zodiacSign: ["aries", "taurus", "gemini"],
+        period: ["daily", "tomorrow", "weekly", "monthly"],
+        width: "500px",
+        maxTextHeight: "300px",
+        scrollSpeed: 8,
+        pauseDuration: 5000, // 5 seconds pause before and after scrolling
+        signWaitTime: 180000 // 3 minutes
+    }
+}
+```
 
-## Error Handling and Resilience
+## Updating
 
-- Network errors during fetching are logged, and the module falls back to cached data.
-- The module implements a 30-second timeout for network requests to handle slow connections or server response times.
-- If cached data is unavailable or expired, the module displays a "Updating horoscope..." message.
-- The module continues to function with partial data if some horoscopes or images fail to load.
+To update the module to the latest version, navigate to your MMM-SunSigns folder and pull the latest changes:
 
-## Performance Considerations
+```
+cd ~/MagicMirror/modules/MMM-SunSigns
+git pull
+npm install
+```
 
-- Parallel fetching during cache building improves initial load time.
-- The caching mechanism significantly reduces network requests after initial setup.
-- Image caching reduces bandwidth usage and improves load times for returning users.
-- Scrolling and animations are optimized for smooth performance, with configurable speeds and pauses.
+## Contributing
+
+If you find any issues or have suggestions for improvements, please open an issue or submit a pull request on the GitHub repository. See DESIGN.md for more information about the modules design.
 
 
-This design document provides a comprehensive overview of the MMM-SunSigns module's structure, functionality, and design considerations. It serves as a guide for understanding the module's operation and can be used as a reference for future development, troubleshooting, or module customization.
