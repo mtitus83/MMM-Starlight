@@ -67,7 +67,7 @@ module.exports = NodeHelper.create({
             this.cache.horoscopes[sign][period].lastChecked = new Date().toISOString();
             this.saveCacheToFile();
         }
-    }
+    },
 
     getHoroscopeUrl: function(sign, period) {
         let baseUrl = 'https://www.sunsigns.com/horoscopes';
