@@ -116,8 +116,11 @@ Module.register("MMM-SunSigns", {
             imageWrapper.className = "sunsigns-image-wrapper";
             var image = document.createElement("img");
             
-            // Use the correct URL format
-            let imageSrc = this.images[sign] || `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
+            let imageSrc = this.images[sign];
+            if (!imageSrc) {
+                imageSrc = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
+                this.sendSocketNotification("GET_IMAGE", { sign: sign });
+            }
             
             this.log('debug', `Setting image source for ${sign}: ${imageSrc}`);
             
@@ -125,7 +128,6 @@ Module.register("MMM-SunSigns", {
             image.alt = sign + " zodiac sign";
             image.style.width = this.config.imageWidth;
             
-            // Add an error handler with more detailed logging
             image.onerror = (e) => {
                 this.log('error', `Failed to load image for ${sign}. Error: ${e.type}`);
                 this.log('error', `Image src: ${imageSrc}`);
@@ -159,7 +161,6 @@ Module.register("MMM-SunSigns", {
 
     scheduleRotation: function() {
         if (this.config.zodiacSign.length === 1 && this.config.period.length === 1) {
-            // Don't schedule rotation for single sign and period
             return;
         }
 
@@ -171,7 +172,6 @@ Module.register("MMM-SunSigns", {
 
     checkAndRotate: function() {
         if (this.config.zodiacSign.length === 1 && this.config.period.length === 1) {
-            // Don't rotate for single sign and period
             return;
         }
 
@@ -261,7 +261,7 @@ Module.register("MMM-SunSigns", {
             this.horoscopes[payload.sign][payload.period] = payload.data;
             this.updateDom();
         } else if (notification === "IMAGE_RESULT") {
-            this.log('debug', `Received image path for ${payload.sign}`);
+            this.log('debug', `Received image path for ${payload.sign}: ${payload.path}`);
             this.images[payload.sign] = payload.path;
             this.updateDom();
         } else if (notification === "CACHE_BUILT") {

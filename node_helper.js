@@ -15,6 +15,7 @@ module.exports = NodeHelper.create({
             this.loadCacheFromFile();
         });
     },
+
     ensureCacheDirs: async function() {
         try {
             await fs.mkdir(this.cacheDir, { recursive: true });
@@ -104,7 +105,7 @@ module.exports = NodeHelper.create({
             }
         } catch (error) {
             this.log('error', `Error building cache: ${error}`);
-            throw error; // Re-throw the error if you want it to propagate
+            throw error;
         }
     },
 
@@ -120,7 +121,7 @@ module.exports = NodeHelper.create({
 
         const url = this.getHoroscopeUrl(sign, period);
         try {
-            const response = await axios.get(url, { timeout: 10000 }); // 10 seconds timeout
+            const response = await axios.get(url, { timeout: 10000 });
             const $ = cheerio.load(response.data);
             const horoscope = $('.horoscope-content p').text().trim();
             this.cache.horoscopes[sign] = this.cache.horoscopes[sign] || {};
@@ -135,33 +136,39 @@ module.exports = NodeHelper.create({
     },
 
     fetchImage: async function(sign) {
-        const url = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
-        const imagePath = path.join(this.imageDir, `${sign}.png`);
+        const remoteUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
+        const localPath = path.join(this.imageDir, `${sign}.png`);
+        
         try {
-            const response = await axios.get(url, { responseType: 'arraybuffer' });
-            await fs.writeFile(imagePath, response.data);
-            this.cache.images[sign] = imagePath;
-            this.log('debug', `Fetched image for ${sign} from ${url}`);
+            // Check if the image already exists in the local cache
+            await fs.access(localPath, fs.constants.F_OK);
+            this.log('debug', `Using cached image for ${sign}: ${localPath}`);
+            this.cache.images[sign] = localPath;
+            this.sendSocketNotification("IMAGE_RESULT", {
+                sign: sign,
+                path: localPath
+            });
         } catch (error) {
-            this.log('error', `Error fetching image for ${sign}: ${error.message}`);
-            // Don't store the image path if fetch failed
-            this.cache.images[sign] = null;
-        }
-    },
-
-    getHoroscope: function(sign, period) {
-        this.log('debug', `Getting horoscope for ${sign}, ${period}`);
-        if (this.cache && this.cache.horoscopes && this.cache.horoscopes[sign] && this.cache.horoscopes[sign][period]) {
-            const cachedData = this.cache.horoscopes[sign][period];
-            const cacheAge = new Date() - new Date(cachedData.timestamp);
-            if (cacheAge < this.getCacheValidityPeriod(period)) {
-                this.log('debug', `Using cached horoscope for ${sign}, ${period}`);
-                return cachedData;
+            // File doesn't exist, fetch from remote
+            this.log('debug', `Attempting to fetch image from URL: ${remoteUrl}`);
+            try {
+                const response = await axios.get(remoteUrl, { responseType: 'arraybuffer' });
+                await fs.writeFile(localPath, response.data);
+                this.cache.images[sign] = localPath;
+                this.log('debug', `Fetched and cached image for ${sign} from ${remoteUrl}`);
+                this.sendSocketNotification("IMAGE_RESULT", {
+                    sign: sign,
+                    path: localPath
+                });
+            } catch (fetchError) {
+                this.log('error', `Error fetching image for ${sign}: ${fetchError.message}`);
+                this.cache.images[sign] = null;
+                this.sendSocketNotification("IMAGE_RESULT", {
+                    sign: sign,
+                    path: null
+                });
             }
         }
-        this.log('debug', `Cache miss or expired for ${sign}, ${period}. Fetching new data.`);
-        this.fetchHoroscope(sign, period);
-        return { content: "Updating horoscope...", timestamp: new Date().toISOString() };
     },
 
     saveCacheToFile: async function() {
@@ -277,8 +284,9 @@ module.exports = NodeHelper.create({
             this.log('debug', `Returning cached image path for ${sign}: ${this.cache.images[sign]}`);
             return this.cache.images[sign];
         } else {
-            this.log('debug', `No cached image found for ${sign}, using default URL`);
-            return `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
+            this.log('debug', `No cached image found for ${sign}, fetching from remote`);
+            this.fetchImage(sign);
+            return null;
         }
     },
 
@@ -332,5 +340,4 @@ module.exports = NodeHelper.create({
             this.updateCache();
         }
     },
-
 });
