@@ -62,6 +62,9 @@ module.exports = NodeHelper.create({
             }
         } catch (error) {
             this.log('error', `Error checking horoscope for ${sign} (${period}): ${error.message}`);
+            if (error.stack) {
+                this.log('error', `Stack trace: ${error.stack}`);
+            }
         }
     },
 
