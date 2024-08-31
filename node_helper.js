@@ -49,6 +49,18 @@ module.exports = NodeHelper.create({
         this.log('debug', "Sent CACHE_BUILT notification");
     },
 
+    getHoroscopeUrl: function(sign, period) {
+        let baseUrl = 'https://www.sunsigns.com/horoscopes';
+        if (period === 'tomorrow') {
+            return `${baseUrl}/daily/${sign}/tomorrow`;
+        } else if (period === 'yearly') {
+            const currentYear = new Date().getFullYear();
+            return `${baseUrl}/yearly/${currentYear}/${sign}`;
+        } else {
+            return `${baseUrl}/${period}/${sign}`;
+        }
+    },
+
     loadCacheFromFile: async function() {
         try {
             await fs.access(this.cacheFile, fs.constants.F_OK);
@@ -66,28 +78,33 @@ module.exports = NodeHelper.create({
     },
 
     buildCache: async function(config) {
-        this.config = config;
-        const zodiacSigns = ['aries', 'taurus', 'gemini', 'cancer', 'leo', 'virgo', 'libra', 'scorpio', 'sagittarius', 'capricorn', 'aquarius', 'pisces'];
-        const periods = ['daily', 'tomorrow', 'weekly', 'monthly', 'yearly'];
-
-        this.cache = {
-            timestamp: new Date().toISOString(),
-            horoscopes: {},
-            images: {}
-        };
-
-        const fetchPromises = zodiacSigns.flatMap(sign => 
-            periods.map(period => this.fetchHoroscope(sign, period))
-                .concat(this.fetchImage(sign))
-        );
-
-        await Promise.all(fetchPromises);
-
-        await this.saveCacheToFile();
-        this.log('info', `Cache file built successfully at ${this.cache.timestamp}`);
-
-        if (this.config.debug && this.config.test) {
-            this.simulateDateChange(this.config.test);
+        try {
+            this.config = config;
+            const zodiacSigns = ['aries', 'taurus', 'gemini', 'cancer', 'leo', 'virgo', 'libra', 'scorpio', 'sagittarius', 'capricorn', 'aquarius', 'pisces'];
+            const periods = ['daily', 'tomorrow', 'weekly', 'monthly', 'yearly'];
+    
+            this.cache = {
+                timestamp: new Date().toISOString(),
+                horoscopes: {},
+                images: {}
+            };
+    
+            const fetchPromises = zodiacSigns.flatMap(sign => 
+                periods.map(period => this.fetchHoroscope(sign, period))
+                    .concat(this.fetchImage(sign))
+            );
+    
+            await Promise.all(fetchPromises);
+    
+            await this.saveCacheToFile();
+            this.log('info', `Cache file built successfully at ${this.cache.timestamp}`);
+    
+            if (this.config.debug && this.config.test) {
+                this.simulateDateChange(this.config.test);
+            }
+        } catch (error) {
+            this.log('error', `Error building cache: ${error}`);
+            throw error; // Re-throw the error if you want it to propagate
         }
     },
 
