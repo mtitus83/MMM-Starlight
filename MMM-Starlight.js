@@ -1,4 +1,4 @@
-Module.register("MMM-SunSigns", {
+Module.register("MMM-Starlight", {
     defaults: {
         zodiacSign: ["taurus"],
         period: ["daily", "tomorrow"],
@@ -28,12 +28,12 @@ Module.register("MMM-SunSigns", {
     },
 
     getStyles: function() {
-        return ["MMM-SunSigns.css"];
+        return ["MMM-Starlight.css"];
     },
 
     getDom: function() {
         var wrapper = document.createElement("div");
-        wrapper.className = "MMM-SunSigns";
+        wrapper.className = "MMM-Starlight";
         wrapper.style.width = this.config.width;
         wrapper.style.fontSize = this.config.fontSize;
 
@@ -48,7 +48,7 @@ Module.register("MMM-SunSigns", {
         } else {
             wrapper.classList.add("multiple-signs");
             var slideContainer = document.createElement("div");
-            slideContainer.className = "sunsigns-slide-container";
+            slideContainer.className = "starlight-slide-container";
 
             var currentSign = this.config.zodiacSign[this.currentSignIndex];
             var currentPeriod = this.config.period[this.currentPeriodIndex];
@@ -68,25 +68,25 @@ Module.register("MMM-SunSigns", {
 
     createSignElement: function(sign, className, period) {
         var slideWrapper = document.createElement("div");
-        slideWrapper.className = "sunsigns-slide-wrapper " + className;
+        slideWrapper.className = "starlight-slide-wrapper " + className;
 
         var contentWrapper = document.createElement("div");
-        contentWrapper.className = "sunsigns-content-wrapper";
+        contentWrapper.className = "starlight-content-wrapper";
 
         var textContent = document.createElement("div");
-        textContent.className = "sunsigns-text-content";
+        textContent.className = "starlight-text-content";
 
         var periodText = document.createElement("div");
-        periodText.className = "sunsigns-period";
+        periodText.className = "starlight-period";
         periodText.innerHTML = this.formatPeriodText(period) + " Horoscope for " + sign.charAt(0).toUpperCase() + sign.slice(1);
         textContent.appendChild(periodText);
 
         var horoscopeWrapper = document.createElement("div");
-        horoscopeWrapper.className = "sunsigns-text-wrapper";
+        horoscopeWrapper.className = "starlight-text-wrapper";
         horoscopeWrapper.style.maxHeight = this.config.maxTextHeight;
 
         var horoscopeTextElement = document.createElement("div");
-        horoscopeTextElement.className = "sunsigns-text";
+        horoscopeTextElement.className = "starlight-text";
         horoscopeTextElement.innerHTML = this.horoscopes[sign] && this.horoscopes[sign][period] 
             ? this.horoscopes[sign][period] 
             : "Loading " + period + " horoscope for " + sign + "...";
@@ -97,7 +97,7 @@ Module.register("MMM-SunSigns", {
 
         if (this.config.showImage) {
             var imageWrapper = document.createElement("div");
-            imageWrapper.className = "sunsigns-image-wrapper";
+            imageWrapper.className = "starlight-image-wrapper";
             var image = document.createElement("img");
             image.src = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
             image.alt = sign + " zodiac sign";
@@ -177,7 +177,7 @@ Module.register("MMM-SunSigns", {
     },
 
     slideToNext: function() {
-        var container = document.querySelector(".MMM-SunSigns .sunsigns-slide-container");
+        var container = document.querySelector(".MMM-Starlight .starlight-slide-container");
         if (container) {
             container.style.transition = "transform 1s ease-in-out";
             container.style.transform = "translateX(-50%)";
@@ -231,8 +231,8 @@ Module.register("MMM-SunSigns", {
         clearTimeout(this.scrollTimer);
 
         this.scrollTimer = setTimeout(function() {
-            var textWrapper = document.querySelector(".MMM-SunSigns .sunsigns-text-wrapper");
-            var textContent = document.querySelector(".MMM-SunSigns .sunsigns-text");
+            var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
+            var textContent = document.querySelector(".MMM-Starlight .starlight-text");
 
             if (textWrapper && textContent) {
                 var wrapperHeight = textWrapper.offsetHeight;

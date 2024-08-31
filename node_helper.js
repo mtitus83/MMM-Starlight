@@ -30,7 +30,7 @@ module.exports = NodeHelper.create({
             url = `${baseUrl}/${config.period}/${config.sign}`;
         }
 
-        console.log(this.name + ": Fetching horoscope from " + url);
+        console.log(this.name + ": Fetching horoscope from source");
 
         try {
             const response = await axios.get(url, { timeout: config.timeout });
