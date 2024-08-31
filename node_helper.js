@@ -271,7 +271,13 @@ module.exports = NodeHelper.create({
 
     getImage: function(sign) {
         this.log('debug', `Getting image for ${sign}`);
-        return this.cache && this.cache.images && this.cache.images[sign] ? this.cache.images[sign] : null;
+        if (this.cache && this.cache.images && this.cache.images[sign]) {
+            this.log('debug', `Returning cached image path for ${sign}: ${this.cache.images[sign]}`);
+            return this.cache.images[sign];
+        } else {
+            this.log('debug', `No cached image found for ${sign}, using default URL`);
+            return `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
+        }
     },
 
     getCacheState: function() {

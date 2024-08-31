@@ -81,22 +81,22 @@ Module.register("MMM-SunSigns", {
         this.log('debug', `Creating sign element for ${sign}, ${period}`);
         var slideWrapper = document.createElement("div");
         slideWrapper.className = "sunsigns-slide-wrapper " + className;
-
+    
         var contentWrapper = document.createElement("div");
         contentWrapper.className = "sunsigns-content-wrapper";
-
+    
         var textContent = document.createElement("div");
         textContent.className = "sunsigns-text-content";
-
+    
         var periodText = document.createElement("div");
         periodText.className = "sunsigns-period";
         periodText.innerHTML = this.formatPeriodText(period) + " Horoscope for " + sign.charAt(0).toUpperCase() + sign.slice(1);
         textContent.appendChild(periodText);
-
+    
         var horoscopeWrapper = document.createElement("div");
         horoscopeWrapper.className = "sunsigns-text-wrapper";
         horoscopeWrapper.style.maxHeight = this.config.maxTextHeight;
-
+    
         var horoscopeTextElement = document.createElement("div");
         horoscopeTextElement.className = "sunsigns-text";
         if (this.horoscopes[sign] && this.horoscopes[sign][period]) {
@@ -107,22 +107,39 @@ Module.register("MMM-SunSigns", {
             this.log('debug', `No horoscope content found for ${sign}, ${period}`);
         }
         horoscopeWrapper.appendChild(horoscopeTextElement);
-
+    
         textContent.appendChild(horoscopeWrapper);
         contentWrapper.appendChild(textContent);
-
+    
         if (this.config.showImage) {
             var imageWrapper = document.createElement("div");
             imageWrapper.className = "sunsigns-image-wrapper";
             var image = document.createElement("img");
-            image.src = this.images[sign] || `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
+            
+            // Use a publicly accessible image URL for testing
+            let imageSrc = `https://www.astrology-zodiac-signs.com/images/${sign}.png`;
+            
+            this.log('debug', `Setting image source for ${sign}: ${imageSrc}`);
+            
+            image.src = imageSrc;
             image.alt = sign + " zodiac sign";
             image.style.width = this.config.imageWidth;
+            
+            // Add an error handler with more detailed logging
+            image.onerror = (e) => {
+                this.log('error', `Failed to load image for ${sign}. Error: ${e.type}`);
+                this.log('error', `Image src: ${imageSrc}`);
+                image.style.display = 'none';
+                let altText = document.createElement('span');
+                altText.textContent = image.alt;
+                imageWrapper.appendChild(altText);
+            };
+            
             imageWrapper.appendChild(image);
             contentWrapper.appendChild(imageWrapper);
-            this.log('debug', `Image added for ${sign}`);
+            this.log('debug', `Image element added for ${sign}`);
         }
-
+    
         slideWrapper.appendChild(contentWrapper);
         return slideWrapper;
     },
