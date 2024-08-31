@@ -69,45 +69,56 @@ Module.register("MMM-Starlight", {
     createSignElement: function(sign, className, period) {
         var slideWrapper = document.createElement("div");
         slideWrapper.className = "starlight-slide-wrapper " + className;
-
+    
         var contentWrapper = document.createElement("div");
         contentWrapper.className = "starlight-content-wrapper";
-
+    
         var textContent = document.createElement("div");
         textContent.className = "starlight-text-content";
-
+    
         var periodText = document.createElement("div");
         periodText.className = "starlight-period";
         periodText.innerHTML = this.formatPeriodText(period) + " Horoscope for " + sign.charAt(0).toUpperCase() + sign.slice(1);
         textContent.appendChild(periodText);
-
+    
         var horoscopeWrapper = document.createElement("div");
         horoscopeWrapper.className = "starlight-text-wrapper";
         horoscopeWrapper.style.maxHeight = this.config.maxTextHeight;
-
+    
         var horoscopeTextElement = document.createElement("div");
         horoscopeTextElement.className = "starlight-text";
         horoscopeTextElement.innerHTML = this.horoscopes[sign] && this.horoscopes[sign][period] 
             ? this.horoscopes[sign][period] 
             : "Loading " + period + " horoscope for " + sign + "...";
         horoscopeWrapper.appendChild(horoscopeTextElement);
-
+    
         textContent.appendChild(horoscopeWrapper);
         contentWrapper.appendChild(textContent);
-
+    
         if (this.config.showImage) {
             var imageWrapper = document.createElement("div");
             imageWrapper.className = "starlight-image-wrapper";
             var image = document.createElement("img");
-            image.src = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
+            var capitalizedSign = sign.charAt(0).toUpperCase() + sign.slice(1);
+            
+            // New image URL construction
+            var svgFileName = `${capitalizedSign}_symbol_(outline).svg`;
+            var encodedFileName = encodeURIComponent(svgFileName);
+            var pngUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodedFileName}?width=240`;
+            
+            image.src = pngUrl;
             image.alt = sign + " zodiac sign";
             image.style.width = this.config.imageWidth;
+            image.onerror = function() {
+                console.error("Failed to load image:", pngUrl);
+                this.style.display = 'none';
+            };
             imageWrapper.appendChild(image);
             contentWrapper.appendChild(imageWrapper);
         }
-
+    
         slideWrapper.appendChild(contentWrapper);
-
+    
         return slideWrapper;
     },
 
