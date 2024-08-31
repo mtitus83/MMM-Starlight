@@ -117,9 +117,15 @@ Module.register("MMM-SunSigns", {
             var image = document.createElement("img");
             
             let imageSrc = this.images[sign];
+            this.log('debug', `Image source for ${sign} from this.images: ${imageSrc}`);
+            
             if (!imageSrc) {
                 imageSrc = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
+                this.log('debug', `No cached image found for ${sign}, using default URL: ${imageSrc}`);
                 this.sendSocketNotification("GET_IMAGE", { sign: sign });
+            } else if (imageSrc.startsWith('/')) {
+                // If it's a local path, convert to remote URL
+                imageSrc = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
             }
             
             this.log('debug', `Setting image source for ${sign}: ${imageSrc}`);
@@ -135,6 +141,10 @@ Module.register("MMM-SunSigns", {
                 let altText = document.createElement('span');
                 altText.textContent = image.alt;
                 imageWrapper.appendChild(altText);
+            };
+            
+            image.onload = () => {
+                this.log('debug', `Image for ${sign} loaded successfully`);
             };
             
             imageWrapper.appendChild(image);

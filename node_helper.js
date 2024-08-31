@@ -143,10 +143,10 @@ module.exports = NodeHelper.create({
             // Check if the image already exists in the local cache
             await fs.access(localPath, fs.constants.F_OK);
             this.log('debug', `Using cached image for ${sign}: ${localPath}`);
-            this.cache.images[sign] = localPath;
+            this.cache.images[sign] = remoteUrl;  // Store the remote URL instead of local path
             this.sendSocketNotification("IMAGE_RESULT", {
                 sign: sign,
-                path: localPath
+                path: remoteUrl
             });
         } catch (error) {
             // File doesn't exist, fetch from remote
@@ -154,11 +154,11 @@ module.exports = NodeHelper.create({
             try {
                 const response = await axios.get(remoteUrl, { responseType: 'arraybuffer' });
                 await fs.writeFile(localPath, response.data);
-                this.cache.images[sign] = localPath;
+                this.cache.images[sign] = remoteUrl;  // Store the remote URL instead of local path
                 this.log('debug', `Fetched and cached image for ${sign} from ${remoteUrl}`);
                 this.sendSocketNotification("IMAGE_RESULT", {
                     sign: sign,
-                    path: localPath
+                    path: remoteUrl
                 });
             } catch (fetchError) {
                 this.log('error', `Error fetching image for ${sign}: ${fetchError.message}`);
@@ -289,6 +289,7 @@ module.exports = NodeHelper.create({
             return null;
         }
     },
+
 
     getCacheState: function() {
         return {
