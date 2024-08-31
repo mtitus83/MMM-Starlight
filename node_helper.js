@@ -63,7 +63,7 @@ module.exports = NodeHelper.create({
             case 'monthly':
                 return `${baseUrl}/monthly/${sign}`;
             case 'yearly':
-                return `${baseUrl}/yearly${currentYear}/${sign}`;
+                return `${baseUrl}/yearly/${currentYear}/${sign}`;
             default:
                 return `${baseUrl}/${period}/${sign}`;
         }
