@@ -52,13 +52,20 @@ module.exports = NodeHelper.create({
 
     getHoroscopeUrl: function(sign, period) {
         let baseUrl = 'https://www.sunsigns.com/horoscopes';
-        if (period === 'tomorrow') {
-            return `${baseUrl}/daily/${sign}/tomorrow`;
-        } else if (period === 'yearly') {
-            const currentYear = new Date().getFullYear();
-            return `${baseUrl}/yearly-${currentYear}/${sign}`;
-        } else {
-            return `${baseUrl}/${period}/${sign}`;
+        const currentYear = new Date().getFullYear();
+        switch (period) {
+            case 'daily':
+                return `${baseUrl}/daily/${sign}`;
+            case 'tomorrow':
+                return `${baseUrl}/daily/${sign}/tomorrow`;
+            case 'weekly':
+                return `${baseUrl}/weekly/${sign}`;
+            case 'monthly':
+                return `${baseUrl}/monthly/${sign}`;
+            case 'yearly':
+                return `${baseUrl}/yearly${currentYear}/${sign}`;
+            default:
+                return `${baseUrl}/${period}/${sign}`;
         }
     },
 
@@ -129,7 +136,15 @@ module.exports = NodeHelper.create({
                 }
             });
             const $ = cheerio.load(response.data);
-            const horoscope = $('.horoscope-content p').text().trim();
+            let horoscope;
+            
+            if (period === 'yearly' || period === 'monthly' || period === 'weekly') {
+                // For yearly, monthly, and weekly horoscopes, we concatenate all paragraphs
+                horoscope = $('.horoscope-content p').map((_, el) => $(el).text().trim()).get().join('\n\n');
+            } else {
+                // For daily and tomorrow, we take the first paragraph
+                horoscope = $('.horoscope-content p').first().text().trim();
+            }
             
             if (!horoscope) {
                 throw new Error('No horoscope content found on the page');
