@@ -25,30 +25,49 @@ module.exports = NodeHelper.create({
         }
     },
 
-    sendInitialData: function(config) {
-        this.log('debug', "Sending initial data from cache");
-        this.log('debug', `Cache contents: ${JSON.stringify(this.cache, null, 2)}`);
-        
-        for (let sign of config.zodiacSign) {
-            for (let period of config.period) {
-                const horoscope = this.getHoroscope(sign, period);
-                this.sendSocketNotification("HOROSCOPE_RESULT", {
-                    sign: sign,
-                    period: period,
-                    data: horoscope
-                });
-                this.log('debug', `Sent horoscope for ${sign}, ${period}`);
+    checkForUpdates: function() {
+        for (let sign of this.config.zodiacSign) {
+            for (let period of this.config.period) {
+                this.checkAndUpdateHoroscope(sign, period);
             }
-            const imagePath = this.getImage(sign);
-            this.sendSocketNotification("IMAGE_RESULT", {
-                sign: sign,
-                path: imagePath
-            });
-            this.log('debug', `Sent image path for ${sign}`);
         }
-        this.sendSocketNotification("CACHE_BUILT");
-        this.log('debug', "Sent CACHE_BUILT notification");
     },
+
+    checkAndUpdateHoroscope: async function(sign, period) {
+        const url = this.getHoroscopeUrl(sign, period);
+        const cachedData = this.cache.horoscopes[sign]?.[period];
+    
+        try {
+            const response = await axios.get(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+            });
+    
+            if (response.status === 200) {
+                const newContent = this.parseHoroscopeContent(response.data);
+                
+                if (!cachedData || newContent !== cachedData.content) {
+                    // Content has changed or is new, update cache
+                    this.updateCache(sign, period, newContent);
+                    console.log(`Updated horoscope for ${sign} (${period}).`);
+                } else {
+                    // Content hasn't changed, just update last check time
+                    this.updateLastCheckTime(sign, period);
+                    console.log(`Horoscope for ${sign} (${period}) hasn't changed.`);
+                }
+            }
+        } catch (error) {
+            console.error(`Error checking horoscope for ${sign} (${period}):`, error);
+        }
+    },
+
+    updateLastCheckTime: function(sign, period) {
+        if (this.cache.horoscopes[sign]?.[period]) {
+            this.cache.horoscopes[sign][period].lastChecked = new Date().toISOString();
+            this.saveCacheToFile();
+        }
+    }
 
     getHoroscopeUrl: function(sign, period) {
         let baseUrl = 'https://www.sunsigns.com/horoscopes';
@@ -193,18 +212,78 @@ module.exports = NodeHelper.create({
     },
 
     getCacheValidityPeriod: function(period) {
+        const now = new Date();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(0, 0, 0, 0);
+    
         switch(period) {
             case 'daily':
             case 'tomorrow':
-                return 6 * 60 * 60 * 1000; // 6 hours
+                // Valid until 3 AM the next day
+                const nextCheck = new Date(now);
+                nextCheck.setDate(nextCheck.getDate() + 1);
+                nextCheck.setHours(3, 0, 0, 0);
+                return nextCheck.getTime() - now.getTime();
             case 'weekly':
-                return 24 * 60 * 60 * 1000; // 1 day
+                // Valid for the current week (until next Monday 3 AM)
+                const nextMonday = new Date(now);
+                nextMonday.setDate(nextMonday.getDate() + (1 + 7 - nextMonday.getDay()) % 7);
+                nextMonday.setHours(3, 0, 0, 0);
+                return nextMonday.getTime() - now.getTime();
             case 'monthly':
-                return 7 * 24 * 60 * 60 * 1000; // 1 week
+                // Valid for the current month (until 3 AM on the 1st of next month)
+                const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1, 3, 0, 0, 0);
+                return nextMonth.getTime() - now.getTime();
             case 'yearly':
-                return 30 * 24 * 60 * 60 * 1000; // 1 month
+                // Valid for the current year (until January 1st 3 AM of next year)
+                const nextYear = new Date(now.getFullYear() + 1, 0, 1, 3, 0, 0, 0);
+                return nextYear.getTime() - now.getTime();
             default:
                 return 24 * 60 * 60 * 1000; // 1 day (default)
+        }
+    },
+
+    shouldRefetchHoroscope: function(lastFetchTime, period) {
+        const now = new Date();
+        const hoursSinceLastFetch = (now - new Date(lastFetchTime)) / (1000 * 60 * 60);
+    
+        // Check times: 3 AM, 9 AM, 3 PM, 9 PM
+        const checkHours = [3, 9, 15, 21];
+        const currentHour = now.getHours();
+        
+        // Find the most recent check time
+        const lastCheckHour = checkHours.reverse().find(hour => hour <= currentHour) || checkHours[checkHours.length - 1];
+        
+        // If it's been more than 6 hours since the last fetch and we've passed a check time, refetch
+        if (hoursSinceLastFetch > 6 && currentHour >= lastCheckHour) {
+            return true;
+        }
+    
+        // For non-daily horoscopes, also check if we've entered a new period
+        if (period !== 'daily' && period !== 'tomorrow') {
+            const newPeriodStarted = this.hasNewPeriodStarted(lastFetchTime, period);
+            if (newPeriodStarted) {
+                return true;
+            }
+        }
+    
+        return false;
+    },
+    
+    hasNewPeriodStarted: function(lastFetchTime, period) {
+        const now = new Date();
+        const lastFetch = new Date(lastFetchTime);
+    
+        switch(period) {
+            case 'weekly':
+                return now.getDay() < lastFetch.getDay() || (now - lastFetch) >= 7 * 24 * 60 * 60 * 1000;
+            case 'monthly':
+                return now.getMonth() !== lastFetch.getMonth() || now.getFullYear() !== lastFetch.getFullYear();
+            case 'yearly':
+                return now.getFullYear() !== lastFetch.getFullYear();
+            default:
+                return false;
         }
     },
 
@@ -234,32 +313,18 @@ module.exports = NodeHelper.create({
         this.updateCache(newDate);
     },
 
-    updateCache: async function(testDate) {
-        const now = testDate || new Date();
-        const cacheDate = new Date(this.cache.timestamp);
 
-        if (now.toDateString() !== cacheDate.toDateString()) {
-            // Date has changed, update daily and tomorrow
-            for (let sign in this.cache.horoscopes) {
-                await this.fetchHoroscope(sign, 'daily');
-                await this.fetchHoroscope(sign, 'tomorrow');
-            }
-            this.log('info', `Cache updated: New day (${now.toDateString()}), daily and tomorrow horoscopes updated`);
+    updateCache: function(sign, period, content) {
+        if (!this.cache.horoscopes[sign]) {
+            this.cache.horoscopes[sign] = {};
         }
-
-        // Check for week, month, year changes
-        if (this.isNewWeek(now, cacheDate)) {
-            await this.updatePeriod('weekly');
-        }
-        if (now.getMonth() !== cacheDate.getMonth()) {
-            await this.updatePeriod('monthly');
-        }
-        if (now.getFullYear() !== cacheDate.getFullYear()) {
-            await this.updatePeriod('yearly');
-        }
-
-        this.cache.timestamp = now.toISOString();
-        await this.saveCacheToFile();
+        this.cache.horoscopes[sign][period] = {
+            content: content,
+            timestamp: new Date().toISOString(),
+            lastChecked: new Date().toISOString()
+        };
+        this.saveCacheToFile();
+        this.sendSocketNotification("HOROSCOPE_UPDATED", { sign, period, data: content });
     },
 
     isNewWeek: function(now, cacheDate) {
@@ -338,6 +403,18 @@ module.exports = NodeHelper.create({
     log: function(level, message) {
         const timestamp = new Date().toISOString();
         console.log(`[${timestamp}] ${this.name} [${level.toUpperCase()}]: ${message}`);
+    },
+
+    scheduleUpdate: function() {
+        const self = this;
+        const updateInterval = 45 * 60 * 1000; // 45 minutes in milliseconds
+    
+        setInterval(() => {
+            self.sendSocketNotification("CHECK_FOR_UPDATES");
+        }, updateInterval);
+    
+        // Perform an initial update
+        self.sendSocketNotification("CHECK_FOR_UPDATES");
     },
 
     socketNotificationReceived: function(notification, payload) {

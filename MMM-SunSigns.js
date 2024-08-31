@@ -164,9 +164,13 @@ Module.register("MMM-SunSigns", {
     },
 
     scheduleUpdate: function() {
+        // Perform an initial check
+        this.sendSocketNotification("CHECK_FOR_UPDATES");
+    
+        // Set up regular interval checks
         setInterval(() => {
-            this.sendSocketNotification("UPDATE_CACHE");
-        }, this.config.updateInterval);
+            this.sendSocketNotification("CHECK_FOR_UPDATES");
+        }, 45 * 60 * 1000); // Check every 45 minutes
     },
 
     scheduleRotation: function() {

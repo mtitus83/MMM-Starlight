@@ -34,23 +34,27 @@ The module accepts various configuration options, including:
 
 ### 2. Caching Mechanism
 
-The caching system, implemented in `node_helper.js`, includes:
+The caching system, implemented in `node_helper.js`, has been updated to include:
 
-- `buildCache()`: Initializes the cache with horoscopes for all signs and periods. It fetches data in parallel for improved performance.
-- `updateCache()`: Periodically updates the cache based on time changes. It handles daily, weekly, monthly, and yearly updates.
+- `checkForUpdates()`: Initiates the update process for all configured zodiac signs and periods.
+- `checkAndUpdateHoroscope()`: Checks if a specific horoscope needs updating and fetches new data if necessary.
+- `updateCache()`: Updates the cache with new horoscope data when changes are detected.
+- `updateLastCheckTime()`: Updates the last check time for a horoscope when no changes are detected.
 - `saveCacheToFile()`: Persists the cache to disk as a JSON file.
 - `loadCacheFromFile()`: Loads the cache from disk on startup, creating a new one if it doesn't exist.
-- `getCacheValidityPeriod()`: Determines how long cached data remains valid for each period type.
 
-The cache structure is designed to store horoscopes and image paths for all zodiac signs and periods, even those not currently configured for display. This allows for quick configuration changes without requiring immediate data fetching.
+The cache structure stores horoscopes and image paths for all zodiac signs and periods, including:
+- Content of the horoscope
+- Timestamp of when the horoscope was last updated
+- Last check time, even if the content hasn't changed
 
 ### 3. Data Fetching
 
-The `fetchHoroscope()` function in `node_helper.js` is responsible for retrieving horoscope data. It:
-- Handles network requests to the horoscope data source
-- Parses the HTML response to extract the horoscope text
+The `checkAndUpdateHoroscope()` function in `node_helper.js` is responsible for retrieving horoscope data. It:
+- Sends a GET request to the horoscope website
+- Compares the fetched content with the cached content
+- Updates the cache only if the content has changed
 - Implements error handling and logging
-- Updates the cache with new data
 
 ### 4. Display Management
 
@@ -62,7 +66,7 @@ In `MMM-SunSigns.js`:
 
 ### 5. Update Scheduling
 
-- `scheduleUpdate()`: Sets up periodic cache updates to ensure fresh data.
+- `scheduleUpdate()`: Sets up periodic checks for updates every 45 minutes.
 - `scheduleRotation()`: Manages the rotation between different zodiac signs and periods for display.
 
 ### 6. Debug and Test Functionality
@@ -79,7 +83,10 @@ In `MMM-SunSigns.js`:
 3. The helper responds with cached data or newly fetched data if the cache was just built.
 4. `MMM-SunSigns.js` receives the data and updates its internal state.
 5. The module displays the data, managing rotations and scrolling as configured.
-6. Periodic updates are triggered to refresh the cache and display.
+6. Every 45 minutes, the module triggers a check for updates.
+7. The `checkForUpdates()` function iterates through all configured signs and periods.
+8. For each horoscope, `checkAndUpdateHoroscope()` fetches new data and compares it with the cached version.
+9. If changes are detected, the cache is updated, and the display is refreshed.
 
 ## Error Handling and Resilience
 
@@ -89,17 +96,15 @@ In `MMM-SunSigns.js`:
 
 ## Performance Considerations
 
-- Parallel fetching during cache building improves initial load time.
-- The caching mechanism significantly reduces network requests after initial setup.
+- Regular checks every 45 minutes balance freshness of data with efficiency.
+- The caching mechanism reduces unnecessary network requests by only updating when content has changed.
+- Content comparison before updating prevents unnecessary DOM updates and improves performance.
 - Image caching reduces bandwidth usage and improves load times for returning users.
 - Scrolling and animations are optimized for smooth performance, with configurable speeds and pauses.
 
-
 ## Debugging
 
-The MMM-SunSigns module includes comprehensive debugging capabilities to assist with troubleshooting and development. These features are designed to provide detailed insights into the module's operations without affecting normal functionality when not in use.
-
-### Implementation
+The debugging capabilities provide insights into the module's behavior, aiding in troubleshooting and development.  The module includes comprehensive debugging capabilities:
 
 1. Debug Mode Toggle:
    - Controlled by the `debug` option in the module configuration.
@@ -117,47 +122,3 @@ The MMM-SunSigns module includes comprehensive debugging capabilities to assist 
    - Activated by setting the `test` option in the configuration.
    - Allows simulation of date changes for testing cache update behaviors.
 
-### Logged Information
-
-When debug mode is enabled, the following information is logged:
-
-1. Module Initialization:
-   - Configuration loading
-   - Cache initialization or loading
-
-2. Data Fetching:
-   - URL construction for each horoscope request
-   - Success or failure of each fetch attempt
-   - Parsed horoscope content (truncated for brevity)
-
-3. Caching Operations:
-   - Cache build process
-   - Cache update triggers and results
-   - Cache read/write operations
-
-4. Display Updates:
-   - Horoscope rotation events
-   - DOM updates for new horoscope content
-
-5. Error Information:
-   - Detailed error messages for failed operations
-   - Stack traces for unexpected exceptions
-
-6. Performance Metrics:
-   - Time taken for cache building and updates
-   - Network request durations
-
-### Usage for Troubleshooting
-
-1. Enable debug mode by setting `debug: true` in the module configuration.
-2. Use the logs to trace the flow of operations and identify where issues occur.
-3. For update-related issues, use the `test` option to simulate different time periods.
-4. Check for any error messages or unexpected behavior in the logs.
-
-### Usage for Development
-
-1. Use debug logs to verify the correctness of new features or modifications.
-2. Monitor performance metrics to ensure optimizations are effective.
-3. Utilize the test mode to quickly verify time-based functionality without waiting for actual time to pass.
-
-The debugging capabilities of MMM-SunSigns provide a powerful tool for both users and developers to understand the module's behavior, identify issues, and verify improvements. By offering detailed insights into the module's operations, these features contribute to the overall reliability and maintainability of the module.
