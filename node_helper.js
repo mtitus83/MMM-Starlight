@@ -88,6 +88,34 @@ module.exports = NodeHelper.create({
         }
     },
 
+    parseHoroscopeContent: function(html) {
+        const $ = cheerio.load(html);
+        let horoscope = '';
+        
+        // Try different selectors to find the horoscope content
+        const selectors = [
+            '.horoscope-content p',
+            '.article-content p',
+            '#horoscope-content',
+            '.entry-content p'
+        ];
+    
+        for (let selector of selectors) {
+            const elements = $(selector);
+            if (elements.length > 0) {
+                horoscope = elements.map((_, el) => $(el).text().trim()).get().join('\n\n');
+                break;
+            }
+        }
+        
+        if (!horoscope) {
+            this.log('error', `No horoscope content found. HTML structure: ${$.html()}`);
+            throw new Error('No horoscope content found on the page');
+        }
+        
+        return horoscope;
+    },
+
     loadCacheFromFile: async function() {
         try {
             await fs.access(this.cacheFile, fs.constants.F_OK);
