@@ -56,7 +56,7 @@ module.exports = NodeHelper.create({
             return `${baseUrl}/daily/${sign}/tomorrow`;
         } else if (period === 'yearly') {
             const currentYear = new Date().getFullYear();
-            return `${baseUrl}/yearly/${currentYear}/${sign}`;
+            return `${baseUrl}/yearly-${currentYear}/${sign}`;
         } else {
             return `${baseUrl}/${period}/${sign}`;
         }
@@ -118,55 +118,42 @@ module.exports = NodeHelper.create({
                 return;
             }
         }
-
+    
         const url = this.getHoroscopeUrl(sign, period);
         try {
-            const response = await axios.get(url, { timeout: 10000 });
+            this.log('debug', `Fetching ${period} horoscope for ${sign} from ${url}`);
+            const response = await axios.get(url, { 
+                timeout: 10000,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+            });
             const $ = cheerio.load(response.data);
             const horoscope = $('.horoscope-content p').text().trim();
+            
+            if (!horoscope) {
+                throw new Error('No horoscope content found on the page');
+            }
+            
             this.cache.horoscopes[sign] = this.cache.horoscopes[sign] || {};
             this.cache.horoscopes[sign][period] = {
                 content: horoscope,
                 timestamp: new Date().toISOString()
             };
-            this.log('debug', `Fetched ${period} horoscope for ${sign} from ${url}`);
+            this.log('debug', `Successfully fetched ${period} horoscope for ${sign}`);
         } catch (error) {
-            console.error(`Error fetching ${period} horoscope for ${sign}:`, error);
-        }
-    },
-
-    fetchImage: async function(sign) {
-        const remoteUrl = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
-        const localPath = path.join(this.imageDir, `${sign}.png`);
-        
-        try {
-            // Check if the image already exists in the local cache
-            await fs.access(localPath, fs.constants.F_OK);
-            this.log('debug', `Using cached image for ${sign}: ${localPath}`);
-            this.cache.images[sign] = remoteUrl;  // Store the remote URL instead of local path
-            this.sendSocketNotification("IMAGE_RESULT", {
-                sign: sign,
-                path: remoteUrl
-            });
-        } catch (error) {
-            // File doesn't exist, fetch from remote
-            this.log('debug', `Attempting to fetch image from URL: ${remoteUrl}`);
-            try {
-                const response = await axios.get(remoteUrl, { responseType: 'arraybuffer' });
-                await fs.writeFile(localPath, response.data);
-                this.cache.images[sign] = remoteUrl;  // Store the remote URL instead of local path
-                this.log('debug', `Fetched and cached image for ${sign} from ${remoteUrl}`);
-                this.sendSocketNotification("IMAGE_RESULT", {
-                    sign: sign,
-                    path: remoteUrl
-                });
-            } catch (fetchError) {
-                this.log('error', `Error fetching image for ${sign}: ${fetchError.message}`);
-                this.cache.images[sign] = null;
-                this.sendSocketNotification("IMAGE_RESULT", {
-                    sign: sign,
-                    path: null
-                });
+            this.log('error', `Error fetching ${period} horoscope for ${sign}: ${error.message}`);
+            this.log('error', `Full error: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`);
+            
+            // Use cached data if available, otherwise use a placeholder message
+            if (this.cache.horoscopes[sign] && this.cache.horoscopes[sign][period]) {
+                this.log('info', `Using outdated cached data for ${period} horoscope for ${sign}`);
+            } else {
+                this.cache.horoscopes[sign] = this.cache.horoscopes[sign] || {};
+                this.cache.horoscopes[sign][period] = {
+                    content: `Unable to fetch ${period} horoscope for ${sign}. Please try again later.`,
+                    timestamp: new Date().toISOString()
+                };
             }
         }
     },
