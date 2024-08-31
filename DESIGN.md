@@ -1,15 +1,15 @@
-# MMM-SunSigns Module Design Document
+# MMM-Starlight Module Design Document
 
 ## Overview
 
-This design document provides a comprehensive overview of the MMM-SunSigns module's structure, functionality, and design considerations. It serves as a guide for understanding the module's operation and can be used as a reference for future development, troubleshooting, or module customization.
+This design document provides a comprehensive overview of the MMM-Starlight module's structure, functionality, and design considerations. It serves as a guide for understanding the module's operation and can be used as a reference for future development, troubleshooting, or module customization.
 
-MMM-SunSigns is a MagicMirror² module designed to display horoscopes for various zodiac signs and time periods. It features a robust caching mechanism, periodic updates, and a user-friendly display with rotating horoscopes and images. The module aims to provide a seamless and efficient way to view daily, weekly, monthly, and yearly horoscopes for multiple zodiac signs.
+MMM-Starlight is a MagicMirror² module designed to display horoscopes for various zodiac signs and time periods. It features a robust caching mechanism, periodic updates, and a user-friendly display with rotating horoscopes and images. The module aims to provide a seamless and efficient way to view daily, weekly, monthly, and yearly horoscopes for multiple zodiac signs.
 
 ## Module Structure
 
 The module consists of two main files:
-1. `MMM-SunSigns.js`: The main module file that handles the display and user interface.
+1. `MMM-Starlight.js`: The main module file that handles the display and user interface.
 2. `node_helper.js`: A Node.js helper that manages data fetching, caching, and updates.
 
 ## Key Components
@@ -58,7 +58,7 @@ The `checkAndUpdateHoroscope()` function in `node_helper.js` is responsible for 
 
 ### 4. Display Management
 
-In `MMM-SunSigns.js`:
+In `MMM-Starlight.js`:
 - `getDom()`: Builds the module's DOM structure based on the current configuration and cached data.
 - `createSignElement()`: Creates individual horoscope display elements, including text and images.
 - `slideToNext()`: Manages the transition between different horoscopes and zodiac signs.
@@ -79,9 +79,9 @@ In `MMM-SunSigns.js`:
 1. On startup:
    - `node_helper.js` checks for an existing cache file.
    - If found, it loads the cache; if not, it builds a new cache.
-2. `MMM-SunSigns.js` initializes and sends an "INIT_MODULE" notification to the helper.
+2. `MMM-Starlight.js` initializes and sends an "INIT_MODULE" notification to the helper.
 3. The helper responds with cached data or newly fetched data if the cache was just built.
-4. `MMM-SunSigns.js` receives the data and updates its internal state.
+4. `MMM-Starlight.js` receives the data and updates its internal state.
 5. The module displays the data, managing rotations and scrolling as configured.
 6. Every 45 minutes, the module triggers a check for updates.
 7. The `checkForUpdates()` function iterates through all configured signs and periods.
@@ -111,7 +111,7 @@ The debugging capabilities provide insights into the module's behavior, aiding i
    - When enabled, it activates verbose logging throughout the module.
 
 2. Logging Mechanism:
-   - Utilizes the `log()` function in both `MMM-SunSigns.js` and `node_helper.js`.
+   - Utilizes the `log()` function in both `MMM-Starlight.js` and `node_helper.js`.
    - Logs are output to the MagicMirror console and can be viewed in terminal mode or PM2 logs.
 
 3. Conditional Logging:

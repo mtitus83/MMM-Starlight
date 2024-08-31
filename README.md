@@ -1,10 +1,10 @@
-# MMM-SunSigns
+# MMM-Starlight
 
 A MagicMirror² module that displays horoscopes for specified zodiac signs for various time periods.
 
 # Rebranding
 
-** Pleae make sure to update your config's module name to MMM-SunSigns to maintain compatibility **
+** Pleae make sure to update your config's module name to MMM-Starlight to maintain compatibility **
 
 ## Disclaimer
 
@@ -18,11 +18,11 @@ cd ~/MagicMirror/modules
 ```
 2. Clone this repository:
 ```
-git clone https://github.com/mtitus83/MMM-SunSigns.git
+git clone https://github.com/mtitus83/MMM-Starlight.git
 ```
 3. Install the dependencies:
 ```
-cd MMM-SunSigns
+cd MMM-Starlight
 npm install
 ```
 
@@ -33,7 +33,7 @@ Add the following configuration block to the modules array in the `config/config
 ```javascript
 modules: [
     {
-        module: "MMM-SunSigns",
+        module: "MMM-Starlight",
         position: "top_right",
         config: {
             // See below for configurable options
@@ -62,7 +62,7 @@ modules: [
 
 **Note**: The following options have been deprecated and are no longer configurable to provide a more consistent user experience: `updateInterval`, `retryDelay`, `maxRetries`, and `requestTimeout`.
 
-This version of MMM-SunSigns includes enhanced debug logging capabilities and a new caching mechanism to improve performance and reduce network usage. Use the `debug` option to enable detailed logging, and refer to the module's documentation for more information on the caching system.
+This version of MMM-Starlight includes enhanced debug logging capabilities and a new caching mechanism to improve performance and reduce network usage. Use the `debug` option to enable detailed logging, and refer to the module's documentation for more information on the caching system.
 
 ### Ordering of Horoscopes
 
@@ -92,7 +92,7 @@ Then it will cycle back to Aries daily and repeat the sequence.
 
 ```javascript
 {
-    module: "MMM-SunSigns",
+    module: "MMM-Starlight",
     position: "top_right",
     config: {
         zodiacSign: ["aries", "taurus", "gemini"],
@@ -108,10 +108,10 @@ Then it will cycle back to Aries daily and repeat the sequence.
 
 ## Updating
 
-To update the module to the latest version, navigate to your MMM-SunSigns folder and pull the latest changes:
+To update the module to the latest version, navigate to your MMM-Starlight folder and pull the latest changes:
 
 ```
-cd ~/MagicMirror/modules/MMM-SunSigns
+cd ~/MagicMirror/modules/MMM-Starlight
 git pull
 npm install
 ```

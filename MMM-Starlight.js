@@ -1,7 +1,7 @@
-Module.register("MMM-SunSigns", {
+Module.register("MMM-Starlight", {
     defaults: {
         zodiacSign: ["taurus"],
-        period: ["daily", "tomorrow"],
+        period: ["daily", "tomorrow", "weekly", "monthly"],
         showImage: true,
         imageWidth: "100px",
         pauseDuration: 10000,
@@ -11,13 +11,12 @@ Module.register("MMM-SunSigns", {
         fontSize: "1em",
         signWaitTime: 120000,
         updateInterval: 60 * 60 * 1000, // 1 hour
-        startOfWeek: 'Sunday',
         debug: false,
         test: null
     },
 
     getStyles: function() {
-        return ["MMM-SunSigns.css"];
+        return ["MMM-Starlight.css"];
     },
 
     start: function() {
@@ -40,7 +39,7 @@ Module.register("MMM-SunSigns", {
     getDom: function() {
         this.log('debug', "Building DOM");
         var wrapper = document.createElement("div");
-        wrapper.className = "MMM-SunSigns";
+        wrapper.className = "MMM-Starlight";
         wrapper.style.width = this.config.width;
         wrapper.style.fontSize = this.config.fontSize;
 
@@ -58,7 +57,7 @@ Module.register("MMM-SunSigns", {
         } else {
             wrapper.classList.add("multiple-signs");
             var slideContainer = document.createElement("div");
-            slideContainer.className = "sunsigns-slide-container";
+            slideContainer.className = "starlight-slide-container";
 
             var currentSign = this.config.zodiacSign[this.currentSignIndex];
             var currentPeriod = this.config.period[this.currentPeriodIndex];
@@ -80,25 +79,25 @@ Module.register("MMM-SunSigns", {
     createSignElement: function(sign, className, period) {
         this.log('debug', `Creating sign element for ${sign}, ${period}`);
         var slideWrapper = document.createElement("div");
-        slideWrapper.className = "sunsigns-slide-wrapper " + className;
+        slideWrapper.className = "starlight-slide-wrapper " + className;
     
         var contentWrapper = document.createElement("div");
-        contentWrapper.className = "sunsigns-content-wrapper";
+        contentWrapper.className = "starlight-content-wrapper";
     
         var textContent = document.createElement("div");
-        textContent.className = "sunsigns-text-content";
+        textContent.className = "starlight-text-content";
     
         var periodText = document.createElement("div");
-        periodText.className = "sunsigns-period";
+        periodText.className = "starlight-period";
         periodText.innerHTML = this.formatPeriodText(period) + " Horoscope for " + sign.charAt(0).toUpperCase() + sign.slice(1);
         textContent.appendChild(periodText);
     
         var horoscopeWrapper = document.createElement("div");
-        horoscopeWrapper.className = "sunsigns-text-wrapper";
+        horoscopeWrapper.className = "starlight-text-wrapper";
         horoscopeWrapper.style.maxHeight = this.config.maxTextHeight;
     
         var horoscopeTextElement = document.createElement("div");
-        horoscopeTextElement.className = "sunsigns-text";
+        horoscopeTextElement.className = "starlight-text";
         if (this.horoscopes[sign] && this.horoscopes[sign][period]) {
             horoscopeTextElement.innerHTML = this.horoscopes[sign][period].content;
             this.log('debug', `Horoscope content found for ${sign}, ${period}`);
@@ -113,19 +112,21 @@ Module.register("MMM-SunSigns", {
     
         if (this.config.showImage) {
             var imageWrapper = document.createElement("div");
-            imageWrapper.className = "sunsigns-image-wrapper";
+            imageWrapper.className = "starlight-image-wrapper";
             var image = document.createElement("img");
             
             let imageSrc = this.images[sign];
             this.log('debug', `Image source for ${sign} from this.images: ${imageSrc}`);
             
             if (!imageSrc) {
-                imageSrc = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
-                this.log('debug', `No cached image found for ${sign}, using default URL: ${imageSrc}`);
+                this.log('debug', `No cached image found for ${sign}, requesting from node helper`);
                 this.sendSocketNotification("GET_IMAGE", { sign: sign });
+                imageSrc = "modules/MMM-Starlight/loading.gif"; // Use a placeholder image
             } else if (imageSrc.startsWith('/')) {
-                // If it's a local path, convert to remote URL
-                imageSrc = `https://www.sunsigns.com/wp-content/themes/sunsigns/assets/images/_sun-signs/${sign}/wrappable.png`;
+                // If it's a local path, we need to get the image data
+                this.log('debug', `Local image path detected for ${sign}: ${imageSrc}`);
+                this.sendSocketNotification("GET_IMAGE_DATA", { sign: sign, path: imageSrc });
+                imageSrc = "modules/MMM-Starlight/loading.gif"; // Use a placeholder while loading
             }
             
             this.log('debug', `Setting image source for ${sign}: ${imageSrc}`);
@@ -149,7 +150,6 @@ Module.register("MMM-SunSigns", {
             
             imageWrapper.appendChild(image);
             contentWrapper.appendChild(imageWrapper);
-            this.log('debug', `Image element added for ${sign}`);
         }
     
         slideWrapper.appendChild(contentWrapper);
@@ -164,15 +164,13 @@ Module.register("MMM-SunSigns", {
     },
 
     scheduleUpdate: function() {
-        // Perform an initial check
         this.log('debug', `Executing initial update check at ${new Date().toISOString()}`);
         this.sendSocketNotification("CHECK_FOR_UPDATES");
     
-        // Set up regular interval checks
         setInterval(() => {
             this.log('debug', `Executing 45-minute update check at ${new Date().toISOString()}`);
             this.sendSocketNotification("CHECK_FOR_UPDATES");
-        }, 45 * 60 * 1000); // Check every 45 minutes
+        }, 45 * 60 * 1000);
     },
 
     scheduleRotation: function() {
@@ -199,7 +197,7 @@ Module.register("MMM-SunSigns", {
     },
 
     slideToNext: function() {
-        var container = document.querySelector(".MMM-SunSigns .sunsigns-slide-container");
+        var container = document.querySelector(".MMM-Starlight .starlight-slide-container");
         if (container) {
             container.style.transition = "transform 1s ease-in-out";
             container.style.transform = "translateX(-50%)";
@@ -223,8 +221,8 @@ Module.register("MMM-SunSigns", {
         clearTimeout(this.scrollTimer);
 
         this.scrollTimer = setTimeout(function() {
-            var textWrapper = document.querySelector(".MMM-SunSigns .sunsigns-text-wrapper");
-            var textContent = document.querySelector(".MMM-SunSigns .sunsigns-text");
+            var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
+            var textContent = document.querySelector(".MMM-Starlight .starlight-text");
 
             if (textWrapper && textContent) {
                 var wrapperHeight = textWrapper.offsetHeight;
@@ -279,6 +277,10 @@ Module.register("MMM-SunSigns", {
         } else if (notification === "IMAGE_RESULT") {
             this.log('debug', `Received image path for ${payload.sign}: ${payload.path}`);
             this.images[payload.sign] = payload.path;
+            this.updateDom();
+        } else if (notification === "IMAGE_DATA_RESULT") {
+            this.log('debug', `Received image data for ${payload.sign}`);
+            this.images[payload.sign] = payload.dataUrl;
             this.updateDom();
         } else if (notification === "CACHE_BUILT") {
             this.log('debug', "Cache built notification received");
