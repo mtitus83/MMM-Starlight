@@ -45,6 +45,22 @@ module.exports = NodeHelper.create({
         }
     },
 
+    markAsCheckedForPeriod: function(sign, period, now) {
+        if (!this.cache.horoscopes[sign]) {
+            this.cache.horoscopes[sign] = {};
+        }
+        if (!this.cache.horoscopes[sign][period]) {
+            this.cache.horoscopes[sign][period] = {};
+        }
+        
+        this.cache.horoscopes[sign][period].lastChecked = now.toISOString();
+        this.cache.horoscopes[sign][period].nextCheckDate = this.getNextCheckDate(period, now).toISOString();
+        
+        this.log('debug', `Marked ${sign} ${period} as checked. Next check: ${this.cache.horoscopes[sign][period].nextCheckDate}`);
+        
+        this.saveCacheToFile();
+    },
+
     checkAndUpdateHoroscope: async function(sign, period) {
         const now = new Date();
         const cachedData = this.cache.horoscopes[sign]?.[period];
@@ -113,16 +129,13 @@ module.exports = NodeHelper.create({
         switch(period) {
             case 'daily':
             case 'tomorrow':
-                // Check every 6 hours
                 nextCheck.setHours(nextCheck.getHours() + 6);
                 break;
             case 'weekly':
-                // Check every Monday
                 nextCheck.setDate(nextCheck.getDate() + (1 + 7 - nextCheck.getDay()) % 7);
                 nextCheck.setHours(0, 0, 0, 0);
                 break;
             case 'monthly':
-                // Check on the 1st of each month
                 nextCheck.setMonth(nextCheck.getMonth() + 1);
                 nextCheck.setDate(1);
                 nextCheck.setHours(0, 0, 0, 0);
