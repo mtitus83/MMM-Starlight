@@ -112,13 +112,20 @@ module.exports = NodeHelper.create({
         if (!this.cache) {
             this.initializeEmptyCache();
         }
-        var capitalizedSign = sign.charAt(0).toUpperCase() + sign.slice(1);
+        
+        // Special case mapping for Capricorn and Scorpio
+        const specialCases = {
+            'capricorn': 'Capricornus',
+            'scorpio': 'Scorpius'
+        };
+    
+        var capitalizedSign = specialCases[sign] || sign.charAt(0).toUpperCase() + sign.slice(1);
         var svgFileName = `${capitalizedSign}_symbol_(outline).svg`;
         var encodedFileName = encodeURIComponent(svgFileName);
         var pngUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodedFileName}?width=240`;
         
         const imagePath = path.join(this.imageDir, `${sign}.png`);
-
+    
         try {
             this.log('debug', `Fetching image for ${sign} from ${pngUrl}`);
             const response = await axios({
@@ -126,14 +133,14 @@ module.exports = NodeHelper.create({
                 url: pngUrl,
                 responseType: 'arraybuffer'
             });
-
+    
             await new Promise((resolve, reject) => {
                 fs.writeFile(imagePath, response.data, (err) => {
                     if (err) reject(err);
                     else resolve();
                 });
             });
-
+    
             this.cache.images[sign] = imagePath;
             this.log('debug', `Image for ${sign} fetched and saved to ${imagePath}`);
             this.saveCacheToFile();
