@@ -43,12 +43,11 @@ module.exports = NodeHelper.create({
         }
     
         try {
-            // TODO: Replace this with actual API call
             const newContent = await this.fetchHoroscopeFromAPI(sign, period);
             
             if (!cachedData || newContent !== cachedData.content) {
                 this.log('debug', `New content found for ${sign} (${period}). Updating cache.`);
-this.updateCache(sign, period, newContent);
+                this.updateCache(sign, period, newContent);
             } else {
                 this.log('debug', `No changes in content for ${sign} (${period}). Updating last check time.`);
                 this.updateLastCheckTime(sign, period);
@@ -64,23 +63,37 @@ this.updateCache(sign, period, newContent);
     },
 
     fetchHoroscopeFromAPI: async function(sign, period) {
-        // TODO: Implement actual API call here
-        // This is a placeholder function that should be replaced with real API integration
-        return `This is a placeholder horoscope for ${sign} (${period}). Replace with actual API call.`;
-    },
-
-    markAsCheckedForPeriod: function(sign, period, now) {
-        if (!this.cache.horoscopes[sign]) {
-            this.cache.horoscopes[sign] = {};
-        }
-        if (!this.cache.horoscopes[sign][period]) {
-            this.cache.horoscopes[sign][period] = {};
-        }
+        let url;
+        const baseUrl = 'https://horoscope-app-api.vercel.app/api/v1/get-horoscope';
         
-        this.cache.horoscopes[sign][period].lastChecked = now.toISOString();
-        this.cache.horoscopes[sign][period].nextCheckDate = this.getNextCheckDate(period, now).toISOString();
-        
-        this.saveCacheToFile();
+        switch (period) {
+            case 'daily':
+                url = `${baseUrl}/daily?sign=${sign}&day=Today`;
+                break;
+            case 'tomorrow':
+                url = `${baseUrl}/daily?sign=${sign}&day=Tomorrow`;
+                break;
+            case 'weekly':
+                url = `${baseUrl}/weekly?sign=${sign}`;
+                break;
+            case 'monthly':
+                url = `${baseUrl}/monthly?sign=${sign}`;
+                break;
+            default:
+                throw new Error(`Unsupported period: ${period}`);
+        }
+    
+        try {
+            const response = await axios.get(url);
+            if (response.status === 200 && response.data && response.data.data) {
+                return response.data.data.horoscope_data;
+            } else {
+                throw new Error(`Invalid response for ${sign} (${period})`);
+            }
+        } catch (error) {
+            this.log('error', `Error fetching horoscope for ${sign} (${period}): ${error.message}`);
+            throw error;
+        }
     },
 
     getNextCheckDate: function(period, now) {
@@ -88,17 +101,20 @@ this.updateCache(sign, period, newContent);
         switch(period) {
             case 'daily':
             case 'tomorrow':
-                nextCheck.setMinutes(nextCheck.getMinutes() + 45);
+                // Check every 6 hours
+                nextCheck.setHours(nextCheck.getHours() + 6);
                 break;
             case 'weekly':
-                nextCheck.setDate(nextCheck.getDate() + 7);
+                // Check every Monday
+                nextCheck.setDate(nextCheck.getDate() + (1 + 7 - nextCheck.getDay()) % 7);
+                nextCheck.setHours(0, 0, 0, 0);
                 break;
             case 'monthly':
+                // Check on the 1st of each month
                 nextCheck.setMonth(nextCheck.getMonth() + 1);
                 nextCheck.setDate(1);
+                nextCheck.setHours(0, 0, 0, 0);
                 break;
-            default:
-                nextCheck.setDate(nextCheck.getDate() + 1);
         }
         return nextCheck;
     },
@@ -110,25 +126,17 @@ this.updateCache(sign, period, newContent);
         }
     },
 
+
     shouldCheckForUpdate: function(sign, period, now) {
         const cachedData = this.cache.horoscopes[sign]?.[period];
         if (!cachedData) return true;
     
         const lastChecked = new Date(cachedData.lastChecked);
+        const nextCheckDate = new Date(cachedData.nextCheckDate);
     
-        switch(period) {
-            case 'daily':
-            case 'tomorrow':
-                return (now - lastChecked) >= 45 * 60 * 1000;
-            case 'weekly':
-                return now.getDay() === 1 && this.isFirstCheckOfDay(lastChecked, now);
-            case 'monthly':
-                return now.getDate() === 1 && this.isFirstCheckOfDay(lastChecked, now);
-            default:
-                return this.isFirstCheckOfDay(lastChecked, now);
-        }
+        return now >= nextCheckDate;
     },
-    
+  
     isFirstCheckOfDay: function(lastChecked, now) {
         return lastChecked.getDate() !== now.getDate() || lastChecked.getMonth() !== now.getMonth() || lastChecked.getFullYear() !== now.getFullYear();
     },
