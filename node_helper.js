@@ -24,7 +24,7 @@ module.exports = NodeHelper.create({
         console.log(`${this.name}: getHoroscope called for ${config.sign}, period: ${config.period}`);
         
         // Base64 encoded URL parts
-        const baseUrlEncoded = "aHR0cHM6Ly93d3cuc3Vuc2lnbnMuY29tL2hvcm9zY29wZXM="; // https://www.sunsigns.com/horoscopes
+        const baseUrlEncoded = "aHR0cHM6Ly93d3cuc3Vuc2lnbnMuY29tL2hvcm9zY29wZXM=";
         const dailyEncoded = "ZGFpbHk="; // daily
         const yearlyEncoded = "eWVhcmx5"; // yearly
         const tomorrowEncoded = "dG9tb3Jyb3c="; // tomorrow
