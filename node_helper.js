@@ -11,6 +11,8 @@ module.exports = NodeHelper.create({
         this.imageDir = path.join(this.cacheDir, 'images');
         this.cache = null;
         this.lastCacheUpdateLog = null;
+        this.fetchQueue = [];
+        this.isFetching = false;
         this.ensureCacheDirs().then(() => {
             this.loadCacheFromFile();
         });
@@ -143,34 +145,58 @@ module.exports = NodeHelper.create({
 
     getImage: function(sign) {
         this.log('debug', `Getting image for ${sign}`);
-        if (this.cache && this.cache.images && this.cache.images[sign]) {
+        if (!this.cache) {
+            this.initializeEmptyCache();
+        }
+        if (this.cache.images && this.cache.images[sign]) {
             const imagePath = this.cache.images[sign];
             this.log('debug', `Returning cached image path for ${sign}: ${imagePath}`);
             // Check if the file exists
             fs.access(imagePath, fs.constants.F_OK, (err) => {
                 if (err) {
                     this.log('error', `Cached image file does not exist: ${imagePath}`);
-                    this.fetchImage(sign);
+                    this.queueImageFetch(sign);
                 } else {
                     this.log('debug', `Cached image file exists: ${imagePath}`);
                 }
             });
             return imagePath;
         } else {
-            this.log('debug', `No cached image found for ${sign}, fetching from Wikimedia`);
-            this.fetchImage(sign);
+            this.log('debug', `No cached image found for ${sign}, queueing fetch from Wikimedia`);
+            this.queueImageFetch(sign);
             return null;
         }
     },
 
+    queueImageFetch: function(sign) {
+        if (!this.fetchQueue.includes(sign)) {
+            this.fetchQueue.push(sign);
+            this.processQueue();
+        }
+    },
+
+    processQueue: function() {
+        if (this.isFetching || this.fetchQueue.length === 0) return;
+        this.isFetching = true;
+        const sign = this.fetchQueue.shift();
+        this.fetchImage(sign)
+            .finally(() => {
+                this.isFetching = false;
+                this.processQueue();
+            });
+    },
+
     fetchImage: async function(sign) {
+        if (!this.cache) {
+            this.initializeEmptyCache();
+        }
         var capitalizedSign = sign.charAt(0).toUpperCase() + sign.slice(1);
         var svgFileName = `${capitalizedSign}_symbol_(outline).svg`;
         var encodedFileName = encodeURIComponent(svgFileName);
         var pngUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodedFileName}?width=240`;
         
         const imagePath = path.join(this.imageDir, `${sign}.png`);
-
+    
         try {
             this.log('debug', `Fetching image for ${sign} from ${pngUrl}`);
             const response = await axios({
@@ -178,12 +204,13 @@ module.exports = NodeHelper.create({
                 url: pngUrl,
                 responseType: 'arraybuffer'
             });
-
+    
             await fs.writeFile(imagePath, response.data);
-
+    
             this.cache.images[sign] = imagePath;
             this.log('debug', `Image for ${sign} fetched and saved to ${imagePath}`);
             this.saveCacheToFile();
+            this.sendSocketNotification("IMAGE_RESULT", { sign: sign, path: imagePath });
         } catch (error) {
             this.log('error', `Error fetching image for ${sign}: ${error.message}`);
             this.cache.images[sign] = null;
@@ -198,13 +225,23 @@ module.exports = NodeHelper.create({
             this.log('info', `Cache file loaded from ${this.cache.timestamp}`);
         } catch (error) {
             if (error.code === 'ENOENT') {
-                this.log('info', "Cache file does not exist. A new cache will be built when the module initializes.");
+                this.log('info', "Cache file does not exist. Initializing empty cache.");
+                this.initializeEmptyCache();
             } else {
                 console.error("Error reading cache file:", error);
+                this.initializeEmptyCache();
             }
-            this.cache = null;
         }
     },
+
+    initializeEmptyCache: function() {
+        this.cache = {
+            timestamp: new Date().toISOString(),
+            horoscopes: {},
+            images: {}
+        };
+    },
+
 
     saveCacheToFile: async function() {
         try {
@@ -260,16 +297,19 @@ module.exports = NodeHelper.create({
             }
         } else if (notification === "GET_IMAGE") {
             const imagePath = this.getImage(payload.sign);
-            this.sendSocketNotification("IMAGE_RESULT", {
-                sign: payload.sign,
-                path: imagePath
-            });
+            if (imagePath) {
+                this.sendSocketNotification("IMAGE_RESULT", {
+                    sign: payload.sign,
+                    path: imagePath
+                });
+            }
         } else if (notification === "GET_IMAGE_DATA") {
             this.getImageData(payload.sign, payload.path);
         } else if (notification === "CHECK_FOR_UPDATES") {
             this.checkForUpdates();
         }
     },
+
     sendHoroscopesToMain: function() {
         for (let sign of this.config.zodiacSign) {
             for (let period of this.config.period) {
