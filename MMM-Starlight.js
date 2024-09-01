@@ -126,7 +126,7 @@ Module.register("MMM-Starlight", {
                 // If it's a local path, we need to get the image data
                 this.log('debug', `Local image path detected for ${sign}: ${imageSrc}`);
                 this.sendSocketNotification("GET_IMAGE_DATA", { sign: sign, path: imageSrc });
-                imageSrc = "modules/MMM-Starlight/loading.gif"; // Use a placeholder while loading
+                // Don't set imageSrc to loading.gif here, keep the local path
             }
             
             this.log('debug', `Setting image source for ${sign}: ${imageSrc}`);
@@ -151,7 +151,6 @@ Module.register("MMM-Starlight", {
             imageWrapper.appendChild(image);
             contentWrapper.appendChild(imageWrapper);
         }
-    
         slideWrapper.appendChild(contentWrapper);
         return slideWrapper;
     },

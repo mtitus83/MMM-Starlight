@@ -250,13 +250,6 @@ this.updateCache(sign, period, newContent);
                 this.log('debug', "Cache found, sending initial data");
                 this.sendHoroscopesToMain();
             }
-        } else if (notification === "GET_HOROSCOPE") {
-            const horoscope = this.getHoroscope(payload.sign, payload.period);
-            this.sendSocketNotification("HOROSCOPE_RESULT", {
-                sign: payload.sign,
-                period: payload.period,
-                data: horoscope
-            });
         } else if (notification === "GET_IMAGE") {
             const imagePath = this.getImage(payload.sign);
             this.sendSocketNotification("IMAGE_RESULT", {
@@ -269,7 +262,6 @@ this.updateCache(sign, period, newContent);
             this.checkForUpdates();
         }
     },
-
     sendHoroscopesToMain: function() {
         for (let sign of this.config.zodiacSign) {
             for (let period of this.config.period) {
@@ -301,20 +293,22 @@ this.updateCache(sign, period, newContent);
         console.log(`[${timestamp}] ${this.name} [${level.toUpperCase()}]: ${message}`);
     },
 
-    getImageData: function(sign, imagePath) {
-        fs.readFile(imagePath, (err, data) => {
-            if (err) {
-                this.log('error', `Error reading image file for ${sign}: ${err}`);
-                return;
-            }
-            const base64Image = Buffer.from(data).toString('base64');
-            const dataUrl = `data:image/png;base64,${base64Image}`;
-            this.sendSocketNotification("IMAGE_DATA_RESULT", {
-                sign: sign,
-                dataUrl: dataUrl
-            });
+getImageData: async function(sign, imagePath) {
+    this.log('debug', `Attempting to read image file for ${sign} from path: ${imagePath}`);
+    try {
+        const data = await fs.readFile(imagePath);
+        this.log('debug', `Successfully read image file for ${sign}. File size: ${data.length} bytes`);
+        const base64Image = data.toString('base64');
+        const dataUrl = `data:image/png;base64,${base64Image}`;
+        this.log('debug', `Sending IMAGE_DATA_RESULT notification for ${sign}`);
+        this.sendSocketNotification("IMAGE_DATA_RESULT", {
+            sign: sign,
+            dataUrl: dataUrl
         });
-    },
+    } catch (err) {
+        this.log('error', `Error reading image file for ${sign}: ${err}`);
+    }
+},
 
     buildCache: async function(config) {
         try {
