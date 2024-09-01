@@ -235,7 +235,12 @@ module.exports = NodeHelper.create({
                 responseType: 'arraybuffer'
             });
     
-            await fs.promises.writeFile(imagePath, response.data);
+            await new Promise((resolve, reject) => {
+                fs.writeFile(imagePath, response.data, (err) => {
+                    if (err) reject(err);
+                    else resolve();
+                });
+            });
     
             this.cache.images[sign] = imagePath;
             this.log('debug', `Image for ${sign} fetched and saved to ${imagePath}`);
