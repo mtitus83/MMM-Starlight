@@ -2,6 +2,8 @@
     width: 100%;
     box-sizing: border-box;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .MMM-Starlight.single-sign .starlight-slide-wrapper {
@@ -24,17 +26,16 @@
 }
 
 .MMM-Starlight .starlight-content-wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-    padding: 0 10px;
-    box-sizing: border-box;
+    position: relative;
+    padding-top: 120px; /* Adjust this value based on your image height */
 }
 
 .MMM-Starlight .starlight-text-content {
     width: 100%;
     margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .MMM-Starlight .starlight-period {
@@ -48,25 +49,63 @@
 .MMM-Starlight .starlight-text-wrapper {
     overflow: hidden;
     position: relative;
+    width: 100%;
 }
 
 .MMM-Starlight .starlight-text {
     font-size: 0.9em;
     text-align: justify;
     position: relative;
+    line-height: 1.4;
+    margin-top: 10px;
+    color: white;
+    z-index: 10;
 }
 
 .MMM-Starlight .starlight-image-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
     display: flex;
     justify-content: center;
-    width: 100%;
+    margin: 10px 0;
+    overflow: hidden;
+    z-index: 20;
 }
 
 .MMM-Starlight .starlight-image-wrapper img {
     height: auto;
+    max-width: 100px;
 }
 
 .MMM-Starlight.starlight-error {
     color: #ff4444;
     font-weight: bold;
+}
+
+/* Ensure no text overflow */
+.MMM-Starlight * {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+}
+
+/* Ensure proper spacing between elements */
+.MMM-Starlight > * + * {
+    margin-top: 10px;
+}
+
+/* Styles for multiple signs */
+.MMM-Starlight.multiple-signs .starlight-slide-wrapper.next {
+    transform: translateX(100%);
+}
+
+/* Transition for sliding effect */
+.MMM-Starlight.sliding .starlight-slide-wrapper.current {
+    transform: translateX(-100%);
+}
+
+.MMM-Starlight.sliding .starlight-slide-wrapper.next {
+    transform: translateX(0);
 }

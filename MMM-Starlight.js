@@ -74,6 +74,11 @@ Module.register("MMM-Starlight", {
         var contentWrapper = document.createElement("div");
         contentWrapper.className = "starlight-content-wrapper";
     
+        // Add image here, outside of the text content
+        if (this.config.showImage) {
+            contentWrapper.appendChild(this.createImageElement(sign));
+        }
+    
         var textContent = document.createElement("div");
         textContent.className = "starlight-text-content";
     
@@ -96,30 +101,6 @@ Module.register("MMM-Starlight", {
         textContent.appendChild(horoscopeWrapper);
         contentWrapper.appendChild(textContent);
     
-        if (this.config.showImage) {
-            var imageWrapper = document.createElement("div");
-            imageWrapper.className = "starlight-image-wrapper";
-            var image = document.createElement("img");
-            var capitalizedSign = sign.charAt(0).toUpperCase() + sign.slice(1);
-            
-            // Adjust sign names for Capricorn and Scorpio
-            if (capitalizedSign === "Capricorn") capitalizedSign = "Capricornus";
-            if (capitalizedSign === "Scorpio") capitalizedSign = "Scorpius";
-            
-            var svgFileName = `${capitalizedSign}_symbol_(outline).svg`;
-            var encodedFileName = encodeURIComponent(svgFileName);
-            var pngUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodedFileName}?width=240`;
-            
-            image.src = pngUrl;
-            image.alt = sign + " zodiac sign";
-            image.style.width = this.config.imageWidth;
-            image.onerror = function() {
-                console.error("Failed to load image:", pngUrl);
-                this.style.display = 'none';
-            };
-            imageWrapper.appendChild(image);
-            contentWrapper.appendChild(imageWrapper);
-        }   
         slideWrapper.appendChild(contentWrapper);
     
         return slideWrapper;
@@ -192,22 +173,74 @@ Module.register("MMM-Starlight", {
 
     slideToNext: function() {
         var container = document.querySelector(".MMM-Starlight .starlight-slide-container");
-        if (container) {
+        var currentSlide = document.querySelector(".MMM-Starlight .starlight-slide-wrapper.current");
+        var nextSlide = document.querySelector(".MMM-Starlight .starlight-slide-wrapper.next");
+        
+        if (container && currentSlide && nextSlide) {
             container.style.transition = "transform 1s ease-in-out";
             container.style.transform = "translateX(-50%)";
+
+            var nextSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
+            var isNewSign = this.currentPeriodIndex === this.config.period.length - 1;
+
+            if (isNewSign) {
+                // Prepare the next image for transition
+                var currentImage = currentSlide.querySelector(".starlight-image-wrapper");
+                var nextImage = nextSlide.querySelector(".starlight-image-wrapper");
+                
+                if (currentImage && nextImage) {
+                    currentImage.style.transition = "opacity 1s ease-in-out";
+                    currentImage.style.opacity = "0";
+                    
+                    nextImage.style.transition = "none";
+                    nextImage.style.opacity = "0";
+                    
+                    setTimeout(() => {
+                        nextImage.style.transition = "opacity 1s ease-in-out";
+                        nextImage.style.opacity = "1";
+                    }, 1000);
+                }
+            }
 
             setTimeout(() => {
                 this.currentPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
                 if (this.currentPeriodIndex === 0) {
-                    this.currentSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
+                    this.currentSignIndex = nextSignIndex;
                 }
+                
                 container.style.transition = "none";
                 container.style.transform = "translateX(0)";
+                
+                // Update the DOM only after the transition is complete
                 this.updateDom(0);
                 this.startScrolling();
                 this.scheduleRotation();
             }, 1000);
         }
+    },
+
+    createImageElement: function(sign) {
+        var imageWrapper = document.createElement("div");
+        imageWrapper.className = "starlight-image-wrapper";
+        var image = document.createElement("img");
+        var capitalizedSign = sign.charAt(0).toUpperCase() + sign.slice(1);
+        
+        if (capitalizedSign === "Capricorn") capitalizedSign = "Capricornus";
+        if (capitalizedSign === "Scorpio") capitalizedSign = "Scorpius";
+        
+        var svgFileName = `${capitalizedSign}_symbol_(outline).svg`;
+        var encodedFileName = encodeURIComponent(svgFileName);
+        var pngUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodedFileName}?width=240`;
+        
+        image.src = pngUrl;
+        image.alt = sign + " zodiac sign";
+        image.style.width = this.config.imageWidth;
+        image.onerror = function() {
+            console.error("Failed to load image:", pngUrl);
+            this.style.display = 'none';
+        };
+        imageWrapper.appendChild(image);
+        return imageWrapper;
     },
 
     socketNotificationReceived: function(notification, payload) {
