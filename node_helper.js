@@ -16,13 +16,24 @@ const debounce = (func, delay) => {
 module.exports = NodeHelper.create({
     start: function() {
         console.log("Starting node helper for: " + this.name);
+        
+        // Set up cache directories
         this.cacheDir = path.join(__dirname, 'cache');
         this.cacheFile = path.join(this.cacheDir, 'horoscope_cache.json');
         this.imageDir = path.join(this.cacheDir, 'images');
+        
+        // Initialize cache and queue
         this.cache = null;
-        this.lastCacheUpdateLog = null;
         this.fetchQueue = [];
         this.isFetching = false;
+        
+        // Set up logging
+        this.lastCacheUpdateLog = null;
+        
+        // Create debounced function
+        this.debouncedQueueImage = debounce(this.queueImage.bind(this), 300);  // 300ms debounce
+
+        // Ensure cache directories exist and load cache
         this.ensureCacheDirs().then(() => {
             this.loadCacheFromFile();
         });
@@ -164,6 +175,13 @@ module.exports = NodeHelper.create({
   
     isFirstCheckOfDay: function(lastChecked, now) {
         return lastChecked.getDate() !== now.getDate() || lastChecked.getMonth() !== now.getMonth() || lastChecked.getFullYear() !== now.getFullYear();
+    },
+
+    queueImage: function(sign) {
+        if (!this.fetchQueue.includes(sign)) {
+            this.fetchQueue.push(sign);
+            this.processQueue();
+        }
     },
 
     getImage: function(sign) {
@@ -345,6 +363,17 @@ module.exports = NodeHelper.create({
             this.getImageData(payload.sign, payload.path);
         } else if (notification === "CHECK_FOR_UPDATES") {
             this.checkForUpdates();
+        }
+        if (notification === "GET_IMAGE") {
+            const imagePath = this.getImage(payload.sign);
+            if (imagePath) {
+                this.sendSocketNotification("IMAGE_RESULT", {
+                    sign: payload.sign,
+                    path: imagePath
+                });
+            } else {
+                this.debouncedQueueImage(payload.sign);
+            }
         }
     },
 
