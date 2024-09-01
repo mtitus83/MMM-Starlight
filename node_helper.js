@@ -203,13 +203,16 @@ module.exports = NodeHelper.create({
         this.isFetching = true;
         const sign = this.fetchQueue.shift();
         this.fetchImage(sign)
+            .catch(error => {
+                this.log('error', `Error in fetchImage for ${sign}: ${error.message}`);
+            })
             .finally(() => {
                 this.isFetching = false;
                 this.processQueue();
             });
     },
 
-    fetchImage: debounce(async function(sign) {
+    fetchImage: async function(sign) {
         if (!this.cache) {
             this.initializeEmptyCache();
         }
@@ -232,7 +235,7 @@ module.exports = NodeHelper.create({
                 responseType: 'arraybuffer'
             });
     
-            await fs.writeFile(imagePath, response.data);
+            await fs.promises.writeFile(imagePath, response.data);
     
             this.cache.images[sign] = imagePath;
             this.log('debug', `Image for ${sign} fetched and saved to ${imagePath}`);
@@ -245,7 +248,7 @@ module.exports = NodeHelper.create({
             }
             this.cache.images[sign] = null;
         }
-    }, 1000),  // 1 second debounce
+    },
 
     loadCacheFromFile: async function() {
         try {
