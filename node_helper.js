@@ -2,6 +2,16 @@ const NodeHelper = require("node_helper");
 const axios = require("axios");
 const fs = require('fs').promises;
 const path = require('path');
+const debounce = (func, delay) => {
+    let inDebounce;
+    return function() {
+        const context = this;
+        const args = arguments;
+        clearTimeout(inDebounce);
+        inDebounce = setTimeout(() => func.apply(context, args), delay);
+    }
+};
+
 
 module.exports = NodeHelper.create({
     start: function() {
@@ -186,9 +196,13 @@ module.exports = NodeHelper.create({
             });
     },
 
-    fetchImage: async function(sign) {
+    fetchImage: debounce(async function(sign) {
         if (!this.cache) {
             this.initializeEmptyCache();
+        }
+        if (this.cache.images[sign]) {
+            this.log('debug', `Image for ${sign} already in cache, skipping fetch`);
+            return;
         }
         var capitalizedSign = sign.charAt(0).toUpperCase() + sign.slice(1);
         var svgFileName = `${capitalizedSign}_symbol_(outline).svg`;
@@ -213,9 +227,12 @@ module.exports = NodeHelper.create({
             this.sendSocketNotification("IMAGE_RESULT", { sign: sign, path: imagePath });
         } catch (error) {
             this.log('error', `Error fetching image for ${sign}: ${error.message}`);
+            if (error.response) {
+                this.log('error', `Response status: ${error.response.status}`);
+            }
             this.cache.images[sign] = null;
         }
-    },
+    }, 1000),  // 1 second debounce
 
     loadCacheFromFile: async function() {
         try {
