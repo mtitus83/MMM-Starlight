@@ -79,8 +79,39 @@ module.exports = NodeHelper.create({
                 this.queueImage(sign);
             }
         });
-
+    
+        // Send initial cache data to the front-end
+        this.sendInitialCache();
+    
         this.processQueue();
+    },
+
+    sendInitialCache: function() {
+        if (this.cache && this.cache.horoscopes) {
+            for (let sign in this.cache.horoscopes) {
+                for (let period in this.cache.horoscopes[sign]) {
+                    this.sendSocketNotification("HOROSCOPE_RESULT", {
+                        sign: sign,
+                        period: period,
+                        data: this.cache.horoscopes[sign][period]
+                    });
+                }
+            }
+        }
+        
+        if (this.cache && this.cache.images) {
+            for (let sign in this.cache.images) {
+                if (this.cache.images[sign]) {
+                    this.sendSocketNotification("IMAGE_RESULT", {
+                        sign: sign,
+                        path: this.cache.images[sign]
+                    });
+                }
+            }
+        }
+    
+        // Notify front-end that initial cache data has been sent
+        this.sendSocketNotification("INITIAL_CACHE_SENT", {});
     },
 
     queueImage: function(sign) {

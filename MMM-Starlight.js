@@ -281,8 +281,8 @@ Module.register("MMM-Starlight", {
             this.log('debug', `Received image data for ${payload.sign}`);
             this.images[payload.sign] = payload.dataUrl;
             this.updateDom();
-        } else if (notification === "CACHE_BUILT") {
-            this.log('debug', "Cache built notification received");
+        } else if (notification === "INITIAL_CACHE_SENT") {
+            this.log('debug', "Initial cache data received");
             this.loaded = true;
             this.updateDom();
             this.scheduleUpdate();
