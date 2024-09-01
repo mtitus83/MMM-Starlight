@@ -18,20 +18,32 @@ module.exports = NodeHelper.create({
 
     getHoroscope: async function(config) {
         console.log(`${this.name}: getHoroscope called for ${config.sign}, period: ${config.period}`);
-        let baseUrl = 'https://www.sunsigns.com/horoscopes';
+        
+        // Base64 encoded URL parts
+        const baseUrlEncoded = "aHR0cHM6Ly93d3cuc3Vuc2lnbnMuY29tL2hvcm9zY29wZXM="; // https://www.sunsigns.com/horoscopes
+        const dailyEncoded = "ZGFpbHk="; // daily
+        const yearlyEncoded = "eWVhcmx5"; // yearly
+        const tomorrowEncoded = "dG9tb3Jyb3c="; // tomorrow
+    
+        // Decode base64 strings
+        const baseUrl = Buffer.from(baseUrlEncoded, 'base64').toString('ascii');
+        const daily = Buffer.from(dailyEncoded, 'base64').toString('ascii');
+        const yearly = Buffer.from(yearlyEncoded, 'base64').toString('ascii');
+        const tomorrow = Buffer.from(tomorrowEncoded, 'base64').toString('ascii');
+    
         let url;
-
-        if (config.period === 'tomorrow') {
-            url = `${baseUrl}/daily/${config.sign}/tomorrow`;
-        } else if (config.period === 'yearly') {
+    
+        if (config.period === tomorrow) {
+            url = `${baseUrl}/${daily}/${config.sign}/${tomorrow}`;
+        } else if (config.period === yearly) {
             const currentYear = new Date().getFullYear();
-            url = `${baseUrl}/yearly/${currentYear}/${config.sign}`;
+            url = `${baseUrl}/${yearly}/${currentYear}/${config.sign}`;
         } else {
             url = `${baseUrl}/${config.period}/${config.sign}`;
         }
-
+    
         console.log(this.name + ": Fetching horoscope from source");
-
+    
         try {
             const response = await axios.get(url, { timeout: config.timeout });
             const $ = cheerio.load(response.data);
