@@ -101,7 +101,10 @@ Module.register("MMM-Starlight", {
             var image = document.createElement("img");
             var capitalizedSign = sign.charAt(0).toUpperCase() + sign.slice(1);
             
-            // New image URL construction
+            // Adjust sign names for Capricorn and Scorpio
+            if (capitalizedSign === "Capricorn") capitalizedSign = "Capricornus";
+            if (capitalizedSign === "Scorpio") capitalizedSign = "Scorpius";
+            
             var svgFileName = `${capitalizedSign}_symbol_(outline).svg`;
             var encodedFileName = encodeURIComponent(svgFileName);
             var pngUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodedFileName}?width=240`;
@@ -115,8 +118,7 @@ Module.register("MMM-Starlight", {
             };
             imageWrapper.appendChild(image);
             contentWrapper.appendChild(imageWrapper);
-        }
-    
+        }   
         slideWrapper.appendChild(contentWrapper);
     
         return slideWrapper;
