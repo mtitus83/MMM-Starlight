@@ -2,7 +2,6 @@ Module.register("MMM-Starlight", {
     defaults: {
         zodiacSign: ["taurus"],
         period: ["daily", "tomorrow"],
-        requestTimeout: 30000,
         signWaitTime: 120000,
         showImage: true,
         imageWidth: "100px",
@@ -11,10 +10,12 @@ Module.register("MMM-Starlight", {
         maxTextHeight: "400px",
         width: "400px",
         fontSize: "1em",
-        updateInterval: 60 * 60 * 1000,
-        retryDelay: 300000,
-        maxRetries: 5
     },
+
+    updateInterval: 60 * 60 * 1000, // 1 hour
+    requestTimeout: 30000, // 30 seconds
+    retryDelay: 300000, // 5 minutes
+    maxRetries: 5,
 
     start: function() {
         Log.info("Starting module: " + this.name);
@@ -133,7 +134,7 @@ Module.register("MMM-Starlight", {
 
     scheduleUpdate: function(delay) {
         var self = this;
-        var nextLoad = this.config.updateInterval;
+        var nextLoad = this.updateInterval;
         if (typeof delay !== "undefined" && delay >= 0) {
             nextLoad = delay;
         }
@@ -150,7 +151,7 @@ Module.register("MMM-Starlight", {
                 this.getHoroscope(sign, period);
             });
         });
-        this.scheduleUpdate(this.config.updateInterval);
+        this.scheduleUpdate(this.updateInterval);
     },
 
     getHoroscope: function(sign, period) {
@@ -158,9 +159,9 @@ Module.register("MMM-Starlight", {
         this.sendSocketNotification("GET_HOROSCOPE", {
             sign: sign,
             period: period,
-            timeout: this.config.requestTimeout,
-            retryDelay: this.config.retryDelay,
-            maxRetries: this.config.maxRetries
+            timeout: this.requestTimeout,
+            retryDelay: this.retryDelay,
+            maxRetries: this.maxRetries
         });
     },
 

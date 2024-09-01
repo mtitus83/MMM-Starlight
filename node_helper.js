@@ -3,6 +3,10 @@ var axios = require("axios");
 var cheerio = require("cheerio");
 
 module.exports = NodeHelper.create({
+    requestTimeout: 30000, // 30 seconds
+    retryDelay: 300000, // 5 minutes
+    maxRetries: 5,
+
     start: function() {
         console.log("Starting node helper for: " + this.name);
         this.retryCount = {};
@@ -44,8 +48,8 @@ module.exports = NodeHelper.create({
     
         console.log(this.name + ": Fetching horoscope from source");
     
-        try {
-            const response = await axios.get(url, { timeout: config.timeout });
+       try {
+            const response = await axios.get(url, { timeout: this.requestTimeout });
             const $ = cheerio.load(response.data);
             const horoscope = $('.horoscope-content p').text().trim();
             
@@ -71,10 +75,10 @@ module.exports = NodeHelper.create({
         this.retryCount[config.sign] = (this.retryCount[config.sign] || 0) + 1;
         console.error(this.name + ": Error fetching horoscope for " + config.sign + ":", error.message);
         
-        if (this.retryCount[config.sign] <= config.maxRetries) {
-            console.log(this.name + `: Retry attempt ${this.retryCount[config.sign]} of ${config.maxRetries} in ${config.retryDelay / 1000} seconds for ${config.sign}`);
+        if (this.retryCount[config.sign] <= this.maxRetries) {
+            console.log(this.name + `: Retry attempt ${this.retryCount[config.sign]} of ${this.maxRetries} in ${this.retryDelay / 1000} seconds for ${config.sign}`);
             try {
-                await new Promise(resolve => setTimeout(resolve, config.retryDelay));
+                await new Promise(resolve => setTimeout(resolve, this.retryDelay));
                 await this.getHoroscope(config);
             } catch (retryError) {
                 console.error(`${this.name}: Error in retry for ${config.sign}:`, retryError);
