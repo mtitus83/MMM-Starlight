@@ -245,11 +245,6 @@ Module.register("MMM-Starlight", {
         var textContent = document.createElement("div");
         textContent.className = "starlight-text-content";
 
-        var periodText = document.createElement("div");
-        periodText.className = "starlight-period";
-        periodText.innerHTML = this.formatPeriodText(period) + " Horoscope for " + sign.charAt(0).toUpperCase() + sign.slice(1);
-        textContent.appendChild(periodText);
-
         var horoscopeWrapper = document.createElement("div");
         horoscopeWrapper.className = "starlight-text-wrapper";
         horoscopeWrapper.style.maxHeight = this.config.maxTextHeight;
