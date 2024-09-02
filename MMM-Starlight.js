@@ -43,11 +43,22 @@ Module.register("MMM-Starlight", {
             return wrapper;
         }
 
+        var currentSign = this.config.zodiacSign[this.currentSignIndex];
+        var currentPeriod = this.config.period[this.currentPeriodIndex];
+        var nextPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
+        var nextPeriod = this.config.period[nextPeriodIndex];
+
+        // Create title (period text)
+        var periodText = document.createElement("div");
+        periodText.className = "starlight-period";
+        periodText.innerHTML = this.formatPeriodText(currentPeriod) + " Horoscope for " + currentSign.charAt(0).toUpperCase() + currentSign.slice(1);
+        wrapper.appendChild(periodText);
+
         // Create image container
         if (this.config.showImage) {
             var imageContainer = document.createElement("div");
             imageContainer.className = "starlight-image-container";
-            imageContainer.appendChild(this.createImageElement(this.config.zodiacSign[this.currentSignIndex]));
+            imageContainer.appendChild(this.createImageElement(currentSign));
             wrapper.appendChild(imageContainer);
         }
 
@@ -57,11 +68,6 @@ Module.register("MMM-Starlight", {
 
         var slideContainer = document.createElement("div");
         slideContainer.className = "starlight-slide-container";
-
-        var currentSign = this.config.zodiacSign[this.currentSignIndex];
-        var currentPeriod = this.config.period[this.currentPeriodIndex];
-        var nextPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
-        var nextPeriod = this.config.period[nextPeriodIndex];
 
         slideContainer.appendChild(this.createTextElement(currentSign, "current", currentPeriod));
         slideContainer.appendChild(this.createTextElement(currentSign, "next", nextPeriod));
@@ -218,11 +224,6 @@ Module.register("MMM-Starlight", {
 
         var textContent = document.createElement("div");
         textContent.className = "starlight-text-content";
-
-        var periodText = document.createElement("div");
-        periodText.className = "starlight-period";
-        periodText.innerHTML = this.formatPeriodText(period) + " Horoscope for " + sign.charAt(0).toUpperCase() + sign.slice(1);
-        textContent.appendChild(periodText);
 
         var horoscopeWrapper = document.createElement("div");
         horoscopeWrapper.className = "starlight-text-wrapper";
