@@ -44,47 +44,28 @@ Module.register("MMM-Starlight", {
         }
 
         var currentSign = this.config.zodiacSign[this.currentSignIndex];
+        var currentPeriod = this.config.period[this.currentPeriodIndex];
         var nextSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
+        var nextPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
         var nextSign = this.config.zodiacSign[nextSignIndex];
+        var nextPeriod = this.config.period[nextPeriodIndex];
 
         // Title (always visible)
         var titleElement = document.createElement("div");
         titleElement.className = "starlight-title";
-        titleElement.innerHTML = this.formatPeriodText(this.config.period[this.currentPeriodIndex]) + 
+        titleElement.innerHTML = this.formatPeriodText(currentPeriod) + 
                                  " Horoscope for " + currentSign.charAt(0).toUpperCase() + currentSign.slice(1);
         wrapper.appendChild(titleElement);
 
-        // Static image container
-        var staticContainer = document.createElement("div");
-        staticContainer.className = "starlight-static-container";
-        
-        // Current sign image
-        var currentImageWrapper = document.createElement("div");
-        currentImageWrapper.className = "starlight-image-wrapper current";
-        if (this.config.showImage) {
-            currentImageWrapper.appendChild(this.createImageElement(currentSign));
-        staticContainer.appendChild(currentImageWrapper);
-        
-        // Next sign image (hidden initially)
-        var nextImageWrapper = document.createElement("div");
-        nextImageWrapper.className = "starlight-image-wrapper next";
-        if (this.config.showImage) {
-            nextImageWrapper.appendChild(this.createImageElement(nextSign));
-        }
-        staticContainer.appendChild(nextImageWrapper);
-
-        wrapper.appendChild(staticContainer);
-
-        // Sliding text container
+        // Sliding container for both image and text
         var slideContainer = document.createElement("div");
         slideContainer.className = "starlight-slide-container";
 
-        var currentPeriod = this.config.period[this.currentPeriodIndex];
-        var nextPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
-        var nextPeriod = this.config.period[nextPeriodIndex];
+        // Current content
+        slideContainer.appendChild(this.createContentElement(currentSign, "current", currentPeriod));
 
-        slideContainer.appendChild(this.createSlideElement(currentSign, "current", currentPeriod));
-        slideContainer.appendChild(this.createSlideElement(
+        // Next content
+        slideContainer.appendChild(this.createContentElement(
             nextPeriodIndex === 0 ? nextSign : currentSign,
             "next",
             nextPeriodIndex === 0 ? this.config.period[0] : nextPeriod
@@ -229,17 +210,8 @@ Module.register("MMM-Starlight", {
 
     slideToNext: function() {
         var slideContainer = document.querySelector(".MMM-Starlight .starlight-slide-container");
-        var staticContainer = document.querySelector(".MMM-Starlight .starlight-static-container");
         
-        if (slideContainer && staticContainer) {
-            var isChangingSign = (this.currentPeriodIndex + 1) % this.config.period.length === 0;
-            
-            if (isChangingSign) {
-                // Slide both static and sliding content
-                staticContainer.style.transition = "transform 1s ease-in-out";
-                staticContainer.style.transform = "translateX(-50%)";
-            }
-            
+        if (slideContainer) {
             slideContainer.style.transition = "transform 1s ease-in-out";
             slideContainer.style.transform = "translateX(-50%)";
 
@@ -249,8 +221,6 @@ Module.register("MMM-Starlight", {
                     this.currentSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
                 }
                 
-                staticContainer.style.transition = "none";
-                staticContainer.style.transform = "translateX(0)";
                 slideContainer.style.transition = "none";
                 slideContainer.style.transform = "translateX(0)";
                 
@@ -259,6 +229,42 @@ Module.register("MMM-Starlight", {
                 this.scheduleRotation();
             }, 1000);
         }
+    },
+
+
+    createContentElement: function(sign, className, period) {
+        var contentWrapper = document.createElement("div");
+        contentWrapper.className = "starlight-content-wrapper " + className;
+
+        // Image
+        if (this.config.showImage) {
+            contentWrapper.appendChild(this.createImageElement(sign));
+        }
+
+        // Text content
+        var textContent = document.createElement("div");
+        textContent.className = "starlight-text-content";
+
+        var periodText = document.createElement("div");
+        periodText.className = "starlight-period";
+        periodText.innerHTML = this.formatPeriodText(period) + " Horoscope for " + sign.charAt(0).toUpperCase() + sign.slice(1);
+        textContent.appendChild(periodText);
+
+        var horoscopeWrapper = document.createElement("div");
+        horoscopeWrapper.className = "starlight-text-wrapper";
+        horoscopeWrapper.style.maxHeight = this.config.maxTextHeight;
+
+        var horoscopeTextElement = document.createElement("div");
+        horoscopeTextElement.className = "starlight-text";
+        horoscopeTextElement.innerHTML = this.horoscopes[sign] && this.horoscopes[sign][period] 
+            ? this.horoscopes[sign][period] 
+            : "Loading " + period + " horoscope for " + sign + "...";
+        horoscopeWrapper.appendChild(horoscopeTextElement);
+
+        textContent.appendChild(horoscopeWrapper);
+        contentWrapper.appendChild(textContent);
+
+        return contentWrapper;
     },
 
     createSlideElement: function(sign, className, period) {
