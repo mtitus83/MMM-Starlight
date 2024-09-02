@@ -383,57 +383,58 @@ Module.register("MMM-Starlight", {
             currentContent.innerHTML = this.horoscopes[currentSign][currentPeriod] || "Loading...";
             nextContent.innerHTML = this.horoscopes[currentSign][nextPeriod] || "Loading...";
         }
+    },
 
-startScrolling: function() {
-  var self = this;
-  clearTimeout(this.scrollTimer);
-
-  this.scrollTimer = setTimeout(function() {
-    var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
-    var textContent = document.querySelector(".MMM-Starlight .starlight-text");
-
-    if (textWrapper && textContent) {
-      var wrapperHeight = textWrapper.offsetHeight;
-      var contentHeight = textContent.offsetHeight;
-
-      if (contentHeight > wrapperHeight) {
-        self.isScrolling = true;
-
-        // Calculate the scroll distance to leave 1/4 at the bottom
-        var scrollDistance = contentHeight - (wrapperHeight * 0.75);
-
-        var verticalDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
-
-        setTimeout(() => {
-          textContent.style.transition = `transform ${verticalDuration}ms linear`;
-          textContent.style.transform = `translateY(-${scrollDistance}px)`;
-
-          setTimeout(() => {
-            textContent.style.transition = `opacity 0.5s ease-out`;
-            textContent.style.opacity = 0;
-
+    startScrolling: function() {
+      var self = this;
+      clearTimeout(this.scrollTimer);
+    
+      this.scrollTimer = setTimeout(function() {
+        var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
+        var textContent = document.querySelector(".MMM-Starlight .starlight-text");
+    
+        if (textWrapper && textContent) {
+          var wrapperHeight = textWrapper.offsetHeight;
+          var contentHeight = textContent.offsetHeight;
+    
+          if (contentHeight > wrapperHeight) {
+            self.isScrolling = true;
+    
+            // Calculate the scroll distance to leave 1/4 at the bottom
+            var scrollDistance = contentHeight - (wrapperHeight * 0.75);
+    
+            var verticalDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
+    
             setTimeout(() => {
-              textContent.style.transition = 'none';
-              textContent.style.transform = 'translateY(0)';
-
-              void textContent.offsetWidth;
-
-              textContent.style.transition = `opacity 0.5s ease-in`;
-              textContent.style.opacity = 1;
-
-              self.isScrolling = false;
-
+              textContent.style.transition = `transform ${verticalDuration}ms linear`;
+              textContent.style.transform = `translateY(-${scrollDistance}px)`;
+    
               setTimeout(() => {
-                self.startScrolling();
-              }, 500);
-            }, 500);
-          }, verticalDuration + self.config.pauseDuration);
-        }, self.config.pauseDuration);
-      } else {
-        self.isScrolling = false;
-      }
+                textContent.style.transition = `opacity 0.5s ease-out`;
+                textContent.style.opacity = 0;
+    
+                setTimeout(() => {
+                  textContent.style.transition = 'none';
+                  textContent.style.transform = 'translateY(0)';
+    
+                  void textContent.offsetWidth;
+    
+                  textContent.style.transition = `opacity 0.5s ease-in`;
+                  textContent.style.opacity = 1;
+    
+                  self.isScrolling = false;
+    
+                  setTimeout(() => {
+                    self.startScrolling();
+                  }, 500);
+                }, 500);
+              }, verticalDuration + self.config.pauseDuration);
+            }, self.config.pauseDuration);
+          } else {
+            self.isScrolling = false;
+          }
+        }
+      }, 1000);
     }
-  }, 1000);
-}
 
 });
