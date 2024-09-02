@@ -45,10 +45,6 @@ Module.register("MMM-Starlight", {
 
         var currentSign = this.config.zodiacSign[this.currentSignIndex];
         var currentPeriod = this.config.period[this.currentPeriodIndex];
-        var nextSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
-        var nextPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
-        var nextSign = this.config.zodiacSign[nextSignIndex];
-        var nextPeriod = this.config.period[nextPeriodIndex];
 
         // Title (always visible)
         var titleElement = document.createElement("div");
@@ -57,19 +53,25 @@ Module.register("MMM-Starlight", {
                                  " Horoscope for " + currentSign.charAt(0).toUpperCase() + currentSign.slice(1);
         wrapper.appendChild(titleElement);
 
-        // Sliding container for both image and text
+        // Static image container
+        var imageContainer = document.createElement("div");
+        imageContainer.className = "starlight-image-container";
+        if (this.config.showImage) {
+            imageContainer.appendChild(this.createImageElement(currentSign));
+        }
+        wrapper.appendChild(imageContainer);
+
+        // Sliding container for text content
         var slideContainer = document.createElement("div");
         slideContainer.className = "starlight-slide-container";
 
         // Current content
-        slideContainer.appendChild(this.createContentElement(currentSign, "current", currentPeriod));
+        slideContainer.appendChild(this.createTextElement(currentSign, "current", currentPeriod));
 
         // Next content
-        slideContainer.appendChild(this.createContentElement(
-            nextPeriodIndex === 0 ? nextSign : currentSign,
-            "next",
-            nextPeriodIndex === 0 ? this.config.period[0] : nextPeriod
-        ));
+        var nextPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
+        var nextPeriod = this.config.period[nextPeriodIndex];
+        slideContainer.appendChild(this.createTextElement(currentSign, "next", nextPeriod));
 
         wrapper.appendChild(slideContainer);
 
@@ -210,8 +212,9 @@ Module.register("MMM-Starlight", {
 
     slideToNext: function() {
         var slideContainer = document.querySelector(".MMM-Starlight .starlight-slide-container");
+        var titleElement = document.querySelector(".MMM-Starlight .starlight-title");
         
-        if (slideContainer) {
+        if (slideContainer && titleElement) {
             slideContainer.style.transition = "transform 1s ease-in-out";
             slideContainer.style.transform = "translateX(-50%)";
 
@@ -219,18 +222,24 @@ Module.register("MMM-Starlight", {
                 this.currentPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
                 if (this.currentPeriodIndex === 0) {
                     this.currentSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
+                    this.updateDom(); // This will update the entire module, including the image
+                } else {
+                    // Only update the title and reset the slide container
+                    var currentSign = this.config.zodiacSign[this.currentSignIndex];
+                    var currentPeriod = this.config.period[this.currentPeriodIndex];
+                    titleElement.innerHTML = this.formatPeriodText(currentPeriod) + 
+                                             " Horoscope for " + currentSign.charAt(0).toUpperCase() + currentSign.slice(1);
+                    
+                    slideContainer.style.transition = "none";
+                    slideContainer.style.transform = "translateX(0)";
+                    this.updateTextContent();
                 }
                 
-                slideContainer.style.transition = "none";
-                slideContainer.style.transform = "translateX(0)";
-                
-                this.updateDom(0);
                 this.startScrolling();
                 this.scheduleRotation();
             }, 1000);
         }
     },
-
 
     createContentElement: function(sign, className, period) {
         var contentWrapper = document.createElement("div");
@@ -288,19 +297,9 @@ Module.register("MMM-Starlight", {
     },
 
     createTextElement: function(sign, className, period) {
-        var slideWrapper = document.createElement("div");
-        slideWrapper.className = "starlight-slide-wrapper " + className;
+        var textContent = document.createElement("div");
+        textContent.className = "starlight-text-content " + className;
 
-        var contentWrapper = document.createElement("div");
-        contentWrapper.className = "starlight-content-wrapper";
-
-        // Period text
-        var periodText = document.createElement("div");
-        periodText.className = "starlight-period";
-        periodText.innerHTML = this.formatPeriodText(period);
-        contentWrapper.appendChild(periodText);
-
-        // Horoscope text
         var horoscopeWrapper = document.createElement("div");
         horoscopeWrapper.className = "starlight-text-wrapper";
         horoscopeWrapper.style.maxHeight = this.config.maxTextHeight;
@@ -312,10 +311,9 @@ Module.register("MMM-Starlight", {
             : "Loading " + period + " horoscope for " + sign + "...";
         horoscopeWrapper.appendChild(horoscopeTextElement);
 
-        contentWrapper.appendChild(horoscopeWrapper);
-        slideWrapper.appendChild(contentWrapper);
+        textContent.appendChild(horoscopeWrapper);
 
-        return slideWrapper;
+        return textContent;
     },
 
     createImageElement: function(sign) {
@@ -371,6 +369,20 @@ Module.register("MMM-Starlight", {
             this.updateDom();
         }
     },
+
+    updateTextContent: function() {
+        var currentSign = this.config.zodiacSign[this.currentSignIndex];
+        var currentPeriod = this.config.period[this.currentPeriodIndex];
+        var nextPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
+        var nextPeriod = this.config.period[nextPeriodIndex];
+
+        var currentContent = document.querySelector(".MMM-Starlight .starlight-text-content.current .starlight-text");
+        var nextContent = document.querySelector(".MMM-Starlight .starlight-text-content.next .starlight-text");
+
+        if (currentContent && nextContent) {
+            currentContent.innerHTML = this.horoscopes[currentSign][currentPeriod] || "Loading...";
+            nextContent.innerHTML = this.horoscopes[currentSign][nextPeriod] || "Loading...";
+        }
 
 startScrolling: function() {
   var self = this;
