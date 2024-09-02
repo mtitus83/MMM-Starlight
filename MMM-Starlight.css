@@ -6,36 +6,44 @@
     flex-direction: column;
 }
 
-.MMM-Starlight.single-sign .starlight-slide-wrapper {
+.MMM-Starlight .starlight-image-container {
     width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 10px;
+    transition: opacity 0.5s ease-in-out;
 }
 
-.MMM-Starlight.multiple-signs .starlight-slide-container {
+.MMM-Starlight .starlight-image-container img {
+    height: auto;
+    max-width: 100px;
+}
+
+.MMM-Starlight .starlight-text-container {
+    width: 100%;
+    overflow: hidden;
+}
+
+.MMM-Starlight .starlight-slide-container {
     display: flex;
     width: 200%;
     transition: transform 1s ease-in-out;
 }
 
-.MMM-Starlight.multiple-signs .starlight-slide-wrapper {
+.MMM-Starlight .starlight-slide-wrapper {
     width: 50%;
     flex-shrink: 0;
 }
 
-.MMM-Starlight .starlight-slide-wrapper.next {
-    transform: translateX(0);
-}
-
 .MMM-Starlight .starlight-content-wrapper {
-    position: relative;
-    padding-top: 120px; /* Adjust this value based on your image height */
+    padding: 0 10px;
+    box-sizing: border-box;
 }
 
 .MMM-Starlight .starlight-text-content {
     width: 100%;
-    margin-bottom: 20px;
     display: flex;
     flex-direction: column;
-    align-items: center;
 }
 
 .MMM-Starlight .starlight-period {
@@ -62,23 +70,6 @@
     z-index: 10;
 }
 
-.MMM-Starlight .starlight-image-wrapper {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    margin: 10px 0;
-    overflow: hidden;
-    z-index: 20;
-}
-
-.MMM-Starlight .starlight-image-wrapper img {
-    height: auto;
-    max-width: 100px;
-}
-
 .MMM-Starlight.starlight-error {
     color: #ff4444;
     font-weight: bold;
@@ -96,11 +87,6 @@
     margin-top: 10px;
 }
 
-/* Styles for multiple signs */
-.MMM-Starlight.multiple-signs .starlight-slide-wrapper.next {
-    transform: translateX(100%);
-}
-
 /* Transition for sliding effect */
 .MMM-Starlight.sliding .starlight-slide-wrapper.current {
     transform: translateX(-100%);
@@ -108,4 +94,20 @@
 
 .MMM-Starlight.sliding .starlight-slide-wrapper.next {
     transform: translateX(0);
+}
+
+/* Styles for vertical scrolling */
+.MMM-Starlight .starlight-text.scrolling {
+    transition: transform linear;
+}
+
+/* Media query for smaller screens */
+@media screen and (max-width: 480px) {
+    .MMM-Starlight .starlight-period {
+        font-size: 1em;
+    }
+
+    .MMM-Starlight .starlight-text {
+        font-size: 0.8em;
+    }
 }
