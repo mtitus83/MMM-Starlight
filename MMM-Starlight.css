@@ -6,22 +6,28 @@
     flex-direction: column;
 }
 
-.MMM-Starlight .starlight-image-container {
-    width: 100%;
+.MMM-Starlight .starlight-title {
+    font-weight: bold;
+    font-size: 1.2em;
+    margin-bottom: 10px;
+    text-align: center;
+    color: #cccccc; /* Light grey color for the title */
+}
+
+.MMM-Starlight .starlight-static-container {
     display: flex;
+    width: 100%;
     justify-content: center;
     margin-bottom: 10px;
-    transition: opacity 0.5s ease-in-out;
 }
 
-.MMM-Starlight .starlight-image-container img {
+.MMM-Starlight .starlight-image-wrapper {
+    text-align: center;
+}
+
+.MMM-Starlight .starlight-image-wrapper img {
+    max-width: 60px; /* Adjust as needed */
     height: auto;
-    max-width: 100px;
-}
-
-.MMM-Starlight .starlight-text-container {
-    width: 100%;
-    overflow: hidden;
 }
 
 .MMM-Starlight .starlight-slide-container {
@@ -40,20 +46,6 @@
     box-sizing: border-box;
 }
 
-.MMM-Starlight .starlight-text-content {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-}
-
-.MMM-Starlight .starlight-period {
-    font-weight: bold;
-    margin-bottom: 10px;
-    font-size: 1.1em;
-    text-align: center;
-    text-decoration: underline;
-}
-
 .MMM-Starlight .starlight-text-wrapper {
     overflow: hidden;
     position: relative;
@@ -65,7 +57,6 @@
     text-align: justify;
     position: relative;
     line-height: 1.4;
-    margin-top: 10px;
     color: white;
     z-index: 10;
 }
@@ -87,15 +78,6 @@
     margin-top: 10px;
 }
 
-/* Transition for sliding effect */
-.MMM-Starlight.sliding .starlight-slide-wrapper.current {
-    transform: translateX(-100%);
-}
-
-.MMM-Starlight.sliding .starlight-slide-wrapper.next {
-    transform: translateX(0);
-}
-
 /* Styles for vertical scrolling */
 .MMM-Starlight .starlight-text.scrolling {
     transition: transform linear;
@@ -103,11 +85,45 @@
 
 /* Media query for smaller screens */
 @media screen and (max-width: 480px) {
-    .MMM-Starlight .starlight-period {
-        font-size: 1em;
+    .MMM-Starlight .starlight-title {
+        font-size: 1.1em;
     }
 
     .MMM-Starlight .starlight-text {
         font-size: 0.8em;
     }
+}
+
+/* Transition for sliding effect */
+.MMM-Starlight .starlight-slide-container {
+    transition: transform 1s ease-in-out;
+}
+
+/* Styles for next slide (initially hidden) */
+.MMM-Starlight .starlight-slide-wrapper.next {
+    transform: translateX(100%);
+}
+
+/* Styles for current slide */
+.MMM-Starlight .starlight-slide-wrapper.current {
+    transform: translateX(0);
+}
+
+/* Styles for sliding animation */
+.MMM-Starlight.sliding .starlight-slide-container {
+    transform: translateX(-50%);
+}
+
+/* Ensure image wrapper for next sign is initially hidden */
+.MMM-Starlight .starlight-image-wrapper.next {
+    display: none;
+}
+
+/* Show next image wrapper during sign transition */
+.MMM-Starlight.sliding .starlight-image-wrapper.current {
+    display: none;
+}
+
+.MMM-Starlight.sliding .starlight-image-wrapper.next {
+    display: block;
 }
