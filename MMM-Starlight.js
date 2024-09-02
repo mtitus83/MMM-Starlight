@@ -371,52 +371,56 @@ Module.register("MMM-Starlight", {
         }
     },
 
-    startScrolling: function() {
-        var self = this;
-        clearTimeout(this.scrollTimer);
+startScrolling: function() {
+  var self = this;
+  clearTimeout(this.scrollTimer);
 
-        this.scrollTimer = setTimeout(function() {
-            var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
-            var textContent = document.querySelector(".MMM-Starlight .starlight-text");
+  this.scrollTimer = setTimeout(function() {
+    var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
+    var textContent = document.querySelector(".MMM-Starlight .starlight-text");
 
-            if (textWrapper && textContent) {
-                var wrapperHeight = textWrapper.offsetHeight;
-                var contentHeight = textContent.offsetHeight;
+    if (textWrapper && textContent) {
+      var wrapperHeight = textWrapper.offsetHeight;
+      var contentHeight = textContent.offsetHeight;
 
-                if (contentHeight > wrapperHeight) {
-                    self.isScrolling = true;
-                    var scrollDistance = contentHeight - wrapperHeight;
-                    var verticalDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
+      if (contentHeight > wrapperHeight) {
+        self.isScrolling = true;
 
-                    setTimeout(() => {
-                        textContent.style.transition = `transform ${verticalDuration}ms linear`;
-                        textContent.style.transform = `translateY(-${scrollDistance}px)`;
+        // Calculate the scroll distance to leave 1/4 at the bottom
+        var scrollDistance = contentHeight - (wrapperHeight * 0.75);
 
-                        setTimeout(() => {
-                            textContent.style.transition = `opacity 0.5s ease-out`;
-                            textContent.style.opacity = 0;
+        var verticalDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
 
-                            setTimeout(() => {
-                                textContent.style.transition = 'none';
-                                textContent.style.transform = 'translateY(0)';
+        setTimeout(() => {
+          textContent.style.transition = `transform ${verticalDuration}ms linear`;
+          textContent.style.transform = `translateY(-${scrollDistance}px)`;
 
-                                void textContent.offsetWidth;
+          setTimeout(() => {
+            textContent.style.transition = `opacity 0.5s ease-out`;
+            textContent.style.opacity = 0;
 
-                                textContent.style.transition = `opacity 0.5s ease-in`;
-                                textContent.style.opacity = 1;
+            setTimeout(() => {
+              textContent.style.transition = 'none';
+              textContent.style.transform = 'translateY(0)';
 
-                                self.isScrolling = false;
+              void textContent.offsetWidth;
 
-                                setTimeout(() => {
-                                    self.startScrolling();
-                                }, 500);
-                            }, 500);
-                        }, verticalDuration + self.config.pauseDuration);
-                    }, self.config.pauseDuration);
-                } else {
-                    self.isScrolling = false;
-                }
-            }
-        }, 1000);
+              textContent.style.transition = `opacity 0.5s ease-in`;
+              textContent.style.opacity = 1;
+
+              self.isScrolling = false;
+
+              setTimeout(() => {
+                self.startScrolling();
+              }, 500);
+            }, 500);
+          }, verticalDuration + self.config.pauseDuration);
+        }, self.config.pauseDuration);
+      } else {
+        self.isScrolling = false;
+      }
     }
+  }, 1000);
+}
+
 });
