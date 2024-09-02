@@ -71,18 +71,27 @@ module.exports = NodeHelper.create({
                 });
             }
         } catch (error) {
-            console.error(`${this.name}: Error in getHoroscope:`, error.message);
             await this.handleHoroscopeError(error, config);
         }
     },
 
     handleHoroscopeError: async function(error, config) {
-        console.log(`${this.name}: handleHoroscopeError called for ${config.sign}`);
+        if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+            console.log(`${this.name}: Horoscope not available for ${config.sign}, period: ${config.period} (Timeout)`);
+            this.sendSocketNotification("HOROSCOPE_RESULT", {
+                success: false,
+                message: "Horoscope temporarily unavailable",
+                sign: config.sign,
+                period: config.period
+            });
+            return;
+        }
+
+        console.error(`${this.name}: Error fetching horoscope for ${config.sign}:`, error.message);
         this.retryCount[config.sign] = (this.retryCount[config.sign] || 0) + 1;
-        console.error(this.name + ": Error fetching horoscope for " + config.sign + ":", error.message);
         
         if (this.retryCount[config.sign] <= this.maxRetries) {
-            console.log(this.name + `: Retry attempt ${this.retryCount[config.sign]} of ${this.maxRetries} in ${this.retryDelay / 1000} seconds for ${config.sign}`);
+            console.log(`${this.name}: Retry attempt ${this.retryCount[config.sign]} of ${this.maxRetries} in ${this.retryDelay / 1000} seconds for ${config.sign}`);
             try {
                 await new Promise(resolve => setTimeout(resolve, this.retryDelay));
                 await this.getHoroscope(config);
