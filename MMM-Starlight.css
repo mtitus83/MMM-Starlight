@@ -12,6 +12,7 @@
     margin-bottom: 10px;
     text-align: center;
     color: #cccccc; /* Light grey color for the title */
+    text-decoration: underline;
 }
 
 .MMM-Starlight .starlight-static-container {
