@@ -48,7 +48,7 @@ module.exports = NodeHelper.create({
     
         console.log(this.name + ": Fetching horoscope from source");
     
-       try {
+        try {
             const response = await axios.get(url, { timeout: this.requestTimeout });
             const $ = cheerio.load(response.data);
             const horoscope = $('.horoscope-content p').text().trim();
@@ -62,10 +62,16 @@ module.exports = NodeHelper.create({
                     period: config.period
                 });
             } else {
-                throw new Error("Horoscope content not found");
+                console.log(`${this.name}: No horoscope content available for ${config.sign}, period: ${config.period}`);
+                this.sendSocketNotification("HOROSCOPE_RESULT", {
+                    success: false,
+                    message: "Horoscope content not available",
+                    sign: config.sign,
+                    period: config.period
+                });
             }
         } catch (error) {
-            console.error(`${this.name}: Error in getHoroscope:`, error);
+            console.error(`${this.name}: Error in getHoroscope:`, error.message);
             await this.handleHoroscopeError(error, config);
         }
     },
