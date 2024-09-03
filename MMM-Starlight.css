@@ -1,97 +1,98 @@
 .MMM-Starlight {
-    width: 100%;
-    box-sizing: border-box;
-    overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .MMM-Starlight .starlight-title {
-    font-weight: bold;
-    font-size: 1.2em;
-    margin-bottom: 10px;
-    text-align: center;
-    color: #cccccc;
-    text-decoration: underline;
+  font-size: 1.2em;
+  font-weight: bold;
+  margin-bottom: 15px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  transition: opacity 1s ease-in-out; /* Added for fading effect */
 }
 
-.MMM-Starlight .starlight-image-container {
-    text-align: center;
-    margin-bottom: 10px;
+.MMM-Starlight .starlight-title.fading {
+  opacity: 0;
+  transition: opacity 1s ease-in-out; /* Change the duration to 0.5 seconds */
 }
 
-.MMM-Starlight .starlight-image-container img {
-    max-width: 60px;
-    height: auto;
+.MMM-Starlight .starlight-image-slide-container,
+.MMM-Starlight .starlight-text-slide-container {
+  display: flex;
+  width: calc(200% + 80px); /* 200% plus 2cm (approximately 80px) */
+  transition: transform 1s ease-in-out;
 }
 
-.MMM-Starlight .starlight-slide-container {
-    display: flex;
-    width: 200%;
-    transition: transform 1s ease-in-out;
-}
-
+.MMM-Starlight .starlight-image-wrapper,
 .MMM-Starlight .starlight-text-content {
-    width: 50%;
-    flex-shrink: 0;
-    padding: 0 10px;
-    box-sizing: border-box;
+  width: calc(50% - 40px); /* 50% minus half of 2cm (40px) */
+  flex-shrink: 0;
+  margin-right: 80px; /* 2cm space (approximately 80px) */
+}
+
+.MMM-Starlight .starlight-image-wrapper {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.MMM-Starlight .starlight-image-wrapper img {
+  max-width: 60px;
+  height: auto;
 }
 
 .MMM-Starlight .starlight-text-wrapper {
-    overflow: hidden;
-    position: relative;
-    width: 100%;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
 }
 
 .MMM-Starlight .starlight-text {
-    font-size: 0.9em;
-    text-align: justify;
-    position: relative;
-    line-height: 1.4;
-    color: white;
+  font-size: 0.9em;
+  text-align: justify;
+  position: relative;
+  line-height: 1.4;
+  color: white;
 }
 
 .MMM-Starlight.starlight-error {
-    color: #ff4444;
-    font-weight: bold;
+  color: #ff4444;
+  font-weight: bold;
 }
 
 /* Ensure no text overflow */
 .MMM-Starlight * {
-    overflow-wrap: break-word;
-    word-wrap: break-word;
-    word-break: break-word;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
 }
 
 /* Ensure proper spacing between elements */
 .MMM-Starlight > * + * {
-    margin-top: 10px;
+  margin-top: 10px;
 }
 
 /* Styles for vertical scrolling */
 .MMM-Starlight .starlight-text.scrolling {
-    transition: transform linear;
+  transition: transform linear;
 }
 
 /* Media query for smaller screens */
 @media screen and (max-width: 480px) {
-    .MMM-Starlight .starlight-title {
-        font-size: 1.1em;
-    }
+  .MMM-Starlight .starlight-title {
+    font-size: 1.1em;
+  }
 
-    .MMM-Starlight .starlight-text {
-        font-size: 0.8em;
-    }
+  .MMM-Starlight .starlight-text {
+    font-size: 0.8em;
+  }
 }
 
-/* Styles for the sliding effect */
-.MMM-Starlight .starlight-text-content.current {
-    transform: translateX(0);
-}
-
-.MMM-Starlight .starlight-text-content.next {
-    transform: translateX(0);
-}
-
-.MMM-Starlight.sliding .starlight-slide-container {
-    transform: translateX(-50%);
+.MMM-Starlight .starlight-text-content:last-child {
+  margin-right: 0;
 }
