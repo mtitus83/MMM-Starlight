@@ -270,7 +270,21 @@ handleHoroscopeError: async function(error, config) {
         }
     },
 
+resetCache: async function() {
+    await this.ensureCacheDirectoryExists();
+    await fs.unlink(this.cacheFile).catch(error => {
+        if (error.code !== 'ENOENT') {
+            console.error(`Error deleting cache file:`, error);
+        }
+    });
+    this.cache = null;
+    this.sendSocketNotification("CACHE_RESET");
+},
+
 socketNotificationReceived: function(notification, payload) {
+    if (notification === "RESET_CACHE") {
+        this.resetCache();
+    }
     if (notification === "INIT") {
         console.log(`${this.name}: Received INIT notification`);
         if (payload && payload.config) {

@@ -113,6 +113,15 @@ Module.register("MMM-Starlight", {
                 this.simulateMidnightUpdate();
             });
             wrapper.appendChild(triggerButton);
+                var resetButton = document.createElement("button");
+    resetButton.innerHTML = "Reset";
+    resetButton.style.padding = "10px";
+    resetButton.style.margin = "10px";
+    resetButton.style.fontSize = "16px";
+    resetButton.addEventListener("click", () => {
+        this.sendSocketNotification("RESET_CACHE");
+    });
+    wrapper.appendChild(resetButton);
         }
 
         return wrapper;
@@ -257,6 +266,9 @@ createImageElement: function(sign, className) {
     },
 
     socketNotificationReceived: function(notification, payload) {
+        if (notification === "CACHE_RESET") {
+        this.initializeModule();
+    }
         if (notification === "HOROSCOPE_RESULT") {
             if (payload.success) {
                 Log.info(`${this.name}: Horoscope fetched successfully for ${payload.sign}, period: ${payload.period}`);
