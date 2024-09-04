@@ -6,7 +6,7 @@ MMM-Starlight is a MagicMirror² module designed to display horoscopes for speci
 
 ## 2. Module Overview
 
-The MMM-Starlight module fetches horoscope data from a web source and displays it on the MagicMirror interface. It supports multiple zodiac signs and time periods, with a rotating display that cycles through the configured options.
+The MMM-Starlight module fetches horoscope data and displays it on the MagicMirror interface. It supports multiple zodiac signs and time periods, with a rotating display that cycles through the configured options.
 
 ## 3. Architecture
 
@@ -66,7 +66,7 @@ These components communicate using the MagicMirror² module system's built-in so
 ### 5.2 Data Fetching (node_helper.js)
 
 1. Receives a request to fetch a horoscope
-2. Constructs the appropriate URL based on the zodiac sign and time period using base64 encoded URL parts for security
+2. Constructs the appropriate URL based on the zodiac sign and time period
 3. Sends an HTTP GET request to the horoscope source
 4. Parses the HTML response to extract the horoscope text
 5. Returns the result to the front-end component
@@ -109,14 +109,10 @@ The module provides several configuration options to customize its behavior:
 
 Note: `updateInterval`, `retryDelay`, `maxRetries`, and `requestTimeout` are now handled internally.
 
-## 7. Security Considerations
-
-- The module uses base64 encoded URL parts for constructing the horoscope source URL, adding a layer of obfuscation.
-
-## 8. Deprecated Features
+## 7. Deprecated Features
 
 - Yearly horoscopes have been deprecated. If a user configures the module to display yearly horoscopes, a message will be shown instead of fetching data.
 
-## 9. Conclusion
+## 8. Conclusion
 
 The MMM-Starlight module provides a flexible and robust solution for displaying horoscopes on a MagicMirror² setup. Its modular design, configurable options, and recent enhancements like the sliding animation offer an engaging user experience. The deprecation of yearly horoscopes and the internalization of certain configuration options demonstrate the module's evolution towards more consistent and maintainable functionality.
