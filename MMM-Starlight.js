@@ -1,7 +1,7 @@
 Module.register("MMM-Starlight", {
     defaults: {
         zodiacSign: ["taurus"],
-        period: ["daily", "tomorrow", "monthly", "yearly"],
+        period: ["daily", "tomorrow", "monthly"],
         signWaitTime: 120000,
         showImage: true,
         imageWidth: "50px",
@@ -196,14 +196,38 @@ createTextElement: function(sign, className, period) {
     },
 
     getHoroscope: function(sign, period) {
-        Log.info(this.name + ": Requesting horoscope update for " + sign + ", period: " + period);
-        this.sendSocketNotification("GET_HOROSCOPE", {
-            sign: sign,
-            period: period,
-            timeout: this.requestTimeout,
-            retryDelay: this.retryDelay,
-            maxRetries: this.maxRetries
-        });
+        if (period === "yearly") {
+            // Handle yearly period in the frontend
+            if (!this.horoscopes[sign]) {
+                this.horoscopes[sign] = {};
+            }
+            this.horoscopes[sign][period] = "Yearly horoscopes are no longer supported. Please update your config.";
+            
+            // Mark as loaded
+            if (!this.loadedHoroscopes[sign]) {
+                this.loadedHoroscopes[sign] = {};
+            }
+            this.loadedHoroscopes[sign][period] = true;
+            
+            // Check if all horoscopes are loaded
+            if (this.areAllHoroscopesLoaded()) {
+                this.isPreloading = false;
+                this.loaded = true;
+                this.updateDom();
+                if (!this.rotationTimer) {
+                    this.scheduleRotation();
+                }
+            }
+        } else {
+            Log.info(this.name + ": Requesting horoscope update for " + sign + ", period: " + period);
+            this.sendSocketNotification("GET_HOROSCOPE", {
+                sign: sign,
+                period: period,
+                timeout: this.requestTimeout,
+                retryDelay: this.retryDelay,
+                maxRetries: this.maxRetries
+            });
+        }
     },
 
 getNextPeriodAndSign: function() {
