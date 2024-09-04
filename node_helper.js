@@ -1,6 +1,5 @@
 var NodeHelper = require("node_helper");
 var axios = require("axios");
-var cheerio = require("cheerio");
 
 module.exports = NodeHelper.create({
     requestTimeout: 30000, // 30 seconds
@@ -20,78 +19,63 @@ module.exports = NodeHelper.create({
         });
     },
 
-getHoroscope: async function(config) {
-    console.log(`${this.name}: getHoroscope called for ${config.sign}, period: ${config.period}`);
-    
-    // Base64 encoded URL parts
-    const baseUrlEncoded = "aHR0cHM6Ly93d3cuc3Vuc2lnbnMuY29tL2hvcm9zY29wZXM=";
-    const dailyEncoded = "ZGFpbHk="; // daily
-    const tomorrowEncoded = "dG9tb3Jyb3c="; // tomorrow
-
-    // Decode base64 strings
-    const baseUrl = Buffer.from(baseUrlEncoded, 'base64').toString('ascii');
-    const daily = Buffer.from(dailyEncoded, 'base64').toString('ascii');
-    const tomorrow = Buffer.from(tomorrowEncoded, 'base64').toString('ascii');
-
-    let url;
-
-    if (config.period === "yearly") {
-        // Return the message for yearly horoscopes
-        this.sendSocketNotification("HOROSCOPE_RESULT", {
-            success: true,
-            data: "Yearly horoscopes are no longer supported. Please update your config.",
-            sign: config.sign,
-            period: config.period
-        });
-        return;
-    } else if (config.period === tomorrow) {
-        url = `${baseUrl}/${daily}/${config.sign}/${tomorrow}`;
-    } else {
-        url = `${baseUrl}/${config.period}/${config.sign}`;
-    }
-
-    console.log(this.name + ": Fetching horoscope from source");
-
-    try {
-        const response = await axios.get(url, { timeout: this.requestTimeout });
-        const $ = cheerio.load(response.data);
-        const horoscope = $('.horoscope-content p').text().trim();
+    getHoroscope: async function(config) {
+        console.log(`${this.name}: getHoroscope called for ${config.sign}, period: ${config.period}`);
         
-        if (horoscope) {
-            this.retryCount[config.sign] = 0;
-            this.sendSocketNotification("HOROSCOPE_RESULT", {
-                success: true,
-                data: horoscope,
-                sign: config.sign,
-                period: config.period
-            });
-        } else {
-            console.log(`${this.name}: No horoscope content available for ${config.sign}, period: ${config.period}`);
-            this.sendSocketNotification("HOROSCOPE_RESULT", {
-                success: false,
-                message: "Horoscope content not available",
-                sign: config.sign,
-                period: config.period
-            });
+        let url;
+        switch(config.period) {
+            case "daily":
+                url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign=${config.sign}&day=today`;
+                break;
+            case "tomorrow":
+                url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign=${config.sign}&day=tomorrow`;
+                break;
+            case "weekly":
+                url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/weekly?sign=${config.sign}`;
+                break;
+            case "monthly":
+                url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/monthly?sign=${config.sign}`;
+                break;
+            default:
+                this.sendSocketNotification("HOROSCOPE_RESULT", {
+                    success: false,
+                    message: "Invalid period specified",
+                    sign: config.sign,
+                    period: config.period
+                });
+                return;
         }
-    } catch (error) {
-        await this.handleHoroscopeError(error, config);
-    }
-},
+
+        console.log(this.name + ": Fetching horoscope from source");
+
+        try {
+            const response = await axios.get(url, { timeout: this.requestTimeout });
+            if (response.data.success) {
+                this.retryCount[config.sign] = 0;
+                this.sendSocketNotification("HOROSCOPE_RESULT", {
+                    success: true,
+                    data: response.data.data,
+                    sign: config.sign,
+                    period: config.period
+                });
+            } else {
+                throw new Error("API returned unsuccessful response");
+            }
+        } catch (error) {
+            await this.handleHoroscopeError(error, config);
+        }
+    },
 
     handleHoroscopeError: async function(error, config) {
-        if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-            console.log(`${this.name}: Horoscope not available for ${config.sign}, period: ${config.period} (Timeout)`);
-            this.sendSocketNotification("HOROSCOPE_RESULT", {
-                success: false,
-                message: "Horoscope temporarily unavailable",
-                sign: config.sign,
-                period: config.period
-            });
-            return;
+        console.error(`${this.name}: Error fetching horoscope for ${config.sign}:`, error.message);
+        
+        if (error.response) {
+            console.error(`${this.name}: API responded with status:`, error.response.status);
+            console.error(`${this.name}: API response data:`, error.response.data);
+        } else if (error.request) {
+            console.error(`${this.name}: No response received from API`);
         }
 
-        console.error(`${this.name}: Error fetching horoscope for ${config.sign}:`, error.message);
         this.retryCount[config.sign] = (this.retryCount[config.sign] || 0) + 1;
         
         if (this.retryCount[config.sign] <= this.maxRetries) {
