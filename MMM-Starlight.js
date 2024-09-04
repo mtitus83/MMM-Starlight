@@ -258,18 +258,29 @@ slideToNext: function() {
         // Prepare both current and next content before the transition
         const currentText = textSlideContainer.querySelector(".starlight-text-content.current");
         const nextText = textSlideContainer.querySelector(".starlight-text-content.next");
+        const currentImage = imageSlideContainer.querySelector(".starlight-image-wrapper.current");
+        const nextImage = imageSlideContainer.querySelector(".starlight-image-wrapper.next");
 
         // Update the next content with the current period's horoscope
         nextText.innerHTML = this.createTextElement(currentSign, "next", currentPeriod).innerHTML;
-
-        // Start the transition
+        
+        // Determine if we need to change the zodiac sign image
         const isSignChange = currentPeriod === this.config.period[0];
+        
+        if (isSignChange) {
+            // Prepare the next image only if we're changing signs
+            nextImage.innerHTML = this.createImageElement(currentSign, "next").innerHTML;
+        }
+
+        // Start the transition for text
+        textSlideContainer.style.transition = "transform 1s ease-in-out";
+        textSlideContainer.style.transform = "translateX(calc(-50% - 40px))";
+
+        // Start the transition for image only if we're changing signs
         if (isSignChange) {
             imageSlideContainer.style.transition = "transform 1s ease-in-out";
             imageSlideContainer.style.transform = "translateX(calc(-50% - 40px))";
         }
-        textSlideContainer.style.transition = "transform 1s ease-in-out";
-        textSlideContainer.style.transform = "translateX(calc(-50% - 40px))";
 
         // Add the fading class to the current title
         titleElement.classList.add('fading');
@@ -280,25 +291,25 @@ slideToNext: function() {
             // Update the title text after the transition
             titleElement.innerHTML = this.formatPeriodText(currentPeriod) + " Horoscope for " + currentSign.charAt(0).toUpperCase() + currentSign.slice(1);
 
-            if (isSignChange) {
-                imageSlideContainer.style.transition = "none";
-                imageSlideContainer.style.transform = "translateX(0)";
-
-                const currentImage = imageSlideContainer.querySelector(".starlight-image-wrapper.current");
-                const nextImage = imageSlideContainer.querySelector(".starlight-image-wrapper.next");
-
-                currentImage.innerHTML = this.createImageElement(currentSign, "current").innerHTML;
-                nextImage.innerHTML = this.createImageElement(nextSign, "next").innerHTML;
-            }
-
+            // Reset positions without transition
             textSlideContainer.style.transition = "none";
             textSlideContainer.style.transform = "translateX(0)";
 
             // Update the current text content with the now-visible next content
             currentText.innerHTML = nextText.innerHTML;
 
+            if (isSignChange) {
+                imageSlideContainer.style.transition = "none";
+                imageSlideContainer.style.transform = "translateX(0)";
+                currentImage.innerHTML = nextImage.innerHTML;
+            }
+
             // Prepare the next slide's content for the next rotation
             nextText.innerHTML = this.createTextElement(nextSign, "next", nextPeriod).innerHTML;
+            
+            if (isSignChange) {
+                nextImage.innerHTML = this.createImageElement(nextSign, "next").innerHTML;
+            }
 
             // Add initial pause before starting to scroll
             setTimeout(() => {
