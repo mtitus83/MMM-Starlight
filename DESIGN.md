@@ -22,13 +22,15 @@ These components communicate using the MagicMirror² module system's built-in so
 ### 4.1 Multiple Zodiac Signs and Time Periods
 
 - Supports all zodiac signs
-- Time periods include daily, tomorrow, weekly, monthly, and yearly horoscopes
+- Time periods include daily, tomorrow, weekly, and monthly horoscopes
 - Configurable through the `zodiacSign` and `period` options
+- Yearly horoscopes have been deprecated
 
 ### 4.2 Rotating Display
 
 - Cycles through configured zodiac signs and time periods
 - Customizable display duration for each horoscope (`signWaitTime`)
+- Implements a sliding animation for transitioning between horoscopes
 
 ### 4.3 Responsive Design
 
@@ -44,12 +46,13 @@ These components communicate using the MagicMirror² module system's built-in so
 ### 4.5 Automatic Updates
 
 - Periodically fetches new horoscope data
-- Configurable update interval
+- Update interval handled internally for consistency
 
 ### 4.6 Error Handling
 
 - Implements retry logic for failed requests
 - Displays error messages when unable to fetch horoscopes
+- Retry parameters (delay, max retries, timeout) handled internally
 
 ## 5. Detailed Functionality
 
@@ -63,10 +66,11 @@ These components communicate using the MagicMirror² module system's built-in so
 ### 5.2 Data Fetching (node_helper.js)
 
 1. Receives a request to fetch a horoscope
-2. Constructs the appropriate URL based on the zodiac sign and time period
+2. Constructs the appropriate URL based on the zodiac sign and time period using base64 encoded URL parts for security
 3. Sends an HTTP GET request to the horoscope source
 4. Parses the HTML response to extract the horoscope text
 5. Returns the result to the front-end component
+6. Handles the deprecated yearly period by returning a specific message
 
 ### 5.3 Display Logic (MMM-Starlight.js)
 
@@ -74,17 +78,18 @@ These components communicate using the MagicMirror² module system's built-in so
 2. Manages the rotation of zodiac signs and time periods
 3. Implements scrolling for long horoscope texts
 4. Updates the display when new data is received
+5. Implements a sliding animation for transitioning between horoscopes
 
 ### 5.4 Update Cycle
 
-1. The module schedules regular updates based on the `updateInterval`
+1. The module schedules regular updates based on an internally managed interval
 2. At each update, it requests new horoscope data for all configured signs and periods
 3. The display is updated with new data as it's received
 
 ### 5.5 Error Handling
 
 1. If a request fails, the module attempts to retry the request
-2. Retries are managed with a delay between attempts and a maximum number of retries
+2. Retries are managed with an internally set delay between attempts and a maximum number of retries
 3. If all retries fail, an error message is displayed in place of the horoscope
 
 ## 6. Configuration Options
@@ -92,7 +97,7 @@ These components communicate using the MagicMirror² module system's built-in so
 The module provides several configuration options to customize its behavior:
 
 - `zodiacSign`: Array of zodiac signs to display
-- `period`: Array of time periods for horoscopes
+- `period`: Array of time periods for horoscopes (excluding yearly)
 - `width`: Width of the module
 - `fontSize`: Font size for the horoscope text
 - `showImage`: Toggle for displaying zodiac sign images
@@ -102,6 +107,16 @@ The module provides several configuration options to customize its behavior:
 - `pauseDuration`: Pause duration before and after scrolling
 - `signWaitTime`: Display duration for each horoscope before rotating
 
-## 7. Conclusion
+Note: `updateInterval`, `retryDelay`, `maxRetries`, and `requestTimeout` are now handled internally.
 
-The MMM-Starlight module provides a flexible and robust solution for displaying horoscopes on a MagicMirror² setup. Its modular design and configurable options allow for easy customization and potential future expansions.
+## 7. Security Considerations
+
+- The module uses base64 encoded URL parts for constructing the horoscope source URL, adding a layer of obfuscation.
+
+## 8. Deprecated Features
+
+- Yearly horoscopes have been deprecated. If a user configures the module to display yearly horoscopes, a message will be shown instead of fetching data.
+
+## 9. Conclusion
+
+The MMM-Starlight module provides a flexible and robust solution for displaying horoscopes on a MagicMirror² setup. Its modular design, configurable options, and recent enhancements like the sliding animation offer an engaging user experience. The deprecation of yearly horoscopes and the internalization of certain configuration options demonstrate the module's evolution towards more consistent and maintainable functionality.

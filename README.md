@@ -1,4 +1,4 @@
-a# MMM-Starlight
+# MMM-Starlight
 
 A MagicMirror² module that displays horoscopes for specified zodiac signs for various time periods.
 
@@ -49,7 +49,7 @@ modules: [
 | Option           | Description                                                                                     |
 |------------------|-------------------------------------------------------------------------------------------------|
 | `zodiacSign`     | An array of zodiac signs to display. (default: `["taurus"]`)                                    |
-| `period`         | An array of periods for the horoscope. Can include "daily", "tomorrow", "weekly", "monthly", and "yearly". (default: `["daily", "tomorrow"]`) |
+| `period`         | An array of periods for the horoscope. Can include "daily", "tomorrow", "weekly", and "monthly". (default: `["daily", "tomorrow"]`) |
 | `width`          | Width of the module. (default: `"400px"`)                                                       |
 | `fontSize`       | Font size of the horoscope text. (default: `"1em"`)                                             |
 | `showImage`      | Whether to display the zodiac sign image. (default: `true`)                                     |
@@ -59,7 +59,7 @@ modules: [
 | `pauseDuration`  | Duration to pause before starting to scroll and after scrolling completes, in milliseconds. (default: `10000` // 10 seconds) |
 | `signWaitTime`   | Time to display each sign before rotating to the next, in milliseconds. (default: `120000` // 2 minutes) |
 
-Note: The options `updateInterval`, `retryDelay`, `maxRetries`, and `requestTimeout` have been removed from user configuration. These aspects are now handled internally by the module to ensure consistent behavior.
+Note: The options `updateInterval`, `retryDelay`, `maxRetries`, and `requestTimeout` have been removed from user configuration. These aspects are now handled internally by the module to ensure consistent behavior. Additionally, the "yearly" period option has been deprecated and is no longer supported. If specified in the configuration, a message will be displayed instead of the yearly horoscope.
 
 ### Ordering of Horoscopes
 
