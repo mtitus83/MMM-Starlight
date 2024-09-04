@@ -6,7 +6,7 @@ MMM-Starlight is a MagicMirror² module designed to display horoscopes for speci
 
 ## 2. Module Overview
 
-The MMM-Starlight module fetches horoscope data and displays it on the MagicMirror interface. It supports multiple zodiac signs and time periods, with a rotating display that cycles through the configured options.
+The MMM-Starlight module fetches horoscope data from a structured API and displays it on the MagicMirror interface. It supports multiple zodiac signs and time periods, with a rotating display that cycles through the configured options.
 
 ## 3. Architecture
 
@@ -24,7 +24,6 @@ These components communicate using the MagicMirror² module system's built-in so
 - Supports all zodiac signs
 - Time periods include daily, tomorrow, weekly, and monthly horoscopes
 - Configurable through the `zodiacSign` and `period` options
-- Yearly horoscopes have been deprecated
 
 ### 4.2 Rotating Display
 
@@ -67,10 +66,9 @@ These components communicate using the MagicMirror² module system's built-in so
 
 1. Receives a request to fetch a horoscope
 2. Constructs the appropriate URL based on the zodiac sign and time period
-3. Sends an HTTP GET request to the horoscope source
-4. Parses the HTML response to extract the horoscope text
+3. Sends an HTTP GET request to the horoscope API
+4. Processes the JSON response
 5. Returns the result to the front-end component
-6. Handles the deprecated yearly period by returning a specific message
 
 ### 5.3 Display Logic (MMM-Starlight.js)
 
@@ -92,12 +90,25 @@ These components communicate using the MagicMirror² module system's built-in so
 2. Retries are managed with an internally set delay between attempts and a maximum number of retries
 3. If all retries fail, an error message is displayed in place of the horoscope
 
-## 6. Configuration Options
+## 6. API Integration
+
+The module now uses a structured API for fetching horoscope data:
+
+- Base URL: `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/`
+- Endpoints:
+  - Daily: `/daily?sign=<zodiacSign>&day=today`
+  - Tomorrow: `/daily?sign=<zodiacSign>&day=tomorrow`
+  - Weekly: `/weekly?sign=<zodiacSign>`
+  - Monthly: `/monthly?sign=<zodiacSign>`
+
+The API returns JSON data, which is processed and displayed by the module.
+
+## 7. Configuration Options
 
 The module provides several configuration options to customize its behavior:
 
 - `zodiacSign`: Array of zodiac signs to display
-- `period`: Array of time periods for horoscopes (excluding yearly)
+- `period`: Array of time periods for horoscopes
 - `width`: Width of the module
 - `fontSize`: Font size for the horoscope text
 - `showImage`: Toggle for displaying zodiac sign images
@@ -109,10 +120,6 @@ The module provides several configuration options to customize its behavior:
 
 Note: `updateInterval`, `retryDelay`, `maxRetries`, and `requestTimeout` are now handled internally.
 
-## 7. Deprecated Features
-
-- Yearly horoscopes have been deprecated. If a user configures the module to display yearly horoscopes, a message will be shown instead of fetching data.
-
 ## 8. Conclusion
 
-The MMM-Starlight module provides a flexible and robust solution for displaying horoscopes on a MagicMirror² setup. Its modular design, configurable options, and recent enhancements like the sliding animation offer an engaging user experience. The deprecation of yearly horoscopes and the internalization of certain configuration options demonstrate the module's evolution towards more consistent and maintainable functionality.
+The MMM-Starlight module provides a flexible and robust solution for displaying horoscopes on a MagicMirror² setup. Its modular design, configurable options, and recent enhancements like the sliding animation offer an engaging user experience. The transition to a structured API for data fetching has improved the module's reliability and maintainability.

@@ -116,3 +116,9 @@ npm install
 ## Contributing
 
 If you find any issues or have suggestions for improvements, please open an issue or submit a pull request on the GitHub repository.
+
+## Acknowledgments
+
+- The module uses a structured API for more reliable horoscope data.
+
+Data is provided by the [Horoscope App API](https://horoscope-app-api.vercel.app/).
