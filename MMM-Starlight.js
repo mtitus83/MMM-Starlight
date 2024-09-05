@@ -1,3 +1,45 @@
+// MMM-Starlight.js
+
+const LogLevels = {
+    ERROR: 0,
+    WARN: 1,
+    INFO: 2,
+    DEBUG: 3,
+    VERBOSE: 4
+};
+
+const Logger = {
+    level: LogLevels.INFO,  // Default log level
+    moduleName: "MMM-Starlight",
+
+    setLevel: function(level) {
+        if (typeof level === 'string') {
+            level = LogLevels[level.toUpperCase()] || LogLevels.INFO;
+        }
+        this.level = level;
+    },
+
+    error: function(...args) {
+        if (this.level >= LogLevels.ERROR) console.error(`[${this.moduleName}] ERROR:`, ...args);
+    },
+
+    warn: function(...args) {
+        if (this.level >= LogLevels.WARN) console.warn(`[${this.moduleName}] WARN:`, ...args);
+    },
+
+    info: function(...args) {
+        if (this.level >= LogLevels.INFO) console.log(`[${this.moduleName}] INFO:`, ...args);
+    },
+
+    debug: function(...args) {
+        if (this.level >= LogLevels.DEBUG) console.log(`[${this.moduleName}] DEBUG:`, ...args);
+    },
+
+    verbose: function(...args) {
+        if (this.level >= LogLevels.VERBOSE) console.log(`[${this.moduleName}] VERBOSE:`, ...args);
+    }
+};
+
 Module.register("MMM-Starlight", {
     defaults: {
         zodiacSign: ["taurus"],
@@ -10,16 +52,15 @@ Module.register("MMM-Starlight", {
         maxTextHeight: "400px",
         width: "400px",
         fontSize: "1em",
-	debug: false,
-	showButton: false
+        debug: false,
+        showButton: false,
+        logLevel: LogLevels.INFO
     },
 
-    updateInterval: 60 * 60 * 1000, // 1 hour
-    isPreloading: true,
-    loadedHoroscopes: {},
-
     start: function() {
-        Log.info("Starting module: " + this.name);
+        Logger.setLevel(this.config.logLevel);
+        Logger.info("Starting module");
+        console.log("[MMM-Starlight] Starting module");
         this.horoscopes = {};
         this.loadedHoroscopes = {};
         this.cachedImages = {};
@@ -29,105 +70,174 @@ Module.register("MMM-Starlight", {
         this.isPreloading = true;
         this.isScrolling = false;
         this.debugClickCount = 0;
+        this.imageRequestQueue = new Set();
+        this.lastImageRequestTime = {};
+        console.log(`[MMM-Starlight] Configuration:`, JSON.stringify(this.config));
         this.initializeModule();
     },
 
     initializeModule: function() {
+        console.log("[MMM-Starlight] Initializing module");
         this.sendSocketNotification("INIT", { 
             config: {
                 zodiacSign: this.config.zodiacSign,
-                period: this.config.period
+                period: this.config.period,
+                debug: this.config.debug
             }
         });
-        // Request all horoscopes and images
-        this.config.zodiacSign.forEach(sign => {
-            this.config.period.forEach(period => {
-                this.getHoroscope(sign, period);
-            });
-            this.getImage(sign);
-        });
+        console.log("[MMM-Starlight] INIT notification sent");
     },
 
     getStyles: function() {
         return ["MMM-Starlight.css"];
     },
 
-    getDom: function() {
-        var wrapper = document.createElement("div");
-        wrapper.className = "MMM-Starlight";
-        wrapper.style.width = this.config.width;
-        wrapper.style.fontSize = this.config.fontSize;
+getDom: function() {
+    console.log(`[MMM-Starlight] getDom called. isPreloading: ${this.isPreloading}, loaded: ${this.loaded}`);
+    var wrapper = document.createElement("div");
+    wrapper.className = "MMM-Starlight";
+    wrapper.style.width = this.config.width;
+    wrapper.style.fontSize = this.config.fontSize;
 
-        if (this.isPreloading) {
-            wrapper.innerHTML = "Loading horoscopes from cache...";
-            return wrapper;
-        }
+    if (this.config.debug && this.config.showButton) {
+        var buttonContainer = document.createElement("div");
+        buttonContainer.className = "starlight-debug-buttons";
 
-        if (!this.loaded) {
-            wrapper.innerHTML = "Error loading horoscopes. Please check your configuration and logs.";
-            return wrapper;
-        }
+        var triggerButton = document.createElement("button");
+        triggerButton.id = "starlight-debug-button";
+        triggerButton.innerHTML = "Simulate Midnight Update";
+        triggerButton.style.padding = "5px";
+        triggerButton.style.margin = "5px";
+        triggerButton.style.fontSize = "12px";
+        triggerButton.addEventListener("click", () => {
+            console.log(`[MMM-Starlight] Midnight Update button clicked`);
+            this.debugClickCount++;
+            triggerButton.innerHTML = `Midnight Update (${this.debugClickCount})`;
+            this.simulateMidnightUpdate();
+        });
+        buttonContainer.appendChild(triggerButton);
 
-        var currentSign = this.config.zodiacSign[this.currentSignIndex];
-        var currentPeriod = this.config.period[this.currentPeriodIndex];
-        var nextPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
-        var nextSignIndex = nextPeriodIndex === 0 ? (this.currentSignIndex + 1) % this.config.zodiacSign.length : this.currentSignIndex;
-        var nextSign = this.config.zodiacSign[nextSignIndex];
-        var nextPeriod = this.config.period[nextPeriodIndex];
+        var resetButton = document.createElement("button");
+        resetButton.id = "starlight-reset-button";
+        resetButton.innerHTML = "Reset Cache";
+        resetButton.style.padding = "5px";
+        resetButton.style.margin = "5px";
+        resetButton.style.fontSize = "12px";
+        resetButton.addEventListener("click", () => {
+            console.log(`[MMM-Starlight] Reset Cache button clicked`);
+            this.resetCache();
+        });
+        buttonContainer.appendChild(resetButton);
 
-        // Title
-        var titleElement = document.createElement("div");
-        titleElement.className = "starlight-title";
-        titleElement.innerHTML = this.formatPeriodText(currentPeriod) + 
-                                 " Horoscope for " + currentSign.charAt(0).toUpperCase() + currentSign.slice(1);
-        wrapper.appendChild(titleElement);
+        wrapper.appendChild(buttonContainer);
+    }
 
-        // Image
-        if (this.config.showImage) {
-            var imageSlideContainer = document.createElement("div");
-            imageSlideContainer.className = "starlight-image-slide-container";
-            imageSlideContainer.appendChild(this.createImageElement(currentSign, "current"));
-            imageSlideContainer.appendChild(this.createImageElement(nextSign, "next"));
-            wrapper.appendChild(imageSlideContainer);
-        }
-
-        // Text content
-        var textSlideContainer = document.createElement("div");
-        textSlideContainer.className = "starlight-text-slide-container";
-        textSlideContainer.appendChild(this.createTextElement(currentSign, "current", currentPeriod));
-        textSlideContainer.appendChild(this.createTextElement(nextSign, "next", nextPeriod));
-        wrapper.appendChild(textSlideContainer);
-
-        if (this.config.debug && this.config.showButton) {
-            Log.info(`${this.name}: Creating debug button`);
-            var triggerButton = document.createElement("button");
-            triggerButton.id = "starlight-debug-button";
-            triggerButton.innerHTML = "Simulate Midnight Update";
-            triggerButton.style.padding = "10px";
-            triggerButton.style.margin = "10px";
-            triggerButton.style.fontSize = "16px";
-            triggerButton.addEventListener("click", () => {
-                Log.info(`${this.name}: Debug button clicked`);
-                this.debugClickCount++;
-                triggerButton.innerHTML = `Clicked ${this.debugClickCount} times`;
-                this.simulateMidnightUpdate();
-            });
-            wrapper.appendChild(triggerButton);
-                var resetButton = document.createElement("button");
-    resetButton.innerHTML = "Reset";
-    resetButton.style.padding = "10px";
-    resetButton.style.margin = "10px";
-    resetButton.style.fontSize = "16px";
-    resetButton.addEventListener("click", () => {
-        this.sendSocketNotification("RESET_CACHE");
-    });
-    wrapper.appendChild(resetButton);
-        }
-
+    if (this.isPreloading) {
+        wrapper.innerHTML += "Loading horoscopes...";
         return wrapper;
-    },
+    }
 
-createImageElement: function(sign, className) {
+    if (!this.loaded) {
+        wrapper.innerHTML += "Error loading horoscopes. Please check your configuration and logs.";
+        return wrapper;
+    }
+
+    var currentSign = this.config.zodiacSign[this.currentSignIndex];
+    var currentPeriod = this.config.period[this.currentPeriodIndex];
+
+    if (!this.horoscopes[currentSign] || !this.horoscopes[currentSign][currentPeriod]) {
+        wrapper.innerHTML += `Loading ${currentPeriod} horoscope for ${currentSign}...`;
+        this.getHoroscope(currentSign, currentPeriod);
+        return wrapper;
+    }
+
+    // Debug information
+    if (this.config.debug) {
+        var debugInfoElement = document.createElement("div");
+        debugInfoElement.className = "starlight-debug-info";
+        var horoscopeData = this.horoscopes[currentSign][currentPeriod];
+        if (horoscopeData.lastUpdate) {
+            debugInfoElement.innerHTML += `Last update: ${new Date(horoscopeData.lastUpdate).toLocaleString()}<br>`;
+        }
+        if (horoscopeData.nextUpdate) {
+            debugInfoElement.innerHTML += `Next update: ${new Date(horoscopeData.nextUpdate).toLocaleString()}`;
+        }
+        wrapper.appendChild(debugInfoElement);
+    }
+
+    // Title
+    var titleElement = document.createElement("div");
+    titleElement.className = "starlight-title";
+    titleElement.innerHTML = this.formatPeriodText(currentPeriod) + 
+                             " Horoscope for " + currentSign.charAt(0).toUpperCase() + currentSign.slice(1);
+    wrapper.appendChild(titleElement);
+
+    // Image
+    if (this.config.showImage) {
+        var imageSlideContainer = document.createElement("div");
+        imageSlideContainer.className = "starlight-image-slide-container";
+        imageSlideContainer.appendChild(this.createImageElement(currentSign, "current"));
+        imageSlideContainer.appendChild(this.createImageElement(this.getNextSign(), "next"));
+        wrapper.appendChild(imageSlideContainer);
+    }
+
+    // Text content
+    var textSlideContainer = document.createElement("div");
+    textSlideContainer.className = "starlight-text-slide-container";
+    textSlideContainer.appendChild(this.createTextElement(currentSign, "current", currentPeriod));
+    textSlideContainer.appendChild(this.createTextElement(this.getNextSign(), "next", this.getNextPeriod()));
+    wrapper.appendChild(textSlideContainer);
+
+    return wrapper;
+},
+
+getNextSign: function() {
+    const nextSignIndex = (this.currentSignIndex + (this.currentPeriodIndex === this.config.period.length - 1 ? 1 : 0)) % this.config.zodiacSign.length;
+    return this.config.zodiacSign[nextSignIndex];
+},
+
+
+getNextPeriod: function() {
+    const nextPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
+    return this.config.period[nextPeriodIndex];
+},
+
+createTextElement: function(sign, className, period) {
+    var textContent = document.createElement("div");
+    textContent.className = "starlight-text-content " + className;
+
+    var horoscopeWrapper = document.createElement("div");
+    horoscopeWrapper.className = "starlight-text-wrapper";
+    horoscopeWrapper.style.maxHeight = this.config.maxTextHeight;
+
+    var horoscopeTextElement = document.createElement("div");
+    horoscopeTextElement.className = "starlight-text";
+    
+    Logger.debug(`Creating text element for ${sign}, ${period}`);
+    Logger.debug(`Current horoscopes data: ${JSON.stringify(this.horoscopes)}`);
+    
+    if (this.horoscopes[sign] && this.horoscopes[sign][period]) {
+        var horoscopeData = this.horoscopes[sign][period];
+        horoscopeTextElement.innerHTML = horoscopeData.horoscope_data || "Horoscope data not available.";
+        
+        if (period === "monthly" && horoscopeData.challenging_days && horoscopeData.standout_days) {
+            horoscopeTextElement.innerHTML += `<br><br>Challenging days: ${horoscopeData.challenging_days}`;
+            horoscopeTextElement.innerHTML += `<br>Standout days: ${horoscopeData.standout_days}`;
+        }
+    } else if (this.isPreloading) {
+        horoscopeTextElement.innerHTML = "Loading " + period + " horoscope for " + sign + "...";
+    } else {
+        horoscopeTextElement.innerHTML = "Horoscope data not available. Please try resetting the cache.";
+        this.getHoroscope(sign, period);
+    }
+    
+    horoscopeWrapper.appendChild(horoscopeTextElement);
+    textContent.appendChild(horoscopeWrapper);
+
+    return textContent;
+},
+
+    createImageElement: function(sign, className) {
         var imageWrapper = document.createElement("div");
         imageWrapper.className = "starlight-image-wrapper " + className;
         var image = document.createElement("img");
@@ -149,82 +259,15 @@ createImageElement: function(sign, className) {
         return imageWrapper;
     },
 
-    createTextElement: function(sign, className, period) {
-        var textContent = document.createElement("div");
-        textContent.className = "starlight-text-content " + className;
-
-        var horoscopeWrapper = document.createElement("div");
-        horoscopeWrapper.className = "starlight-text-wrapper";
-        horoscopeWrapper.style.maxHeight = this.config.maxTextHeight;
-
-        var horoscopeTextElement = document.createElement("div");
-        horoscopeTextElement.className = "starlight-text";
-        
-        if (this.horoscopes[sign] && this.horoscopes[sign][period]) {
-            var horoscopeData = this.horoscopes[sign][period];
-            horoscopeTextElement.innerHTML = horoscopeData.horoscope_data || "Horoscope data not available.";
-            
-            if (period === "monthly" && horoscopeData.challenging_days && horoscopeData.standout_days) {
-                horoscopeTextElement.innerHTML += `<br><br>Challenging days: ${horoscopeData.challenging_days}`;
-                horoscopeTextElement.innerHTML += `<br>Standout days: ${horoscopeData.standout_days}`;
-            }
-        } else {
-            horoscopeTextElement.innerHTML = "Loading " + period + " horoscope for " + sign + " from cache...";
-            this.getHoroscope(sign, period);
-        }
-        
-        horoscopeWrapper.appendChild(horoscopeTextElement);
-        textContent.appendChild(horoscopeWrapper);
-
-        return textContent;
-    },
-
-    updateHoroscopesFromCache: function() {
-        Log.info(`${this.name}: Updating horoscopes from cache`);
-        this.config.zodiacSign.forEach(sign => {
-            this.config.period.forEach(period => {
-                this.getHoroscope(sign, period);
-            });
-        });
-    },
-
-    simulateMidnightUpdate: function() {
-        Log.info(`${this.name}: Simulating midnight update`);
-        
-        if (this.config.debug) {
-            // Simulate updating daily horoscopes with tomorrow's data
-            this.config.zodiacSign.forEach(sign => {
-                if (this.horoscopes[sign] && this.horoscopes[sign].tomorrow) {
-                    Log.info(`${this.name}: Updating daily horoscope for ${sign} with tomorrow's data`);
-                    this.horoscopes[sign].daily = this.horoscopes[sign].tomorrow;
-                    delete this.horoscopes[sign].tomorrow;
-                    Log.info(`${this.name}: New daily horoscope for ${sign}: ${JSON.stringify(this.horoscopes[sign].daily)}`);
-                } else {
-                    Log.warn(`${this.name}: No tomorrow's data available for ${sign}`);
-                }
-            });
-
-            // Trigger an update to fetch new 'tomorrow' data
-            Log.info(`${this.name}: Triggering update to fetch new 'tomorrow' data`);
-            this.updateHoroscopesFromCache();
-
-            // Force an immediate DOM update
-            Log.info(`${this.name}: Forcing immediate DOM update`);
-            this.updateDom(0);
-
-            // Reset the rotation to start from the beginning
-            Log.info(`${this.name}: Resetting rotation`);
-            clearTimeout(this.rotationTimer);
-            this.currentSignIndex = 0;
-            this.currentPeriodIndex = 0;
-            this.scheduleRotation();
-
-            // Send a notification to the node_helper
-            this.sendSocketNotification("SIMULATE_MIDNIGHT_UPDATE", {});
-        } else {
-            Log.warn(`${this.name}: Debug mode is not enabled. Cannot simulate midnight update.`);
-        }
-    },
+resetCache: function() {
+    Log.info(`${this.name}: Resetting cache`);
+    this.sendSocketNotification("RESET_CACHE");
+    this.horoscopes = {};
+    this.loadedHoroscopes = {};
+    this.isPreloading = true;
+    this.loaded = false;
+    this.updateDom();
+},
 
     formatPeriodText: function(period) {
         if (period === "tomorrow") {
@@ -233,108 +276,105 @@ createImageElement: function(sign, className) {
         return period.charAt(0).toUpperCase() + period.slice(1);
     },
 
-    getHoroscope: function(sign, period) {
-        Log.info(`${this.name}: Requesting horoscope update for ${sign}, period: ${period}`);
-        this.sendSocketNotification("GET_HOROSCOPE", {
-            sign: sign,
-            period: period
-        });
-    },
+getHoroscope: function(sign, period) {
+    console.log(`[MMM-Starlight] Requesting horoscope for ${sign}, period: ${period}`);
+    this.sendSocketNotification("GET_HOROSCOPE", {
+        sign: sign,
+        period: period
+    });
+},
 
     getImage: function(sign) {
-        this.sendSocketNotification("GET_IMAGE", { sign: sign });
-    },
-
-    scheduleUpdate: function(delay) {
-        var nextLoad = this.updateInterval;
-        if (typeof delay !== "undefined" && delay >= 0) {
-            nextLoad = delay;
+        const now = Date.now();
+        const lastRequest = this.lastImageRequestTime[sign] || 0;
+        if (now - lastRequest < 60000) {  // Debounce for 1 minute
+            Logger.debug(`Skipping image request for ${sign}, too soon`);
+            return;
         }
-    
-        var self = this;
-        clearTimeout(this.updateTimer);
-        this.updateTimer = setTimeout(function() {
-            self.isPreloading = true;
-            self.initializeModule();
-        }, nextLoad);
-    },
-
-    notificationReceived: function(notification, payload, sender) {
-        if (notification === "DOM_OBJECTS_CREATED") {
-            Log.info(`${this.name}: DOM objects created, module is ready`);
+        
+        if (!this.imageRequestQueue.has(sign)) {
+            this.imageRequestQueue.add(sign);
+            this.lastImageRequestTime[sign] = now;
+            this.sendSocketNotification("GET_IMAGE", { sign: sign });
+        } else {
+            Logger.debug(`Image request for ${sign} already queued`);
         }
     },
 
-    socketNotificationReceived: function(notification, payload) {
-        if (notification === "CACHE_RESET") {
-        this.initializeModule();
-    }
-        if (notification === "HOROSCOPE_RESULT") {
-            if (payload.success) {
-                Log.info(`${this.name}: Horoscope fetched successfully for ${payload.sign}, period: ${payload.period}`);
-                if (!this.horoscopes[payload.sign]) {
-                    this.horoscopes[payload.sign] = {};
-                }
-                this.horoscopes[payload.sign][payload.period] = payload.data;
-                Log.info(`${this.name}: Updated horoscope for ${payload.sign}, ${payload.period}: ${JSON.stringify(payload.data)}`);
-                
-                if (!this.loadedHoroscopes[payload.sign]) {
-                    this.loadedHoroscopes[payload.sign] = {};
-                }
-                this.loadedHoroscopes[payload.sign][payload.period] = true;
-                
-                if (this.areAllHoroscopesLoaded()) {
-                    Log.info(`${this.name}: All horoscopes loaded`);
-                    this.isPreloading = false;
-                    this.loaded = true;
-                    this.updateDom(0);
-                    if (!this.rotationTimer) {
-                        Log.info(`${this.name}: Scheduling initial rotation`);
-                        this.scheduleRotation();
-                    }
-                }
-            } else {
-            Log.error(this.name + ": " + payload.message);
+socketNotificationReceived: function(notification, payload) {
+    Logger.debug(`Socket notification received: ${notification}`);
+    console.log(`[MMM-Starlight] Socket notification received: ${notification}`);
+    if (notification === "HOROSCOPE_RESULT") {
+        if (payload.success) {
+            console.log(`[MMM-Starlight] Horoscope fetched successfully for ${payload.sign}, period: ${payload.period}`);
             if (!this.horoscopes[payload.sign]) {
                 this.horoscopes[payload.sign] = {};
             }
-            this.horoscopes[payload.sign][payload.period] = {
-                horoscope_data: "Unable to fetch " + payload.period + " horoscope for " + payload.sign + ". Error: " + (payload.error || "Unknown error")
-            };
+            this.horoscopes[payload.sign][payload.period] = payload.data;
             
             if (!this.loadedHoroscopes[payload.sign]) {
                 this.loadedHoroscopes[payload.sign] = {};
             }
             this.loadedHoroscopes[payload.sign][payload.period] = true;
+            
+            if (this.areAllHoroscopesLoaded()) {
+                console.log(`[MMM-Starlight] All horoscopes loaded`);
+                this.isPreloading = false;
+                this.loaded = true;
+                if (!this.rotationTimer) {
+                    console.log(`[MMM-Starlight] Scheduling initial rotation`);
+                    this.scheduleRotation();
+                }
+            }
+        } else {
+            console.error(`[MMM-Starlight] ${payload.message}`);
+            if (!this.horoscopes[payload.sign]) {
+                this.horoscopes[payload.sign] = {};
+            }
+            this.horoscopes[payload.sign][payload.period] = {
+                horoscope_data: `Unable to fetch ${payload.period} horoscope for ${payload.sign}. Error: ${payload.error || "Unknown error"}`
+            };
         }
         this.updateDom();
-    } else if (notification === "IMAGE_RESULT") {
-        if (payload.success) {
-            Log.info(this.name + ": Image fetched successfully for " + payload.sign);
-            this.cachedImages[payload.sign] = payload.imagePath;
-            this.updateDom();
-        } else {
-            Log.error(this.name + ": " + payload.message);
-            this.cachedImages[payload.sign] = "modules/MMM-Starlight/error.png"; // Use an error image
-        }
     } else if (notification === "CACHE_INITIALIZED") {
-        Log.info(this.name + ": Cache initialized");
+        console.log("[MMM-Starlight] Cache initialized");
         this.isPreloading = false;
         this.loaded = true;
+        // Request initial horoscopes
+        this.config.zodiacSign.forEach(sign => {
+            this.config.period.forEach(period => {
+                this.getHoroscope(sign, period);
+            });
+        });
         this.updateDom();
-        this.scheduleRotation();
-    } else if (notification === "DAILY_HOROSCOPES_UPDATED") {
-        Log.info(this.name + ": Daily horoscopes updated");
-        this.updateHoroscopesFromCache();
-    } else if (notification === "MIDNIGHT_UPDATE_SIMULATED") {
-        Log.info(`${this.name}: Midnight update simulation completed`);
-        this.updateHoroscopesFromCache();
-        this.updateDom(0);
-        this.scheduleRotation();
+    } else if (notification === "IMAGE_RESULT") {
+        this.imageRequestQueue.delete(payload.sign);
+        console.log(`[MMM-Starlight] Image result received for ${payload.sign}`);
+        if (payload.success) {
+            this.cachedImages[payload.sign] = payload.imagePath;
+        } else {
+            console.error(`[MMM-Starlight] Error fetching image for ${payload.sign}: ${payload.message}`);
+        }
+        this.updateDom();
+    } else if (notification === "CACHE_RESET_COMPLETE") {
+        Log.info(`Cache reset complete: ${payload.success ? "Success" : "Failed"}`);
+        if (payload.success) {
+            this.isPreloading = false;
+            this.loaded = true;
+            // Request fresh data for all signs and periods
+            this.config.zodiacSign.forEach(sign => {
+                this.config.period.forEach(period => {
+                    this.getHoroscope(sign, period);
+                });
+            });
+        } else {
+            Log.error(`Cache reset failed: ${payload.message}`);
+        }
+        this.updateDom();
     }
 },
 
-areAllHoroscopesLoaded: function() {
+    areAllHoroscopesLoaded: function() {
         return this.config.zodiacSign.every(sign => 
             this.config.period.every(period => 
                 this.loadedHoroscopes[sign] && this.loadedHoroscopes[sign][period]
@@ -448,7 +488,8 @@ areAllHoroscopesLoaded: function() {
             var textContent = document.querySelector(".MMM-Starlight .starlight-text");
 
             if (textWrapper && textContent) {
-                var wrapperHeight = textWrapper.offsetHeight;
+                var wrapperHeight = textWrapper.offsetHeight
+var wrapperHeight = textWrapper.offsetHeight;
                 var contentHeight = textContent.scrollHeight;
 
                 if (contentHeight > wrapperHeight) {
@@ -475,6 +516,59 @@ areAllHoroscopesLoaded: function() {
                 }
             }
         }, self.config.pauseDuration);
-    }
+    },
 
+    simulateMidnightUpdate: function() {
+        Log.info(`${this.name}: Simulating midnight update`);
+        
+        if (this.config.debug) {
+            // Simulate updating daily horoscopes with tomorrow's data
+            this.config.zodiacSign.forEach(sign => {
+                if (this.horoscopes[sign] && this.horoscopes[sign].tomorrow) {
+                    Log.info(`${this.name}: Updating daily horoscope for ${sign} with tomorrow's data`);
+                    this.horoscopes[sign].daily = this.horoscopes[sign].tomorrow;
+                    delete this.horoscopes[sign].tomorrow;
+                    Log.info(`${this.name}: New daily horoscope for ${sign}: ${JSON.stringify(this.horoscopes[sign].daily)}`);
+                } else {
+                    Log.warn(`${this.name}: No tomorrow's data available for ${sign}`);
+                }
+            });
+
+            // Trigger an update to fetch new 'tomorrow' data
+            Log.info(`${this.name}: Triggering update to fetch new 'tomorrow' data`);
+            this.config.zodiacSign.forEach(sign => {
+                this.getHoroscope(sign, 'tomorrow');
+            });
+
+            // Force an immediate DOM update
+            Log.info(`${this.name}: Forcing immediate DOM update`);
+            this.updateDom(0);
+
+            // Reset the rotation to start from the beginning
+            Log.info(`${this.name}: Resetting rotation`);
+            clearTimeout(this.rotationTimer);
+            this.currentSignIndex = 0;
+            this.currentPeriodIndex = 0;
+            this.scheduleRotation();
+
+            // Send a notification to the node_helper
+            this.sendSocketNotification("SIMULATE_MIDNIGHT_UPDATE", {});
+        } else {
+            Log.warn(`${this.name}: Debug mode is not enabled. Cannot simulate midnight update.`);
+        }
+    },
+
+    notificationReceived: function(notification, payload, sender) {
+        console.log(`[MMM-Starlight] Notification received: ${notification}`);
+        if (notification === "DOM_OBJECTS_CREATED") {
+            console.log("[MMM-Starlight] DOM objects created, module is ready");
+            // You might want to trigger an initial update here
+            this.updateDom();
+        }
+        if (notification === "ALL_MODULES_STARTED") {
+            console.log("[MMM-Starlight] All modules started");
+            // Another potential place to trigger an initial update
+            this.updateDom();
+        }
+    }
 });
