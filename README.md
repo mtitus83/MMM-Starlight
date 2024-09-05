@@ -12,6 +12,13 @@ Please make sure to update your config's module name to `MMM-Starlight` to maint
 
 **IMPORTANT**: This MagicMirror² module was created by an AI assistant and is not officially supported or maintained by a human developer. Use at your own risk. While efforts have been made to ensure its functionality, there may be unforeseen issues or limitations. If you encounter any problems, feel free to contribute to its improvement, but please note that there is no official support channel for this module.
 
+## Recent Updates
+
+- **Optimized API Requests**: The module now intelligently manages API calls, significantly reducing the number of requests while ensuring up-to-date information.
+- **Enhanced Logging**: Improved logging for better troubleshooting and monitoring of module activities.
+- **Local Time-Based Updates**: Horoscope updates now align with the user's local time.
+- **Improved Caching**: Enhanced caching mechanism for better offline functionality and reduced API dependency.
+
 ## Installation
 
 1. Navigate to your MagicMirror's `modules` folder:
@@ -128,6 +135,8 @@ npm install
 ## Contributing
 
 If you find any issues or have suggestions for improvements, please open an issue or submit a pull request on the GitHub repository.
+
+Please review the DESIGN.md file for detailed information on recent changes and the module's architecture.
 
 ## Acknowledgments
 
