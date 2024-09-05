@@ -254,26 +254,43 @@ performUpdateChecks: async function(sign, period) {
     performCheck();
 },
 
-    attemptUpdate: async function(sign, period) {
-        try {
-            this.log(`Fetching ${period} horoscope for ${sign} from API`);
-            const data = await this.getHoroscope({ sign, period });
-            const cache = await this.loadCache();
-            if (!cache[sign]) {
-                cache[sign] = {};
-            }
-            cache[sign][period] = {
-                ...data,
-                timestamp: new Date().toISOString()
-            };
-            await this.saveCache(cache);
-            this.log(`Cache updated for ${sign} ${period} horoscope at ${new Date().toLocaleString()}`);
-            return true;
-        } catch (error) {
-            console.error(`Error updating horoscope for ${sign}, ${period} at ${new Date().toLocaleString()}:`, error);
-            return false;
+attemptUpdate: async function(sign, period) {
+    try {
+        Logger.debug(`Attempting to update ${period} horoscope for ${sign} at ${new Date().toISOString()}`);
+        const data = await this.getHoroscope({ sign, period });
+        const cache = await this.loadCache();
+        if (!cache[sign]) {
+            cache[sign] = {};
         }
-    },
+        
+        // Log a summary of the new data
+        Logger.debug(`New data summary for ${sign} (${period}): ${JSON.stringify(data).substring(0, 100)}...`);
+        
+        // Compare with old data if it exists
+        if (cache[sign][period]) {
+            const oldData = cache[sign][period];
+            Logger.debug(`Old data summary for ${sign} (${period}): ${JSON.stringify(oldData).substring(0, 100)}...`);
+            if (JSON.stringify(data) === JSON.stringify(oldData)) {
+                Logger.info(`No change in ${period} horoscope for ${sign}`);
+            } else {
+                Logger.info(`${period} horoscope for ${sign} has been updated`);
+            }
+        } else {
+            Logger.info(`First time fetching ${period} horoscope for ${sign}`);
+        }
+
+        cache[sign][period] = {
+            ...data,
+            timestamp: new Date().toISOString()
+        };
+        await this.saveCache(cache);
+        Logger.info(`Cache updated for ${sign} ${period} horoscope at ${new Date().toLocaleString()}`);
+        return true;
+    } catch (error) {
+        Logger.error(`Error updating horoscope for ${sign}, ${period} at ${new Date().toLocaleString()}:`, error);
+        return false;
+    }
+},
 
 randomDelay: function(endTime) {
     const MAX_DELAY = 2147483647; // Maximum value for setTimeout (about 24.8 days)
@@ -335,17 +352,21 @@ startUpdateTicker: function() {
 
 checkForUpdates: async function() {
     const now = new Date();
+    Logger.debug(`Checking for updates at ${now.toLocaleString()}`);
     try {
         const cache = await this.loadCache();
         for (const sign of this.config.zodiacSign) {
             for (const period of this.config.period) {
                 if (cache[sign] && cache[sign][period] && new Date(cache[sign][period].nextUpdate) <= now) {
+                    Logger.info(`Update due for ${sign} ${period} horoscope`);
                     await this.scheduleUpdate(sign, period);
+                } else {
+                    Logger.debug(`No update needed for ${sign} ${period} horoscope`);
                 }
             }
         }
     } catch (error) {
-        console.error("Error in checkForUpdates:", error);
+        Logger.error("Error in checkForUpdates:", error);
     }
 },
 
@@ -509,33 +530,40 @@ getCachedHoroscope: async function(config) {
         }
     },
 
-    simulateMidnightUpdate: async function() {
-        this.log("Updating daily horoscopes with tomorrow's data");
-        const cache = await this.loadCache();
+simulateMidnightUpdate: async function() {
+    Logger.info("Starting simulated midnight update");
+    const cache = await this.loadCache();
 
-        for (const sign in cache) {
-            if (cache[sign].daily && cache[sign].tomorrow) {
-                cache[sign].daily = cache[sign].tomorrow;
-                delete cache[sign].tomorrow;
-                this.log(`Updated daily horoscope for ${sign}`);
-                
-                // Fetch new data for tomorrow
-                try {
-                    const newTomorrowData = await this.getHoroscope({ sign: sign, period: "tomorrow" });
-                    cache[sign].tomorrow = {
-                        ...newTomorrowData,
-                        timestamp: new Date().toISOString()
-                    };
-		    this.log(`Fetched new tomorrow's data for ${sign}`);
-                } catch (error) {
-                    console.error(`Error fetching new tomorrow's horoscope for ${sign}:`, error);
-                }
+    for (const sign in cache) {
+        if (cache[sign].daily && cache[sign].tomorrow) {
+            Logger.debug(`Updating daily horoscope for ${sign} with tomorrow's data`);
+            Logger.debug(`Old daily data: ${JSON.stringify(cache[sign].daily).substring(0, 100)}...`);
+            Logger.debug(`New daily data (from tomorrow): ${JSON.stringify(cache[sign].tomorrow).substring(0, 100)}...`);
+            
+            cache[sign].daily = cache[sign].tomorrow;
+            delete cache[sign].tomorrow;
+            Logger.info(`Updated daily horoscope for ${sign}`);
+            
+            // Fetch new data for tomorrow
+            try {
+                Logger.debug(`Fetching new tomorrow's data for ${sign}`);
+                const newTomorrowData = await this.getHoroscope({ sign: sign, period: "tomorrow" });
+                cache[sign].tomorrow = {
+                    ...newTomorrowData,
+                    timestamp: new Date().toISOString()
+                };
+                Logger.info(`Fetched new tomorrow's data for ${sign}`);
+                Logger.debug(`New tomorrow's data summary: ${JSON.stringify(newTomorrowData).substring(0, 100)}...`);
+            } catch (error) {
+                Logger.error(`Error fetching new tomorrow's horoscope for ${sign}:`, error);
             }
         }
+    }
 
-        await this.saveCache(cache);
-        this.sendSocketNotification("MIDNIGHT_UPDATE_SIMULATED");
-    },
+    await this.saveCache(cache);
+    Logger.info("Simulated midnight update completed");
+    this.sendSocketNotification("MIDNIGHT_UPDATE_SIMULATED");
+},
 
 resetCache: async function() {
     this.log("Resetting cache");
