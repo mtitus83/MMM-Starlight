@@ -58,6 +58,8 @@ modules: [
 | `scrollSpeed`    | Speed of the vertical scrolling in pixels per second. (default: `7`)                            |
 | `pauseDuration`  | Duration to pause before starting to scroll and after scrolling completes, in milliseconds. (default: `10000` // 10 seconds) |
 | `signWaitTime`   | Time to display each sign before rotating to the next, in milliseconds. (default: `120000` // 2 minutes) |
+| `debug`          | Enable debug mode for additional functionality. (default: `false`)                              |
+| `showButton`     | Show debug buttons when in debug mode. (default: `false`)                                       |
 
 Note: The options `updateInterval`, `retryDelay`, `maxRetries`, and `requestTimeout` have been removed from user configuration. These aspects are now handled internally by the module to ensure consistent behavior. Additionally, the "yearly" period option has been deprecated and is no longer supported. If specified in the configuration, a message will be displayed instead of the yearly horoscope.
 
@@ -98,10 +100,20 @@ Then it will cycle back to Aries daily and repeat the sequence.
         maxTextHeight: "300px",
         scrollSpeed: 8,
         pauseDuration: 5000, // 5 seconds pause before and after scrolling
-        signWaitTime: 180000 // 3 minutes
+        signWaitTime: 180000, // 3 minutes
+        debug: true,
+        showButton: true
     }
 }
 ```
+
+## Caching Mechanism
+
+MMM-Starlight uses a local caching system to store horoscope data. The module checks the cache before making API requests, using cached data when it's still valid. This reduces API calls, improves loading times, and allows the module to work offline with previously fetched data. The cache automatically updates at midnight and when data expires.
+
+## Debug Mode
+
+When `debug` and `showButton` are set to `true` in the configuration, the module displays additional buttons for testing purposes. These buttons allow you to simulate rollovers for tomorrow, weekly, and monthly horoscopes, as well as reset the cache. This functionality is useful for testing the module's behavior under different scenarios without waiting for actual time to pass or manually changing the system clock.
 
 ## Updating
 
