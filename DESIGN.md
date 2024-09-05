@@ -58,6 +58,8 @@ These components communicate using the MagicMirror² module system's built-in so
 - Configurable debug mode for testing and development
 - Simulated rollover functionality for different time periods
 - Cache reset capability for refreshing all horoscope data
+- Display of last update and next scheduled update times
+- Repositioned debug elements for improved visibility and usability
 
 ### 4.8 Caching System
 
@@ -90,6 +92,10 @@ These components communicate using the MagicMirror² module system's built-in so
 3. Implements scrolling for long horoscope texts
 4. Updates the display when new data is received
 5. Implements a sliding animation for transitioning between horoscopes
+6. In debug mode:
+   - Displays debug buttons at the top of the module
+   - Shows last update and next scheduled update times between debug buttons and horoscope title
+   - Removes duplicate update information from between image and horoscope text
 
 ### 5.4 Update Cycle
 
@@ -105,12 +111,15 @@ These components communicate using the MagicMirror² module system's built-in so
 
 ### 5.6 Debug Functionality
 
-1. When debug mode is enabled, additional buttons are displayed on the module interface
-2. Rollover simulation buttons trigger the following actions:
-   - Tomorrow: Replaces the current day's horoscope with tomorrow's, and fetches a new "tomorrow" horoscope
-   - Weekly: Clears the current weekly horoscope and fetches a new one
-   - Monthly: Clears the current monthly horoscope and fetches a new one
-3. Cache reset button clears all stored horoscope data and initiates a fresh fetch for all configured signs and periods
+1. When debug mode is enabled, additional elements are displayed on the module interface:
+   - Debug buttons are positioned at the top of the module
+   - Last update and next scheduled update times are displayed between the debug buttons and the horoscope title
+2. Debug buttons trigger the following actions:
+   - Simulate Midnight Update: Replaces the current day's horoscope with tomorrow's, and fetches a new "tomorrow" horoscope
+   - Reset Cache: Clears all stored horoscope data and initiates a fresh fetch for all configured signs and periods
+3. The last update time shows when the horoscope data was last fetched from the API
+4. The next scheduled update time indicates when the module will attempt to fetch new data for the current horoscope
+5. These debug elements aid in development and testing by providing visibility into the module's data fetching and update processes
 
 ### 5.7 Rollover Simulation
 

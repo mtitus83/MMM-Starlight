@@ -107,9 +107,9 @@ Then it will cycle back to Aries daily and repeat the sequence.
 }
 ```
 
-## Caching Mechanism
+## Data Fetching and Caching
 
-MMM-Starlight uses a local caching system to store horoscope data. The module checks the cache before making API requests, using cached data when it's still valid. This reduces API calls, improves loading times, and allows the module to work offline with previously fetched data. The cache automatically updates at midnight and when data expires.
+MMM-Starlight uses a structured API to fetch horoscope data, ensuring reliable and consistent information. The module implements an intelligent caching system that stores horoscope data locally. This caching mechanism reduces the number of API calls, improves loading times, and allows the module to function offline with previously fetched data. The cache is automatically updated at midnight and when data expires, ensuring that you always have the most recent horoscopes available.
 
 ## Debug Mode
 
