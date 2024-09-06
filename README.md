@@ -1,4 +1,8 @@
+<p align="center">
+  <img src="https://github.com/mtitus83/MMM-Starlight/blob/devel/assets/starlight-icon-docs.png" alt="Starlight Icon" width="240" height="240">
+</p>
 # MMM-Starlight
+
 
 A MagicMirror² module that displays horoscopes for specified zodiac signs for various time periods.
 
