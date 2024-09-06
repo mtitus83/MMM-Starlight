@@ -320,6 +320,7 @@ module.exports = NodeHelper.create({
         this.sendSocketNotification("MIDNIGHT_UPDATE_SIMULATED");
     },
 
+
     async resetCache() {
         console.log("Resetting cache");
         try {
@@ -351,26 +352,30 @@ class HoroscopeCache {
         await this.loadFromFile();
     }
 
-    async loadFromFile() {
-        try {
-            const data = await fs.readFile(this.cacheFile, 'utf8');
-            this.memoryCache = JSON.parse(data);
-            console.log("Cache loaded successfully from file");
-            return this.memoryCache;
-        } catch (error) {
-            if (error.code === 'ENOENT') {
-                console.log("Cache file does not exist, creating a new one");
-                this.memoryCache = {};
-                await this.saveToFile();
-            } else {
-                console.error("Error reading cache file:", error);
-            }
-            return this.memoryCache;
+async loadFromFile() {
+    try {
+        const data = await fs.readFile(this.cacheFile, 'utf8');
+        this.memoryCache = JSON.parse(data);
+        console.log("Cache loaded successfully from file");
+        return this.memoryCache;
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            console.log("Cache file does not exist, creating a new one");
+            this.memoryCache = {};
+            await this.saveToFile();  // This will create the file
+        } else {
+            console.error("Error reading cache file:", error);
         }
+        return this.memoryCache;
     }
+}
 
     async saveToFile() {
         try {
+            // Ensure the directory exists before writing the file
+            const dir = path.dirname(this.cacheFile);
+            await fs.mkdir(dir, { recursive: true });
+
             await fs.writeFile(this.cacheFile, JSON.stringify(this.memoryCache, null, 2));
             console.log("Cache saved successfully to file");
         } catch (error) {
