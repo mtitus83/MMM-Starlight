@@ -1,4 +1,4 @@
-<p align="left">
+<p align="center">
   <img src="https://github.com/mtitus83/MMM-Starlight/blob/devel/assets/starlight-icon-docs.png" alt="Starlight Icon" width="240" height="240">
 </p>
 
