@@ -1,8 +1,3 @@
-<p align="center">
-  <img src="https://github.com/mtitus83/MMM-Starlight/blob/devel/assets/starlight-icon-docs.png" alt="Starlight Icon" width="240" height="240">
-</p>
-
-
 # MMM-Starlight Design Document
 
 ## 1. Introduction
@@ -232,131 +227,36 @@ These components communicate using the MagicMirror² module system's built-in so
      2. If not found, downloads and saves the image
      3. Returns the file path for use in the frontend
 
-### 5.9 Update Scheduling and API Request Optimization
+### 5.9 Performance Optimizations
 
-1. **Local Time-Based Updates**
-   - Updates are now scheduled based on the user's local time.
-   - The module starts checking for updates at 6 AM local time each day.
+1. **Lazy Loading**
+   - Horoscopes are fetched on-demand when invalid or missing
+   - Prevents unnecessary API calls for unused configurations
 
-2. **Hourly Check Window**
-   - After 6 AM, the module checks for updates once per hour.
-   - A random minute within each hour is selected for the check to distribute API requests.
+2. **Batch Updates**
+   - `updateCache()` method refreshes all configured horoscopes in one go
+   - Reduces the number of write operations to the cache file
 
-3. **Update Status Tracking**
-   - The module tracks the update status for daily, weekly, and monthly horoscopes separately.
-   - Once an update is successful for a particular period, no further checks are made for that period until the next day.
+3. **Memory Management**
+   - Cache object kept in memory for quick access
+   - Periodically written to file to balance memory usage and persistence
 
-4. **Efficient API Usage**
-   - API requests are only made when necessary, based on the last update time and the current period.
-   - This significantly reduces the number of API calls while ensuring data freshness.
+### 5.10 Error Handling and Resilience
 
-5. **Implementation Details**
-   - The `scheduleUpdates()` function in node_helper.js manages the update schedule.
-   - The `performUpdates()` function handles the actual update process, respecting the update status for each period.
-
-```javascript
-scheduleUpdates() {
-    const scheduleNextCheck = () => {
-        const now = moment();
-        const nextHour = moment(now).add(1, 'hour').startOf('hour');
-        const randomMinute = Math.floor(Math.random() * 60);
-        const nextCheck = moment(nextHour).add(randomMinute, 'minutes');
-        
-        const msUntilNextCheck = nextCheck.diff(now);
-        
-        setTimeout(() => {
-            this.performUpdates();
-            scheduleNextCheck(); // Schedule next check
-        }, msUntilNextCheck);
-    };
-
-    // Initial schedule
-    const now = moment();
-    const today6AM = moment(now).startOf('day').add(6, 'hours');
-    if (now.isBefore(today6AM)) {
-        const msUntil6AM = today6AM.diff(now);
-        setTimeout(() => {
-            this.performUpdates();
-            scheduleNextCheck();
-        }, msUntil6AM);
-    } else {
-        scheduleNextCheck();
-    }
-}
-
-async performUpdates() {
-    const now = moment();
-    const signs = ['taurus', 'virgo', 'libra'];
-
-    if (now.hour() >= 6) { // Only perform updates after 6 AM local time
-        for (const type of this.updateTypes) {
-            if (!this.updateStatus[type] && this.shouldCheckUpdate(type)) {
-                for (const sign of signs) {
-                    if (await this.checkAndUpdateHoroscope(sign, type)) {
-                        if (type === 'daily') {
-                            this.updateStatus.daily = true;
-                        } else {
-                            this.updateStatus[type] = true;
-                            break; // Exit the sign loop for weekly/monthly as they're the same for all signs
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
+1. **API Failure Handling**
+   - Implemented in `handleHoroscopeError()` method
+   - Retry logic with exponential backoff:
+     ```javascript
+     if (this.retryCount[config.sign] <= this.maxRetries) {
+       await new Promise(resolve => setTimeout(resolve, this.retryDelay));
+       return await this.getHoroscope(config);
+     }
 ```
 
-### 5.10 Enhanced Logging
-
-1. **Structured Logging**
-   - Implemented a more structured logging system using a custom Logger class.
-   - Log levels include ERROR, WARN, INFO, DEBUG, and VERBOSE.
-
-2. **Configurable Log Level**
-   - The log level can be set in the module configuration, allowing for fine-tuned control over log output.
-
-3. **Contextual Logging**
-   - Logs now include more context, such as the specific function or process that generated the log.
-
-4. **Performance Impact Considerations**
-   - Lower log levels (e.g., INFO) are used for production to minimize performance impact.
-   - Higher log levels (e.g., DEBUG, VERBOSE) are available for troubleshooting.
-
-5. **Implementation Details**
-   - The Logger class is defined at the beginning of both MMM-Starlight.js and node_helper.js.
-   - Logger methods are used throughout the code instead of console.log for consistent logging.
-
-```javascript
-const Logger = {
-    level: LogLevels.INFO,  // Default log level
-    moduleName: "MMM-Starlight",
-
-    setLevel: function(level) {
-        this.level = level;
-    },
-
-    error: function(...args) {
-        if (this.level >= LogLevels.ERROR) console.error(`[${this.moduleName}] ERROR:`, ...args);
-    },
-
-    warn: function(...args) {
-        if (this.level >= LogLevels.WARN) console.warn(`[${this.moduleName}] WARN:`, ...args);
-    },
-
-    info: function(...args) {
-        if (this.level >= LogLevels.INFO) console.log(`[${this.moduleName}] INFO:`, ...args);
-    },
-
-    debug: function(...args) {
-        if (this.level >= LogLevels.DEBUG) console.log(`[${this.moduleName}] DEBUG:`, ...args);
-    },
-
-    verbose: function(...args) {
-        if (this.level >= LogLevels.VERBOSE) console.log(`[${this.moduleName}] VERBOSE:`, ...args);
-    }
-};
-```
+2. **Cache Read/Write Error Handling**
+   - File operation errors are caught and logged
+   - Module falls back to in-memory cache on file errors
+   - Ensures continued operation even if file system issues occur
 
 ## 6. API Integration
 
@@ -387,42 +287,80 @@ The module provides several configuration options to customize its behavior:
 - `signWaitTime`: Display duration for each horoscope before rotating
 - `debug`: Enable debug mode for additional functionality
 - `showButton`: Show debug buttons when in debug mode
-- `logLevel`: Sets the logging level for the module. Options are "ERROR", "WARN", "INFO", "DEBUG", "VERBOSE". (default: "INFO")
 
 Note: `updateInterval`, `retryDelay`, `maxRetries`, and `requestTimeout` are now handled internally.
 
 ## 8. Performance Considerations
 
-### 8.1 API Request Optimization
+### 8.1 Caching Impact
 
-- Reduced number of API calls due to intelligent update scheduling.
-- Lower server load and bandwidth usage.
-- Improved module responsiveness due to fewer network requests.
+- Reduces network requests, minimizing API rate limit concerns
+- Improves module responsiveness, especially on slower internet connections
+- Provides seamless operation during temporary internet outages
 
-### 8.2 Caching Efficiency
-
-- Enhanced caching mechanism reduces the need for frequent API calls.
-- Improved offline functionality and faster data retrieval.
-
-### 8.3 Memory Usage
+### 8.2 Memory Usage
 
 - The cache is kept in memory for quick access
 - Large configurations (many signs/periods) may increase memory usage
 - The cache file size should be monitored in long-running installations
 
-### 8.4 DOM Updates
+### 8.3 DOM Updates
 
 - The module uses efficient DOM manipulation techniques
 - Updates are batched where possible to reduce layout thrashing
+
+## 9. Future Enhancements
+
+1. **Cache Compression**
+   - Implement data compression for the cache file to reduce disk usage
+   - Consider using a library like `zlib` for gzip compression
+
+2. **Incremental Updates**
+   - Implement a system to update only changed horoscopes instead of the entire cache
+
+3. **Cache Versioning**
+   - Add a version number to the cache structure
+   - Implement migration logic for seamless updates
+
+4. **Distributed Caching**
+   - For multi-device setups, explore distributed caching solutions
+
+5. **Cache Analytics**
+   - Implement logging of cache hit/miss rates
+   - Provide user-facing cache performance statistics
+
+6. **Advanced Error Recovery**
+   - Implement more sophisticated error recovery strategies
+   - Consider adding a "degraded mode" for partial functionality during API outages
+
+7. **Customizable Themes**
+   - Allow users to customize the look and feel of the module
+   - Implement theme switching capabilities
+
+8. **Localization**
+   - Add support for multiple languages
+   - Allow customization of date formats based on locale
+
+## 10. Testing Strategy
+
+1. **Unit Tests**
+   - Implement unit tests for core functions, especially caching and API integration
+   - Use a testing framework like Jest or Mocha
+
+2. **Integration Tests**
+   - Test the interaction between the front-end and back-end components
+   - Ensure proper communication via socket notifications
+
+3. **End-to-End Tests**
+   - Simulate real-world usage scenarios
+   - Test the module's behavior over extended periods
+
+4. **Performance Testing**
+   - Monitor memory usage and response times under various configurations
+   - Stress test with large amounts of data and frequent updates
 
 ## 11. Conclusion
 
 The MMM-Starlight module provides a flexible and robust solution for displaying horoscopes on a MagicMirror² setup. Its modular design, configurable options, and advanced features like caching and debug mode offer an engaging and reliable user experience. The transition to a structured API for data fetching, combined with the local caching system, has significantly improved the module's performance and reliability.
 
-Recent optimizations in update scheduling and API request management have further enhanced the module's efficiency. By aligning updates with local time and implementing intelligent check windows, the module now operates more efficiently while ensuring data freshness. The enhanced logging system provides better visibility into the module's operations, aiding in both development and troubleshooting.
-
-These improvements not only reduce unnecessary API calls but also enhance the module's responsiveness and reliability. The new update mechanism, combined with the existing caching system, strikes a balance between providing up-to-date information and minimizing resource usage.
-
 As the module evolves, focus should be placed on maintaining its efficiency, expanding its feature set, and ensuring its adaptability to various user needs and network conditions. Regular reviews of the caching mechanism, error handling strategies, and overall performance will be crucial in keeping the module up-to-date and user-friendly.
-
-Future development efforts should prioritize the enhancements outlined in this document, with particular emphasis on further optimizing performance, expanding features, and improving user experience. Continuous refinement of the update scheduling, caching mechanisms, and logging systems will be key to keeping MMM-Starlight efficient, reliable, and user-friendly.

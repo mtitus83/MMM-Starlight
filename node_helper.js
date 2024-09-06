@@ -13,6 +13,7 @@ module.exports = NodeHelper.create({
         this.config = null;
         this.updateStatus = {
             daily: false,
+            tomorrow: false,
             weekly: false,
             monthly: false
         };
@@ -27,9 +28,6 @@ module.exports = NodeHelper.create({
                 break;
             case "GET_HOROSCOPE":
                 this.handleGetHoroscope(payload);
-                break;
-            case "GET_IMAGE":
-                this.handleGetImage(payload);
                 break;
             case "SIMULATE_MIDNIGHT_UPDATE":
                 this.simulateMidnightUpdate();
@@ -56,13 +54,7 @@ module.exports = NodeHelper.create({
         console.log(`${this.name}: Initializing cache for all configured zodiac signs and periods`);
         try {
             await this.cache.initialize();
-            for (const sign of this.config.zodiacSign) {
-                for (const period of [...this.config.period, "tomorrow"]) {
-                    console.log(`${this.name}: Scheduling update for ${sign}, ${period}`);
-                    await this.scheduleUpdate(sign, period);
-                }
-            }
-            this.startUpdateTicker();
+            this.scheduleUpdates();
             console.log(`${this.name}: Cache initialization completed`);
             this.sendSocketNotification("CACHE_INITIALIZED");
         } catch (error) {
@@ -74,6 +66,101 @@ module.exports = NodeHelper.create({
             });
         }
     },
+
+    scheduleUpdates() {
+        this.scheduleMidnightUpdate();
+        this.schedule6AMUpdate();
+        this.scheduleHourlyChecks();
+    },
+
+    scheduleMidnightUpdate() {
+        const now = moment();
+        const midnight = moment(now).add(1, 'day').startOf('day');
+        const msUntilMidnight = midnight.diff(now);
+
+        setTimeout(() => {
+            this.performMidnightUpdate();
+            this.scheduleMidnightUpdate(); // Reschedule for the next day
+        }, msUntilMidnight);
+    },
+
+    async performMidnightUpdate() {
+        console.log("Performing midnight update");
+        for (const sign of this.config.zodiacSign) {
+            const tomorrowData = this.cache.get(sign, "tomorrow");
+            if (tomorrowData) {
+                this.cache.set(sign, "daily", tomorrowData);
+                this.cache.set(sign, "tomorrow", null); // Clear tomorrow's data
+            }
+            // Fetch new data for tomorrow
+            await this.fetchAndUpdateCache(sign, "tomorrow");
+        }
+        this.updateStatus.daily = false;
+        this.updateStatus.tomorrow = false;
+        await this.cache.saveToFile();
+    },
+
+    schedule6AMUpdate() {
+        const now = moment();
+        const sixAM = moment(now).startOf('day').add(6, 'hours');
+        if (now.isAfter(sixAM)) {
+            sixAM.add(1, 'day');
+        }
+        const msUntil6AM = sixAM.diff(now);
+
+        setTimeout(() => {
+            this.perform6AMUpdate();
+            this.schedule6AMUpdate(); // Reschedule for the next day
+        }, msUntil6AM);
+    },
+
+    async perform6AMUpdate() {
+        console.log("Performing 6 AM update");
+        for (const sign of this.config.zodiacSign) {
+            await this.checkAndUpdateHoroscope(sign, "daily");
+            await this.checkAndUpdateHoroscope(sign, "tomorrow");
+            
+            if (moment().day() === 1) { // Monday
+                await this.checkAndUpdateHoroscope(sign, "weekly");
+            }
+            
+            if (moment().date() === 1) {
+                await this.checkAndUpdateHoroscope(sign, "monthly");
+            }
+        }
+    },
+
+    scheduleHourlyChecks() {
+        setInterval(async () => {
+            await this.performHourlyCheck();
+        }, 3600000); // Check every hour
+    },
+
+async performHourlyCheck() {
+    console.log("Performing hourly check");
+    const now = moment();
+    
+    // Only check 'tomorrow' horoscope after 6 AM
+    if (now.hour() >= 6 && !this.updateStatus.tomorrow) {
+        for (const sign of this.config.zodiacSign) {
+            await this.checkAndUpdateHoroscope(sign, "tomorrow");
+        }
+    }
+    
+    // Check weekly on Mondays
+    if (now.day() === 1) { // Monday
+        for (const sign of this.config.zodiacSign) {
+            await this.checkAndUpdateHoroscope(sign, "weekly");
+        }
+    }
+    
+    // Check monthly on the 1st of the month
+    if (now.date() === 1) {
+        for (const sign of this.config.zodiacSign) {
+            await this.checkAndUpdateHoroscope(sign, "monthly");
+        }
+    }
+},
 
     handleGetHoroscope: function(payload) {
         this.getCachedHoroscope(payload)
@@ -97,15 +184,6 @@ module.exports = NodeHelper.create({
             });
     },
 
-    handleGetImage: function(payload) {
-        const imagePath = `modules/${this.name}/assets/${payload.sign.toLowerCase()}.png`;
-        this.sendSocketNotification("IMAGE_RESULT", {
-            success: true,
-            imagePath: imagePath,
-            sign: payload.sign
-        });
-    },
-
     async getCachedHoroscope(config) {
         const cachedData = this.cache.get(config.sign, config.period);
         
@@ -118,40 +196,66 @@ module.exports = NodeHelper.create({
         return this.fetchAndUpdateCache(config.sign, config.period);
     },
 
-    shouldUpdate(cachedData, period) {
-        if (!cachedData || !cachedData.timestamp) return true;
+shouldUpdate(cachedData, period) {
+    if (!cachedData || !cachedData.lastUpdate) return true;
+    if (period === "daily") return false; // Daily is always up to date due to midnight swap
 
-        const now = moment();
-        const cacheTime = moment(cachedData.timestamp);
+    const now = moment();
+    const lastUpdate = moment(cachedData.lastUpdate);
+    const nextUpdate = cachedData.nextUpdate ? moment(cachedData.nextUpdate) : null;
 
+    if (nextUpdate) {
+        return now.isAfter(nextUpdate);
+    } else {
+        // If no nextUpdate, use period-specific logic
         switch(period) {
-            case "daily":
             case "tomorrow":
-                return !now.isSame(cacheTime, 'day');
+                return now.hour() >= 6 && now.isAfter(lastUpdate, 'day');
             case "weekly":
-                return now.diff(cacheTime, 'weeks') >= 1;
+                return now.isAfter(lastUpdate, 'week') && now.day() === 1; // Monday
             case "monthly":
-                return !now.isSame(cacheTime, 'month');
+                return now.isAfter(lastUpdate, 'month') && now.date() === 1;
             default:
                 return true;
         }
-    },
+    }
+},
 
-    async fetchAndUpdateCache(sign, period) {
-        try {
-            const data = await this.fetchFromAPI(sign, period);
-            this.cache.set(sign, period, {
-                ...data,
-                timestamp: new Date().toISOString()
-            });
-            await this.cache.saveToFile();
-            console.log(`Updated ${period} horoscope for ${sign}`);
-            return data;
-        } catch (error) {
-            console.error(`Error fetching ${period} horoscope for ${sign}:`, error);
-            throw error;
+async fetchAndUpdateCache(sign, period) {
+    try {
+        const data = await this.fetchFromAPI(sign, period);
+        const now = moment();
+        let nextUpdate;
+        switch(period) {
+            case "daily":
+                // Daily doesn't need a next update time because it's swapped at midnight
+                nextUpdate = null;
+                break;
+            case "tomorrow":
+                // Next update for tomorrow's horoscope is at 6 AM today or tomorrow if it's past 6 AM
+                nextUpdate = now.hour() < 6 ? now.clone().set({hour: 6, minute: 0, second: 0, millisecond: 0}) 
+                                            : now.clone().add(1, 'day').set({hour: 6, minute: 0, second: 0, millisecond: 0});
+                break;
+            case "weekly":
+                nextUpdate = now.clone().add(1, 'week').startOf('isoWeek'); // Next Monday
+                break;
+            case "monthly":
+                nextUpdate = now.clone().add(1, 'month').startOf('month'); // First day of next month
+                break;
         }
-    },
+        this.cache.set(sign, period, {
+            ...data,
+            lastUpdate: now.toISOString(),
+            nextUpdate: nextUpdate ? nextUpdate.toISOString() : null
+        });
+        await this.cache.saveToFile();
+        console.log(`Updated ${period} horoscope for ${sign}`);
+        return this.cache.get(sign, period);
+    } catch (error) {
+        console.error(`Error fetching ${period} horoscope for ${sign}:`, error);
+        throw error;
+    }
+},
 
     async fetchFromAPI(sign, period) {
         let url;
@@ -192,134 +296,28 @@ module.exports = NodeHelper.create({
         }
     },
 
-    getZodiacImageUrl: function(sign) {
-        const capitalizedSign = sign.charAt(0).toUpperCase() + sign.slice(1);
-        let zodiacSign = capitalizedSign;
-        if (zodiacSign === "Capricorn") zodiacSign = "Capricornus";
-        if (zodiacSign === "Scorpio") zodiacSign = "Scorpius";
-        const svgFileName = `${zodiacSign}_symbol_(outline).svg`;
-        const encodedFileName = encodeURIComponent(svgFileName);
-        return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodedFileName}?width=240`;
-    },
-
-    async getCachedImage(sign) {
-        const imageCacheDir = path.join(__dirname, 'cache', 'images');
-        const imagePath = path.join(imageCacheDir, `${sign}.png`);
-        try {
-            await fs.access(imagePath);
-            console.log(`Using cached image for ${sign}`);
-            return `modules/${this.name}/cache/images/${sign}.png`;  // Return relative path
-        } catch (error) {
-            console.log(`No cached image found for ${sign}. Downloading...`);
-            return await this.downloadAndCacheImage(sign);
-        }
-    },
-
-    async downloadAndCacheImage(sign) {
-        const imageUrl = this.getZodiacImageUrl(sign);
-        const imageCacheDir = path.join(__dirname, 'cache', 'images');
-        const imagePath = path.join(imageCacheDir, `${sign}.png`);
-
-        try {
-            const response = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 30000 });
-            await fs.mkdir(imageCacheDir, { recursive: true });
-            await fs.writeFile(imagePath, response.data);
-            console.log(`Image for ${sign} downloaded and cached`);
-            return `modules/${this.name}/cache/images/${sign}.png`;  // Return relative path
-        } catch (error) {
-            console.error(`Error downloading image for ${sign}:`, error);
-            throw error;
-        }
-    },
-
-    startUpdateTicker: function() {
-        setInterval(async () => {
+    async checkAndUpdateHoroscope(sign, period) {
+        const cachedData = this.cache.get(sign, period);
+        if (!cachedData || this.shouldUpdate(cachedData, period)) {
             try {
-                await this.checkForUpdates();
-            } catch (error) {
-                console.error("Error in update ticker:", error);
-            }
-        }, 3600000); // Check every hour
-    },
-
-    async checkForUpdates() {
-        const now = moment();
-        console.log(`Checking for updates at ${now.format()}`);
-        try {
-            for (const sign of this.config.zodiacSign) {
-                for (const period of this.config.period) {
-                    const cachedData = this.cache.get(sign, period);
-                    if (!cachedData || this.shouldUpdate(cachedData, period)) {
-                        console.log(`Update due for ${sign} ${period} horoscope`);
-                        await this.scheduleUpdate(sign, period);
-                    } else {
-                        console.log(`No update needed for ${sign} ${period} horoscope`);
-                    }
+                await this.fetchAndUpdateCache(sign, period);
+                if (period === "daily" || period === "tomorrow") {
+                    this.updateStatus[period] = true;
                 }
+                return true;
+            } catch (error) {
+                console.error(`Error updating ${period} horoscope for ${sign}:`, error);
+                return false;
             }
-        } catch (error) {
-            console.error("Error in checkForUpdates:", error);
         }
-    },
-
-    async scheduleUpdate(sign, period) {
-        console.log(`Scheduling update for ${sign} ${period} horoscope`);
-        const now = moment();
-        const sixAM = moment().set({hour: 6, minute: 0, second: 0, millisecond: 0});
-        
-        if (now.isBefore(sixAM)) {
-            const delay = sixAM.diff(now);
-            setTimeout(() => this.performUpdate(sign, period), delay);
-        } else {
-            this.performUpdate(sign, period);
-        }
-    },
-
-    async performUpdate(sign, period) {
-        if (this.updateStatus[period]) return;
-
-        try {
-            console.log(`Performing update for ${sign} ${period} horoscope`);
-            await this.fetchAndUpdateCache(sign, period);
-            this.updateStatus[period] = true;
-        } catch (error) {
-            console.error(`Error updating ${period} horoscope for ${sign}:`, error);
-        }
-
-        // Schedule next check in an hour
-        setTimeout(() => {
-            this.updateStatus[period] = false;
-            this.performUpdate(sign, period);
-        }, 3600000);
+        return false;
     },
 
     async simulateMidnightUpdate() {
-        console.log("Updating daily horoscopes with tomorrow's data");
-        const cache = await this.cache.loadFromFile();
-
-        for (const sign in cache) {
-            if (cache[sign].daily && cache[sign].tomorrow) {
-                console.log(`Updated daily horoscope for ${sign}`);
-                cache[sign].daily = cache[sign].tomorrow;
-                delete cache[sign].tomorrow;
-                
-                try {
-                    const newTomorrowData = await this.fetchFromAPI(sign, "tomorrow");
-                    cache[sign].tomorrow = {
-                        ...newTomorrowData,
-                        timestamp: new Date().toISOString()
-                    };
-                    console.log(`Fetched new tomorrow's data for ${sign}`);
-                } catch (error) {
-                    console.error(`Error fetching new tomorrow's horoscope for ${sign}:`, error);
-                }
-            }
-        }
-
-        await this.cache.saveToFile(cache);
+        console.log("Simulating midnight update");
+        await this.performMidnightUpdate();
         this.sendSocketNotification("MIDNIGHT_UPDATE_SIMULATED");
     },
-
 
     async resetCache() {
         console.log("Resetting cache");
@@ -352,23 +350,23 @@ class HoroscopeCache {
         await this.loadFromFile();
     }
 
-async loadFromFile() {
-    try {
-        const data = await fs.readFile(this.cacheFile, 'utf8');
-        this.memoryCache = JSON.parse(data);
-        console.log("Cache loaded successfully from file");
-        return this.memoryCache;
-    } catch (error) {
-        if (error.code === 'ENOENT') {
-            console.log("Cache file does not exist, creating a new one");
-            this.memoryCache = {};
-            await this.saveToFile();  // This will create the file
-        } else {
-            console.error("Error reading cache file:", error);
+    async loadFromFile() {
+        try {
+            const data = await fs.readFile(this.cacheFile, 'utf8');
+            this.memoryCache = JSON.parse(data);
+            console.log("Cache loaded successfully from file");
+            return this.memoryCache;
+        } catch (error) {
+            if (error.code === 'ENOENT') {
+                console.log("Cache file does not exist, creating a new one");
+                this.memoryCache = {};
+                await this.saveToFile();  // This will create the file
+            } else {
+                console.error("Error reading cache file:", error);
+            }
+            return this.memoryCache;
         }
-        return this.memoryCache;
     }
-}
 
     async saveToFile() {
         try {
