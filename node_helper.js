@@ -38,6 +38,30 @@ module.exports = NodeHelper.create({
         }
     },
 
+fetchHoroscope: async function (period, zodiacSign) {
+  try {
+    // Ensure the period is valid (e.g., "daily" or "tomorrow")
+    const validPeriods = ["daily", "tomorrow"];
+    if (!validPeriods.includes(period)) {
+      throw new Error(`Invalid period: ${period}`);
+    }
+
+    const requestUrl = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign=${zodiacSign}&day=${period}`;
+    console.log("[MMM-Starlight] Requesting URL:", requestUrl);
+
+    const response = await axios.get(requestUrl);
+    const data = response.data;
+
+    // Log the fetched data
+    console.log("[MMM-Starlight] Fetched horoscope data:", JSON.stringify(data, null, 2));
+
+    return data;
+  } catch (error) {
+    console.error("[MMM-Starlight] Error fetching horoscope data for " + zodiacSign + ": ", error);
+    return null;
+  }
+},
+
     handleInit: function(payload) {
         if (payload && payload.config) {
             this.config = payload.config;
@@ -313,31 +337,90 @@ async fetchAndUpdateCache(sign, period) {
         return false;
     },
 
-    async simulateMidnightUpdate() {
-        console.log("Simulating midnight update");
-        await this.performMidnightUpdate();
-        this.sendSocketNotification("MIDNIGHT_UPDATE_SIMULATED");
-    },
+simulateMidnightUpdate: async function () {
+  try {
+    console.log("[MMM-Starlight] Simulating midnight update...");
 
-    async resetCache() {
-        console.log("Resetting cache");
-        try {
-            await this.cache.clear();
-            await this.initializeCache();
-            console.log("Cache reset and data refreshed");
-            this.sendSocketNotification("CACHE_RESET_COMPLETE", {
-                success: true,
-                message: "Cache reset and data refreshed"
-            });
-        } catch (error) {
-            console.error("Error resetting cache:", error);
-            this.sendSocketNotification("CACHE_RESET_COMPLETE", {
-                success: false,
-                message: "Error resetting cache",
-                error: error.toString()
-            });
+    // Get the current date and log it
+    const currentDate = moment().format("MMM D, YYYY");
+    console.log("[MMM-Starlight] Current Date:", currentDate);
+
+    // Loop through each zodiac sign in the cache
+    for (const zodiacSign in this.cache.memoryCache) {
+      const tomorrowData = this.cache.memoryCache[zodiacSign]?.["tomorrow"];
+      
+      if (tomorrowData) {
+        console.log(`[MMM-Starlight] Found 'tomorrow' data for ${zodiacSign}. Moving it to 'daily'.`);
+
+        // Move tomorrow data to daily
+        this.cache.memoryCache[zodiacSign]["daily"] = this.cache.memoryCache[zodiacSign]["tomorrow"];
+        delete this.cache.memoryCache[zodiacSign]["tomorrow"];
+
+        // Fetch new tomorrow data
+        console.log(`[MMM-Starlight] Fetching new 'tomorrow' horoscope for ${zodiacSign}...`);
+        const fetchedData = await this.fetchHoroscope("tomorrow", zodiacSign);
+
+        // Save new tomorrow data if it exists
+        if (fetchedData) {
+          this.cache.memoryCache[zodiacSign]["tomorrow"] = fetchedData;
+          console.log(`[MMM-Starlight] Saved new 'tomorrow' data for ${zodiacSign}.`);
+        } else {
+          console.error(`[MMM-Starlight] Failed to fetch new 'tomorrow' data for ${zodiacSign}.`);
         }
+
+        // Save the updated cache
+        await this.cache.saveToFile();
+        console.log("[MMM-Starlight] Cache updated successfully after midnight update.");
+      } else {
+        console.log(`[MMM-Starlight] No 'tomorrow' data found for ${zodiacSign}. Skipping.`);
+      }
     }
+
+    console.log("[MMM-Starlight] Midnight update completed.");
+  } catch (error) {
+    console.error("[MMM-Starlight] Error during midnight simulation:", error);
+  }
+},
+
+resetCache: async function () {
+  try {
+    console.log("[MMM-Starlight] Resetting cache...");
+
+    // Clear the in-memory cache
+    this.cache.memoryCache = {};
+
+    // Re-fetch fresh data for all zodiac signs
+    const zodiacSigns = ["taurus", "virgo", "libra", /* add other signs */];
+    for (const sign of zodiacSigns) {
+      console.log(`[MMM-Starlight] Fetching horoscope data for ${sign}...`);
+
+      const dailyData = await this.fetchHoroscope("daily", sign);
+      const tomorrowData = await this.fetchHoroscope("tomorrow", sign);
+
+      // Ensure the zodiac sign object exists in memoryCache before setting properties
+      if (!this.cache.memoryCache[sign]) {
+        this.cache.memoryCache[sign] = {};  // Initialize the object if it doesn't exist
+      }
+
+      // Store daily and tomorrow data
+      if (dailyData) {
+        this.cache.memoryCache[sign].daily = dailyData;
+      }
+      if (tomorrowData) {
+        this.cache.memoryCache[sign].tomorrow = tomorrowData;
+      }
+
+      console.log(`[MMM-Starlight] Fetched and stored data for ${sign}.`);
+    }
+
+    // Save the reset cache to file
+    await this.cache.saveToFile();
+    console.log("[MMM-Starlight] Cache reset and saved successfully.");
+  } catch (error) {
+    console.error("[MMM-Starlight] Error during cache reset:", error);
+  }
+},
+
 });
 
 class HoroscopeCache {
@@ -394,4 +477,25 @@ class HoroscopeCache {
         this.memoryCache = {};
         await this.saveToFile();
     }
+
+async reset() {
+  try {
+    // Remove the cache file if it exists
+    await fs.unlink(this.cacheFile);  // Correct reference to this.cacheFile
+    console.log("Cache file deleted successfully.");
+
+    // Clear in-memory cache
+    this.memoryCache = {};
+
+    // Recreate the cache file
+    await this.saveToFile();
+    console.log("Cache reset and recreated successfully.");
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      console.log("Cache file does not exist, nothing to reset.");
+    } else {
+      console.error("Error resetting cache file:", error);
+    }
+  }
+}
 }
