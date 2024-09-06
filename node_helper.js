@@ -98,23 +98,12 @@ module.exports = NodeHelper.create({
     },
 
     handleGetImage: function(payload) {
-        this.getCachedImage(payload.sign)
-            .then(imagePath => {
-                this.sendSocketNotification("IMAGE_RESULT", {
-                    success: true,
-                    imagePath: imagePath,
-                    sign: payload.sign
-                });
-            })
-            .catch(error => {
-                console.error(`[${this.name}] Error in getCachedImage:`, error);
-                this.sendSocketNotification("IMAGE_RESULT", {
-                    success: false,
-                    message: "An error occurred while fetching the image.",
-                    sign: payload.sign,
-                    error: error.toString()
-                });
-            });
+        const imagePath = `modules/${this.name}/assets/${payload.sign.toLowerCase()}.png`;
+        this.sendSocketNotification("IMAGE_RESULT", {
+            success: true,
+            imagePath: imagePath,
+            sign: payload.sign
+        });
     },
 
     async getCachedHoroscope(config) {

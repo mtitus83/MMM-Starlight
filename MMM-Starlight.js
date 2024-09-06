@@ -140,18 +140,15 @@ Module.register("MMM-Starlight", {
         imageWrapper.className = "starlight-image-wrapper " + className;
         var image = document.createElement("img");
         
-        if (this.cachedImages[sign]) {
-            image.src = this.cachedImages[sign];
-        } else {
-            this.getImage(sign);
-            image.src = "modules/MMM-Starlight/loading.gif";
-        }
+        // Update this part to use PNG files from the assets directory
+        // and make the filename case-insensitive
+        image.src = this.file(`assets/${sign.toLowerCase()}.png`);
         
         image.alt = sign + " zodiac sign";
         image.style.width = this.config.imageWidth;
         image.onerror = function() {
             console.error("Failed to load image for", sign);
-            this.src = "modules/MMM-Starlight/error.png";
+            this.src = "modules/MMM-Starlight/assets/error.png";
         };
         imageWrapper.appendChild(image);
         return imageWrapper;
