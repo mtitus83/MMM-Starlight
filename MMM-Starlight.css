@@ -120,7 +120,7 @@
 }
 
 .MMM-Starlight .starlight-image {
-  max-width: 50%;
+  max-width: 25%;  /* Changed from 50% to 25% to make it even smaller */
   height: auto;
   opacity: 1;
   transition: opacity 1s ease-in-out;
@@ -161,7 +161,7 @@
 }
 
 .MMM-Starlight .starlight-centered-content .starlight-image {
-  max-width: 100%;
+  max-width: 25%;  /* Changed from 100% to 25% to match the main image size */
   height: auto;
   margin-top: 10px;
 }
