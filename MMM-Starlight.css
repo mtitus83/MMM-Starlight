@@ -48,7 +48,7 @@
 }
 
 .MMM-Starlight .starlight-zodiac-icon {
-  max-width: 60px;
+  max-width: 30px;
   height: auto;
   display: block;
   margin: 0 auto;
@@ -120,7 +120,7 @@
 }
 
 .MMM-Starlight .starlight-image {
-  max-width: 100%;
+  max-width: 50%;
   height: auto;
   opacity: 1;
   transition: opacity 1s ease-in-out;
@@ -129,8 +129,8 @@
 }
 
 .MMM-Starlight .starlight-icon {
-  width: 60px;
-  height: 60px;
+  width: 30px;
+  height: 30px;
   display: inline-block;
   margin: 5px;
 }
