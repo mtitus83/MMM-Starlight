@@ -120,7 +120,7 @@
 }
 
 .MMM-Starlight .starlight-image {
-  max-width: 25%;  /* Changed from 50% to 25% to make it even smaller */
+  max-width: 25%;
   height: auto;
   opacity: 1;
   transition: opacity 1s ease-in-out;
@@ -161,17 +161,23 @@
 }
 
 .MMM-Starlight .starlight-centered-content .starlight-image {
-  max-width: 25%;  /* Changed from 100% to 25% to match the main image size */
+  max-width: 25%;
   height: auto;
   margin-top: 10px;
 }
 
 .MMM-Starlight .starlight-reading-text {
   font-size: 1.2em;
-  font-weight: bold;
+  font-weight: normal;
   margin-bottom: 10px;
   text-align: center;
   color: #FFD700;
+}
+
+.MMM-Starlight .animated-dots {
+  display: inline-block;
+  width: 20px;
+  text-align: left;
 }
 
 .MMM-Starlight .animated-dots::after {

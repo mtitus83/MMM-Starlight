@@ -178,20 +178,17 @@ createTextElement: function(sign, className, period) {
     if (this.horoscopes[sign] && this.horoscopes[sign][period]) {
         var horoscopeData = this.horoscopes[sign][period];
         
-        // Check if it's tomorrow's horoscope and if it's the same as today's
         if (period === "tomorrow" && 
             this.horoscopes[sign]["daily"] && 
             horoscopeData.horoscope_data === this.horoscopes[sign]["daily"].horoscope_data) {
             
             horoscopeWrapper.className += " starlight-centered-content";
 
-            // Add the "Reading the stars..." text with animated dots
             var readingStarsText = document.createElement("div");
             readingStarsText.className = "starlight-reading-text";
             readingStarsText.innerHTML = 'Reading the stars<span class="animated-dots"></span>';
             horoscopeWrapper.appendChild(readingStarsText);
             
-            // Create an image element with the correct path
             var imageElement = document.createElement("img");
             imageElement.src = this.file("assets/starlight-icon-transparent.png");
             imageElement.alt = "Reading the Stars";
@@ -199,7 +196,7 @@ createTextElement: function(sign, className, period) {
             
             imageElement.onerror = function() {
                 console.error("Failed to load image: " + this.src);
-                this.style.display = 'none'; // Hide the image if it fails to load
+                this.style.display = 'none';
             };
             
             horoscopeWrapper.appendChild(imageElement);
