@@ -140,24 +140,24 @@ getStyles: function() {
         return imageSlideContainer;
     },
 
-    createImageElement: function(sign, className) {
-        var imageWrapper = document.createElement("div");
-        imageWrapper.className = "starlight-image-wrapper " + className;
-        var image = document.createElement("img");
-        
-        // Update this part to use PNG files from the assets directory
-        // and make the filename case-insensitive
-        image.src = this.file(`assets/${sign.toLowerCase()}.png`);
-        
-        image.alt = sign + " zodiac sign";
-        image.style.width = this.config.imageWidth;
-        image.onerror = function() {
-            console.error("Failed to load image for", sign);
-            this.src = "modules/MMM-Starlight/assets/error.png";
-        };
-        imageWrapper.appendChild(image);
-        return imageWrapper;
-    },
+createImageElement: function(sign, className) {
+    var imageWrapper = document.createElement("div");
+    imageWrapper.className = "starlight-image-wrapper " + className;
+    var image = document.createElement("img");
+    
+    // Use PNG files from the assets directory
+    image.src = this.file(`assets/${sign.toLowerCase()}.png`);
+    
+    image.alt = sign + " zodiac sign";
+    image.className = "starlight-zodiac-icon";
+    image.style.width = this.config.imageWidth;
+    image.onerror = function() {
+        console.error("Failed to load image for", sign);
+        this.src = "modules/MMM-Starlight/assets/error.png";
+    };
+    imageWrapper.appendChild(image);
+    return imageWrapper;
+},
 
     createTextSlideContainer: function(currentSign, currentPeriod) {
         var textSlideContainer = document.createElement("div");

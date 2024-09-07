@@ -48,9 +48,11 @@
   margin-bottom: 10px;
 }
 
-.MMM-Starlight .starlight-image-wrapper img {
+.MMM-Starlight .starlight-zodiac-icon {
   max-width: 60px;
   height: auto;
+  display: block;
+  margin: 0 auto;
 }
 
 .MMM-Starlight .starlight-text-wrapper {
@@ -166,4 +168,8 @@
 
 .MMM-Starlight .starlight-centered-content .starlight-fallback-text {
   margin-top: 10px;
+}
+
+.MMM-Starlight .starlight-centered-content .starlight-zodiac-icon {
+  display: none;
 }
