@@ -335,49 +335,50 @@ async fetchAndUpdateCache(sign, period) {
     },
 
 simulateMidnightUpdate: async function () {
-  try {
-    console.log("[MMM-Starlight] Simulating midnight update...");
+     try {
+       console.log("[MMM-Starlight] Simulating midnight update...");
 
-    // Get the current date and log it
-    const currentDate = moment().format("MMM D, YYYY");
-    console.log("[MMM-Starlight] Current Date:", currentDate);
+       // Get the current date and log it
+       const currentDate = moment().format("MMM D, YYYY");
+       console.log("[MMM-Starlight] Current Date:", currentDate);
 
-    // Loop through each zodiac sign in the cache
-    for (const zodiacSign in this.cache.memoryCache) {
-      const tomorrowData = this.cache.memoryCache[zodiacSign]?.["tomorrow"];
-      
-      if (tomorrowData) {
-        console.log(`[MMM-Starlight] Found 'tomorrow' data for ${zodiacSign}. Moving it to 'daily'.`);
+       // Loop through each zodiac sign in the cache
+       for (const zodiacSign in this.cache.memoryCache) {
+         const tomorrowData = this.cache.memoryCache[zodiacSign]?.["tomorrow"];
+         
+         if (tomorrowData) {
+           console.log(`[MMM-Starlight] Found 'tomorrow' data for ${zodiacSign}. Moving it to 'daily'.`);
 
-        // Move tomorrow data to daily
-        this.cache.memoryCache[zodiacSign]["daily"] = this.cache.memoryCache[zodiacSign]["tomorrow"];
-        delete this.cache.memoryCache[zodiacSign]["tomorrow"];
+           // Move tomorrow data to daily
+           this.cache.memoryCache[zodiacSign]["daily"] = this.cache.memoryCache[zodiacSign]["tomorrow"];
+           delete this.cache.memoryCache[zodiacSign]["tomorrow"];
 
-        // Fetch new tomorrow data
-        console.log(`[MMM-Starlight] Fetching new 'tomorrow' horoscope for ${zodiacSign}...`);
-        const fetchedData = await this.fetchHoroscope("tomorrow", zodiacSign);
+           // Fetch new tomorrow data
+           console.log(`[MMM-Starlight] Fetching new 'tomorrow' horoscope for ${zodiacSign}...`);
+           const fetchedData = await this.fetchHoroscope("tomorrow", zodiacSign);
 
-        // Save new tomorrow data if it exists
-        if (fetchedData) {
-          this.cache.memoryCache[zodiacSign]["tomorrow"] = fetchedData;
-          console.log(`[MMM-Starlight] Saved new 'tomorrow' data for ${zodiacSign}.`);
-        } else {
-          console.error(`[MMM-Starlight] Failed to fetch new 'tomorrow' data for ${zodiacSign}.`);
-        }
+           // Save new tomorrow data if it exists
+           if (fetchedData) {
+             this.cache.memoryCache[zodiacSign]["tomorrow"] = fetchedData;
+             console.log(`[MMM-Starlight] Saved new 'tomorrow' data for ${zodiacSign}.`);
+           } else {
+             console.error(`[MMM-Starlight] Failed to fetch new 'tomorrow' data for ${zodiacSign}.`);
+           }
 
-        // Save the updated cache
-        await this.cache.saveToFile();
-        console.log("[MMM-Starlight] Cache updated successfully after midnight update.");
-      } else {
-        console.log(`[MMM-Starlight] No 'tomorrow' data found for ${zodiacSign}. Skipping.`);
-      }
-    }
+           // Save the updated cache
+           await this.cache.saveToFile();
+           console.log("[MMM-Starlight] Cache updated successfully after midnight update.");
+         } else {
+           console.log(`[MMM-Starlight] No 'tomorrow' data found for ${zodiacSign}. Skipping.`);
+         }
+       }
 
-    console.log("[MMM-Starlight] Midnight update completed.");
-  } catch (error) {
-    console.error("[MMM-Starlight] Error during midnight simulation:", error);
-  }
-},
+       console.log("[MMM-Starlight] Midnight update completed.");
+       this.sendSocketNotification("MIDNIGHT_UPDATE_SIMULATED");
+     } catch (error) {
+       console.error("[MMM-Starlight] Error during midnight simulation:", error);
+     }
+   },
 
 resetCache: async function () {
   try {
