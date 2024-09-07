@@ -40,20 +40,17 @@ module.exports = NodeHelper.create({
 
 fetchHoroscope: async function (period, zodiacSign) {
   try {
-    // Ensure the period is valid (e.g., "daily" or "tomorrow")
-    const validPeriods = ["daily", "tomorrow"];
-    if (!validPeriods.includes(period)) {
-      throw new Error(`Invalid period: ${period}`);
-    }
+    // Map "daily" to "today" since the API expects "today" and not "daily"
+    const actualPeriod = period === "daily" ? "today" : period;
 
-    const requestUrl = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign=${zodiacSign}&day=${period}`;
+    const requestUrl = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign=${zodiacSign}&day=${actualPeriod}`;
     console.log("[MMM-Starlight] Requesting URL:", requestUrl);
 
     const response = await axios.get(requestUrl);
     const data = response.data;
 
     // Log the fetched data
-    console.log("[MMM-Starlight] Fetched horoscope data:", JSON.stringify(data, null, 2));
+    console.log("[MMM-Starlight] Fetched horoscope data for", zodiacSign, ":", JSON.stringify(data, null, 2));
 
     return data;
   } catch (error) {
