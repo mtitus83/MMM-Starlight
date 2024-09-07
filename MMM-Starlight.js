@@ -192,7 +192,7 @@ createTextElement: function(sign, className, period) {
             var imageElement = document.createElement("img");
             imageElement.src = this.file("assets/starlight-icon-transparent.png");
             imageElement.alt = "Reading the Stars";
-            imageElement.className = "starlight-image";
+            imageElement.className = "starlight-image spinning-image"; // Added spinning-image class
             
             imageElement.onerror = function() {
                 console.error("Failed to load image: " + this.src);
