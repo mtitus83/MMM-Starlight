@@ -175,11 +175,19 @@ Module.register("MMM-Starlight", {
         
         if (this.horoscopes[sign] && this.horoscopes[sign][period]) {
             var horoscopeData = this.horoscopes[sign][period];
-            horoscopeTextElement.innerHTML = horoscopeData.horoscope_data || "Horoscope data not available.";
             
-            if (period === "monthly" && horoscopeData.challenging_days && horoscopeData.standout_days) {
-                horoscopeTextElement.innerHTML += `<br><br>Challenging days: ${horoscopeData.challenging_days}`;
-                horoscopeTextElement.innerHTML += `<br>Standout days: ${horoscopeData.standout_days}`;
+            // Check if it's tomorrow's horoscope and if it's the same as today's
+            if (period === "tomorrow" && 
+                this.horoscopes[sign]["daily"] && 
+                horoscopeData.horoscope_data === this.horoscopes[sign]["daily"].horoscope_data) {
+                horoscopeTextElement.innerHTML = "Reading the Stars...";
+            } else {
+                horoscopeTextElement.innerHTML = horoscopeData.horoscope_data || "Horoscope data not available.";
+                
+                if (period === "monthly" && horoscopeData.challenging_days && horoscopeData.standout_days) {
+                    horoscopeTextElement.innerHTML += `<br><br>Challenging days: ${horoscopeData.challenging_days}`;
+                    horoscopeTextElement.innerHTML += `<br>Standout days: ${horoscopeData.standout_days}`;
+                }
             }
         } else if (this.isPreloading) {
             horoscopeTextElement.innerHTML = "Loading " + period + " horoscope for " + sign + "...";
