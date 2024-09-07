@@ -51,6 +51,7 @@
   max-width: 60px;
   height: auto;
   display: block;
+  margin: 0 auto;
 }
 
 .MMM-Starlight .starlight-text-wrapper {
@@ -162,13 +163,43 @@
 .MMM-Starlight .starlight-centered-content .starlight-image {
   max-width: 100%;
   height: auto;
-  display: block;
-}
-
-.MMM-Starlight .starlight-centered-content .starlight-fallback-text {
   margin-top: 10px;
 }
 
-.MMM-Starlight .starlight-centered-content .starlight-zodiac-icon {
-  display: none;
+.MMM-Starlight .starlight-reading-text {
+  font-size: 1.2em;
+  font-weight: bold;
+  margin-bottom: 10px;
+  text-align: center;
+  color: #FFD700;
+}
+
+.MMM-Starlight .animated-dots::after {
+  content: '.';
+  animation: dots 2s steps(4, end) infinite;
+}
+
+@keyframes dots {
+  0%, 20% {
+    color: rgba(0,0,0,0);
+    text-shadow:
+      .25em 0 0 rgba(0,0,0,0),
+      .5em 0 0 rgba(0,0,0,0);
+  }
+  40% {
+    color: #FFD700;
+    text-shadow:
+      .25em 0 0 rgba(0,0,0,0),
+      .5em 0 0 rgba(0,0,0,0);
+  }
+  60% {
+    text-shadow:
+      .25em 0 0 #FFD700,
+      .5em 0 0 rgba(0,0,0,0);
+  }
+  80%, 100% {
+    text-shadow:
+      .25em 0 0 #FFD700,
+      .5em 0 0 #FFD700;
+  }
 }
