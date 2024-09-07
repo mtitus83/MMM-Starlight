@@ -2,6 +2,10 @@
   width: 100%;
   box-sizing: border-box;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .MMM-Starlight .starlight-title {
@@ -38,7 +42,9 @@
 
 .MMM-Starlight .starlight-image-wrapper {
   width: 100%;
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   margin-bottom: 10px;
 }
 
@@ -51,6 +57,11 @@
   overflow: hidden;
   position: relative;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .MMM-Starlight .starlight-text {
@@ -116,12 +127,6 @@
   margin: 0 auto;
 }
 
-.MMM-Starlight .starlight-image-wrapper {
-  width: 100%;
-  text-align: center;
-  margin-bottom: 10px;
-}
-
 .MMM-Starlight .starlight-icon {
   width: 60px;
   height: 60px;
@@ -143,5 +148,22 @@
   font-size: 1.1em;
   font-style: italic;
   text-align: center;
+  margin-top: 10px;
+}
+
+.MMM-Starlight .starlight-centered-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.MMM-Starlight .starlight-centered-content .starlight-image {
+  max-width: 100%;
+  height: auto;
+}
+
+.MMM-Starlight .starlight-centered-content .starlight-fallback-text {
   margin-top: 10px;
 }

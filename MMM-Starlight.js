@@ -179,9 +179,17 @@ createTextElement: function(sign, className, period) {
         var horoscopeData = this.horoscopes[sign][period];
         
         // Check if it's tomorrow's horoscope and if it's the same as today's
-        if (period === "tomorrow" && 
-            this.horoscopes[sign]["daily"] && 
-            horoscopeData.horoscope_data === this.horoscopes[sign]["daily"].horoscope_data) {
+    if (period === "tomorrow" && 
+        this.horoscopes[sign]["daily"] && 
+        horoscopeData.horoscope_data === this.horoscopes[sign]["daily"].horoscope_data) {
+        
+        horoscopeWrapper.className += " starlight-centered-content";  // Add this line
+        
+        // Create an image element with the correct path
+        var imageElement = document.createElement("img");
+        imageElement.src = this.file("assets/starlight-icon-transparent.png");
+        imageElement.alt = "Reading the Stars";
+        imageElement.className = "starlight-image";
             
             // Create an image element with the correct path
             var imageElement = document.createElement("img");
