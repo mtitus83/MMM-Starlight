@@ -158,6 +158,7 @@
   align-items: center;
   justify-content: center;
   text-align: center;
+  position: relative;
 }
 
 .MMM-Starlight .starlight-centered-content .starlight-image {
@@ -167,11 +168,14 @@
 }
 
 .MMM-Starlight .starlight-reading-text {
-  font-size: 1.2em;
+  font-size: 0.9em;
   font-weight: normal;
-  margin-bottom: 10px;
-  text-align: center;
-  color: #FFD700;
+  margin-top: 10px;
+  text-align: right;
+  color: white;
+  position: absolute;
+  bottom: -20px;
+  right: 0;
 }
 
 .MMM-Starlight .animated-dots {
@@ -204,7 +208,6 @@
   display: none;
 }
 
-/* New spinning animation for the "Reading the Stars" image */
 .MMM-Starlight .spinning-image {
   animation: spin 10s linear infinite;
 }

@@ -184,15 +184,10 @@ createTextElement: function(sign, className, period) {
             
             horoscopeWrapper.className += " starlight-centered-content";
 
-            var readingStarsText = document.createElement("div");
-            readingStarsText.className = "starlight-reading-text";
-            readingStarsText.innerHTML = 'Reading the stars<span class="animated-dots"></span>';
-            horoscopeWrapper.appendChild(readingStarsText);
-            
             var imageElement = document.createElement("img");
             imageElement.src = this.file("assets/starlight-icon-transparent.png");
             imageElement.alt = "Reading the Stars";
-            imageElement.className = "starlight-image spinning-image"; // Added spinning-image class
+            imageElement.className = "starlight-image spinning-image";
             
             imageElement.onerror = function() {
                 console.error("Failed to load image: " + this.src);
@@ -200,6 +195,11 @@ createTextElement: function(sign, className, period) {
             };
             
             horoscopeWrapper.appendChild(imageElement);
+
+            var readingStarsText = document.createElement("div");
+            readingStarsText.className = "starlight-reading-text";
+            readingStarsText.innerHTML = 'Reading the stars<span class="animated-dots"></span>';
+            horoscopeWrapper.appendChild(readingStarsText);
         } else {
             var horoscopeTextElement = document.createElement("div");
             horoscopeTextElement.className = "starlight-text";
