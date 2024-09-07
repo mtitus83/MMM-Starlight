@@ -41,7 +41,6 @@
 }
 
 .MMM-Starlight .starlight-image-wrapper {
-  width: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -52,7 +51,6 @@
   max-width: 60px;
   height: auto;
   display: block;
-  margin: 0 auto;
 }
 
 .MMM-Starlight .starlight-text-wrapper {
@@ -164,6 +162,7 @@
 .MMM-Starlight .starlight-centered-content .starlight-image {
   max-width: 100%;
   height: auto;
+  display: block;
 }
 
 .MMM-Starlight .starlight-centered-content .starlight-fallback-text {

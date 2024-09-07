@@ -153,7 +153,7 @@ createImageElement: function(sign, className) {
     image.style.width = this.config.imageWidth;
     image.onerror = function() {
         console.error("Failed to load image for", sign);
-        this.src = "modules/MMM-Starlight/assets/error.png";
+        this.src = this.file("assets/error.png");  // Update this line
     };
     imageWrapper.appendChild(image);
     return imageWrapper;
