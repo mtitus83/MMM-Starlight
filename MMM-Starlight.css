@@ -159,6 +159,7 @@
   justify-content: center;
   text-align: center;
   position: relative;
+  padding-bottom: 30px; /* Add padding to accommodate the reading text */
 }
 
 .MMM-Starlight .starlight-centered-content .starlight-image {
@@ -174,7 +175,7 @@
   text-align: right;
   color: white;
   position: absolute;
-  bottom: -20px;
+  bottom: 0;
   right: 0;
 }
 
