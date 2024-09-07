@@ -170,9 +170,6 @@ Module.register("MMM-Starlight", {
         horoscopeWrapper.className = "starlight-text-wrapper";
         horoscopeWrapper.style.maxHeight = this.config.maxTextHeight;
 
-        var horoscopeTextElement = document.createElement("div");
-        horoscopeTextElement.className = "starlight-text";
-        
         if (this.horoscopes[sign] && this.horoscopes[sign][period]) {
             var horoscopeData = this.horoscopes[sign][period];
             
@@ -180,25 +177,38 @@ Module.register("MMM-Starlight", {
             if (period === "tomorrow" && 
                 this.horoscopes[sign]["daily"] && 
                 horoscopeData.horoscope_data === this.horoscopes[sign]["daily"].horoscope_data) {
-                horoscopeTextElement.innerHTML = "Reading the Stars...";
+                
+                // Create an image element with hardcoded path
+                var imageElement = document.createElement("img");
+                imageElement.src = this.file("assets/reading_stars.png");
+                imageElement.alt = "Reading the Stars";
+                imageElement.className = "starlight-image";
+                horoscopeWrapper.appendChild(imageElement);
             } else {
+                var horoscopeTextElement = document.createElement("div");
+                horoscopeTextElement.className = "starlight-text";
                 horoscopeTextElement.innerHTML = horoscopeData.horoscope_data || "Horoscope data not available.";
                 
                 if (period === "monthly" && horoscopeData.challenging_days && horoscopeData.standout_days) {
                     horoscopeTextElement.innerHTML += `<br><br>Challenging days: ${horoscopeData.challenging_days}`;
                     horoscopeTextElement.innerHTML += `<br>Standout days: ${horoscopeData.standout_days}`;
                 }
+                horoscopeWrapper.appendChild(horoscopeTextElement);
             }
         } else if (this.isPreloading) {
-            horoscopeTextElement.innerHTML = "Loading " + period + " horoscope for " + sign + "...";
+            var loadingElement = document.createElement("div");
+            loadingElement.className = "starlight-text";
+            loadingElement.innerHTML = "Loading " + period + " horoscope for " + sign + "...";
+            horoscopeWrapper.appendChild(loadingElement);
         } else {
-            horoscopeTextElement.innerHTML = "Horoscope data not available. Please try resetting the cache.";
+            var errorElement = document.createElement("div");
+            errorElement.className = "starlight-text";
+            errorElement.innerHTML = "Horoscope data not available. Please try resetting the cache.";
+            horoscopeWrapper.appendChild(errorElement);
             this.getHoroscope(sign, period);
         }
         
-        horoscopeWrapper.appendChild(horoscopeTextElement);
         textContent.appendChild(horoscopeWrapper);
-
         return textContent;
     },
 
