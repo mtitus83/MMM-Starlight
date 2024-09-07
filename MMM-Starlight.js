@@ -312,8 +312,8 @@ Module.register("MMM-Starlight", {
     },
 
     handleMidnightUpdateSimulated: function() {
-        Log.info("Midnight update simulation completed");
-        this.updateDom();
+        console.log("Midnight update simulation completed");
+        this.updateDom(0); // Force an immediate update of the display
     },
 
     areAllHoroscopesLoaded: function() {
