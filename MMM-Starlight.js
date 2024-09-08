@@ -258,18 +258,25 @@ createTextElement: function(sign, className, period) {
 
     socketNotificationReceived: function(notification, payload) {
         console.log(`[${this.name}] Received socket notification:`, notification, payload);
-        if (notification === "HOROSCOPE_RESULT") {
-            this.handleHoroscopeResult(payload);
-        } else if (notification === "CACHE_INITIALIZED") {
-            this.handleCacheInitialized();
-        } else if (notification === "IMAGE_RESULT") {
-            this.handleImageResult(payload);
-        } else if (notification === "CACHE_RESET_COMPLETE") {
-            this.handleCacheResetComplete(payload);
-        } else if (notification === "MIDNIGHT_UPDATE_SIMULATED") {
-            this.handleMidnightUpdateSimulated();
-        } else if (notification === "CACHE_UPDATED") {
-            this.handleCacheUpdated(payload);
+        switch(notification) {
+            case "HOROSCOPE_RESULT":
+                this.handleHoroscopeResult(payload);
+                break;
+            case "CACHE_INITIALIZED":
+                this.handleCacheInitialized();
+                break;
+            case "IMAGE_RESULT":
+                this.handleImageResult(payload);
+                break;
+            case "CACHE_RESET_COMPLETE":
+                this.handleCacheResetComplete(payload);
+                break;
+            case "MIDNIGHT_UPDATE_SIMULATED":
+                this.handleMidnightUpdateSimulated(payload);
+                break;
+            case "CACHE_UPDATED":
+                this.handleCacheUpdated(payload);
+                break;
         }
     },
 
@@ -346,9 +353,29 @@ createTextElement: function(sign, className, period) {
         this.updateDom();
     },
 
-    handleMidnightUpdateSimulated: function() {
-        console.log("Midnight update simulation completed");
+    handleMidnightUpdateSimulated: function(payload) {
+        console.log(`[${this.name}] Midnight update simulation completed`, payload);
         this.updateDom(0); // Force an immediate update of the display
+        
+        // Refresh daily and tomorrow horoscopes for all signs
+        this.config.zodiacSign.forEach(sign => {
+            this.getHoroscope(sign, "daily");
+            this.getHoroscope(sign, "tomorrow");
+        });
+
+        // Refresh weekly horoscopes if updated
+        if (payload.updatedWeekly) {
+            this.config.zodiacSign.forEach(sign => {
+                this.getHoroscope(sign, "weekly");
+            });
+        }
+
+        // Refresh monthly horoscopes if updated
+        if (payload.updatedMonthly) {
+            this.config.zodiacSign.forEach(sign => {
+                this.getHoroscope(sign, "monthly");
+            });
+        }
     },
 
     areAllHoroscopesLoaded: function() {
