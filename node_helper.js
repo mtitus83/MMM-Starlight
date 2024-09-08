@@ -456,7 +456,6 @@ class HoroscopeCache {
             return this.memoryCache;
         }
     }
-}
 
     async saveToFile() {
         try {
@@ -465,9 +464,9 @@ class HoroscopeCache {
             await fs.mkdir(dir, { recursive: true });
 
             await fs.writeFile(this.cacheFile, JSON.stringify(this.memoryCache, null, 2));
-            console.log("Cache saved successfully to file");
+            console.log("[HoroscopeCache] Cache saved successfully to file");
         } catch (error) {
-            console.error("Error saving cache:", error);
+            console.error("[HoroscopeCache] Error saving cache:", error);
         }
     }
 
@@ -485,24 +484,24 @@ class HoroscopeCache {
         await this.saveToFile();
     }
 
-async reset() {
-  try {
-    // Remove the cache file if it exists
-    await fs.unlink(this.cacheFile);  // Correct reference to this.cacheFile
-    console.log("Cache file deleted successfully.");
+    async reset() {
+        try {
+            // Remove the cache file if it exists
+            await fs.unlink(this.cacheFile);
+            console.log("[HoroscopeCache] Cache file deleted successfully.");
 
-    // Clear in-memory cache
-    this.memoryCache = {};
+            // Clear in-memory cache
+            this.memoryCache = {};
 
-    // Recreate the cache file
-    await this.saveToFile();
-    console.log("Cache reset and recreated successfully.");
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      console.log("Cache file does not exist, nothing to reset.");
-    } else {
-      console.error("Error resetting cache file:", error);
+            // Recreate the cache file
+            await this.saveToFile();
+            console.log("[HoroscopeCache] Cache reset and recreated successfully.");
+        } catch (error) {
+            if (error.code === 'ENOENT') {
+                console.log("[HoroscopeCache] Cache file does not exist, nothing to reset.");
+            } else {
+                console.error("[HoroscopeCache] Error resetting cache file:", error);
+            }
+        }
     }
-  }
-}
 }
