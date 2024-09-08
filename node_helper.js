@@ -242,41 +242,48 @@ shouldUpdate(cachedData, period) {
     }
 },
 
-async fetchAndUpdateCache(sign, period) {
-    try {
-        const data = await this.fetchFromAPI(sign, period);
-        const now = moment();
-        let nextUpdate;
-        switch(period) {
-            case "daily":
-                // Daily doesn't need a next update time because it's swapped at midnight
-                nextUpdate = null;
-                break;
-            case "tomorrow":
-                // Next update for tomorrow's horoscope is at 6 AM today or tomorrow if it's past 6 AM
-                nextUpdate = now.hour() < 6 ? now.clone().set({hour: 6, minute: 0, second: 0, millisecond: 0}) 
-                                            : now.clone().add(1, 'day').set({hour: 6, minute: 0, second: 0, millisecond: 0});
-                break;
-            case "weekly":
-                nextUpdate = now.clone().add(1, 'week').startOf('isoWeek'); // Next Monday
-                break;
-            case "monthly":
-                nextUpdate = now.clone().add(1, 'month').startOf('month'); // First day of next month
-                break;
+    async fetchAndUpdateCache(sign, period) {
+        try {
+            console.log(`[${this.name}] Fetching and updating cache for ${sign}, period: ${period}`);
+            console.log(`[${this.name}] Cache contents before update:`, JSON.stringify(this.cache.memoryCache, null, 2));
+
+            const data = await this.fetchFromAPI(sign, period);
+            const now = moment();
+            let nextUpdate;
+            switch(period) {
+                case "daily":
+                    nextUpdate = null;
+                    break;
+                case "tomorrow":
+                    nextUpdate = now.hour() < 6 ? now.clone().set({hour: 6, minute: 0, second: 0, millisecond: 0}) 
+                                                : now.clone().add(1, 'day').set({hour: 6, minute: 0, second: 0, millisecond: 0});
+                    break;
+                case "weekly":
+                    nextUpdate = now.clone().add(1, 'week').startOf('isoWeek');
+                    break;
+                case "monthly":
+                    nextUpdate = now.clone().add(1, 'month').startOf('month');
+                    break;
+            }
+            this.cache.set(sign, period, {
+                ...data,
+                lastUpdate: now.toISOString(),
+                nextUpdate: nextUpdate ? nextUpdate.toISOString() : null
+            });
+            await this.cache.saveToFile();
+            console.log(`[${this.name}] Updated ${period} horoscope for ${sign}`);
+            console.log(`[${this.name}] Cache contents after update:`, JSON.stringify(this.cache.memoryCache, null, 2));
+
+            // Send notification to frontend about the update
+            this.sendSocketNotification("CACHE_UPDATED", { sign, period });
+            console.log(`[${this.name}] Sent CACHE_UPDATED notification to frontend for ${sign}, period: ${period}`);
+
+            return this.cache.get(sign, period);
+        } catch (error) {
+            console.error(`[${this.name}] Error fetching ${period} horoscope for ${sign}:`, error);
+            throw error;
         }
-        this.cache.set(sign, period, {
-            ...data,
-            lastUpdate: now.toISOString(),
-            nextUpdate: nextUpdate ? nextUpdate.toISOString() : null
-        });
-        await this.cache.saveToFile();
-        console.log(`Updated ${period} horoscope for ${sign}`);
-        return this.cache.get(sign, period);
-    } catch (error) {
-        console.error(`Error fetching ${period} horoscope for ${sign}:`, error);
-        throw error;
-    }
-},
+    },
 
     async fetchFromAPI(sign, period) {
         let url;
@@ -435,19 +442,21 @@ class HoroscopeCache {
         try {
             const data = await fs.readFile(this.cacheFile, 'utf8');
             this.memoryCache = JSON.parse(data);
-            console.log("Cache loaded successfully from file");
+            console.log("[HoroscopeCache] Cache loaded successfully from file");
+            console.log("[HoroscopeCache] Cache contents:", JSON.stringify(this.memoryCache, null, 2));
             return this.memoryCache;
         } catch (error) {
             if (error.code === 'ENOENT') {
-                console.log("Cache file does not exist, creating a new one");
+                console.log("[HoroscopeCache] Cache file does not exist, creating a new one");
                 this.memoryCache = {};
                 await this.saveToFile();  // This will create the file
             } else {
-                console.error("Error reading cache file:", error);
+                console.error("[HoroscopeCache] Error reading cache file:", error);
             }
             return this.memoryCache;
         }
     }
+}
 
     async saveToFile() {
         try {

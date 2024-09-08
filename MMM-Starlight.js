@@ -257,6 +257,7 @@ createTextElement: function(sign, className, period) {
     },
 
     socketNotificationReceived: function(notification, payload) {
+        console.log(`[${this.name}] Received socket notification:`, notification, payload);
         if (notification === "HOROSCOPE_RESULT") {
             this.handleHoroscopeResult(payload);
         } else if (notification === "CACHE_INITIALIZED") {
@@ -267,10 +268,18 @@ createTextElement: function(sign, className, period) {
             this.handleCacheResetComplete(payload);
         } else if (notification === "MIDNIGHT_UPDATE_SIMULATED") {
             this.handleMidnightUpdateSimulated();
+        } else if (notification === "CACHE_UPDATED") {
+            this.handleCacheUpdated(payload);
         }
     },
 
+    handleCacheUpdated: function(payload) {
+        console.log(`[${this.name}] Received cache update for ${payload.sign}, period: ${payload.period}`);
+        this.getHoroscope(payload.sign, payload.period);
+    },
+
     handleHoroscopeResult: function(payload) {
+        console.log(`[${this.name}] Handling horoscope result:`, payload);
         if (payload.success) {
             if (!this.horoscopes[payload.sign]) {
                 this.horoscopes[payload.sign] = {};
@@ -290,7 +299,7 @@ createTextElement: function(sign, className, period) {
                 }
             }
         } else {
-            console.error(payload.message);
+            console.error(`[${this.name}] Error in horoscope result:`, payload.message);
             if (!this.horoscopes[payload.sign]) {
                 this.horoscopes[payload.sign] = {};
             }
