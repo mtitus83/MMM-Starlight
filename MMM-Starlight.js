@@ -274,7 +274,21 @@ createTextElement: function(sign, className, period) {
             case "CACHE_UPDATED":
                 this.handleCacheUpdated(payload);
                 break;
+            case "MIDNIGHT_UPDATE_COMPLETED":
+                this.handleMidnightUpdateCompleted();
+                break;
+            case "SIX_AM_UPDATE_COMPLETED":
+                this.handleSixAMUpdateCompleted();
+                break;
+            case "HOURLY_CHECK_COMPLETED":
+                this.handleHourlyCheckCompleted();
+                break;
         }
+    },
+
+    handleHourlyCheckCompleted: function() {
+        console.log(`[${this.name}] Hourly check completed`);
+        this.updateDom(0);
     },
 
     handleCacheUpdated: function(payload) {
@@ -352,6 +366,19 @@ createTextElement: function(sign, className, period) {
             });
         });
     },
+
+    handleMidnightUpdateCompleted: function() {
+        console.log(`[${this.name}] Midnight update completed`);
+        this.updateDom(0);
+        this.loadAllHoroscopes();
+    },
+
+    handleSixAMUpdateCompleted: function() {
+        console.log(`[${this.name}] 6 AM update completed`);
+        this.updateDom(0);
+        this.loadAllHoroscopes();
+    },
+
 
     handleMidnightUpdateSimulated: function(payload) {
         console.log(`[${this.name}] Midnight update simulation completed`, payload);

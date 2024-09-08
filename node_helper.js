@@ -19,6 +19,7 @@ module.exports = NodeHelper.create({
         };
         this.simulationMode = false;
         this.simulatedDate = null;
+        this.scheduledUpdates = {};
     },
 
     socketNotificationReceived: function(notification, payload) {
@@ -115,10 +116,16 @@ fetchHoroscope: async function (period, zodiacSign) {
         const midnight = moment(now).add(1, 'day').startOf('day');
         const msUntilMidnight = midnight.diff(now);
 
-        setTimeout(() => {
+        if (this.scheduledUpdates.midnight) {
+            clearTimeout(this.scheduledUpdates.midnight);
+        }
+
+        this.scheduledUpdates.midnight = setTimeout(() => {
             this.performMidnightUpdate();
             this.scheduleMidnightUpdate(); // Reschedule for the next day
         }, msUntilMidnight);
+
+        console.log(`[${this.name}] Scheduled midnight update in ${msUntilMidnight}ms`);
     },
 
     performMidnightUpdate: async function() {
@@ -160,6 +167,8 @@ fetchHoroscope: async function (period, zodiacSign) {
             this.simulationMode = false;
             this.simulatedDate = null;
         }
+
+        this.sendSocketNotification("MIDNIGHT_UPDATE_COMPLETED");
     },
 
     schedule6AMUpdate() {
@@ -170,14 +179,20 @@ fetchHoroscope: async function (period, zodiacSign) {
         }
         const msUntil6AM = sixAM.diff(now);
 
-        setTimeout(() => {
+        if (this.scheduledUpdates.sixAM) {
+            clearTimeout(this.scheduledUpdates.sixAM);
+        }
+
+        this.scheduledUpdates.sixAM = setTimeout(() => {
             this.perform6AMUpdate();
             this.schedule6AMUpdate(); // Reschedule for the next day
         }, msUntil6AM);
+
+        console.log(`[${this.name}] Scheduled 6 AM update in ${msUntil6AM}ms`);
     },
 
     async perform6AMUpdate() {
-        console.log("Performing 6 AM update");
+        console.log(`[${this.name}] Performing 6 AM update`);
         for (const sign of this.config.zodiacSign) {
             await this.checkAndUpdateHoroscope(sign, "daily");
             await this.checkAndUpdateHoroscope(sign, "tomorrow");
@@ -190,39 +205,48 @@ fetchHoroscope: async function (period, zodiacSign) {
                 await this.checkAndUpdateHoroscope(sign, "monthly");
             }
         }
+        this.sendSocketNotification("SIX_AM_UPDATE_COMPLETED");
     },
 
     scheduleHourlyChecks() {
-        setInterval(async () => {
+        if (this.scheduledUpdates.hourly) {
+            clearInterval(this.scheduledUpdates.hourly);
+        }
+
+        this.scheduledUpdates.hourly = setInterval(async () => {
             await this.performHourlyCheck();
         }, 3600000); // Check every hour
+
+        console.log(`[${this.name}] Scheduled hourly checks`);
     },
 
-async performHourlyCheck() {
-    console.log("Performing hourly check");
-    const now = moment();
-    
-    // Only check 'tomorrow' horoscope after 6 AM
-    if (now.hour() >= 6 && !this.updateStatus.tomorrow) {
-        for (const sign of this.config.zodiacSign) {
-            await this.checkAndUpdateHoroscope(sign, "tomorrow");
+    async performHourlyCheck() {
+        console.log(`[${this.name}] Performing hourly check`);
+        const now = moment();
+        
+        // Only check 'tomorrow' horoscope after 6 AM
+        if (now.hour() >= 6 && !this.updateStatus.tomorrow) {
+            for (const sign of this.config.zodiacSign) {
+                await this.checkAndUpdateHoroscope(sign, "tomorrow");
+            }
         }
-    }
-    
-    // Check weekly on Mondays
-    if (now.day() === 1) { // Monday
-        for (const sign of this.config.zodiacSign) {
-            await this.checkAndUpdateHoroscope(sign, "weekly");
+        
+        // Check weekly on Mondays
+        if (now.day() === 1) { // Monday
+            for (const sign of this.config.zodiacSign) {
+                await this.checkAndUpdateHoroscope(sign, "weekly");
+            }
         }
-    }
-    
-    // Check monthly on the 1st of the month
-    if (now.date() === 1) {
-        for (const sign of this.config.zodiacSign) {
-            await this.checkAndUpdateHoroscope(sign, "monthly");
+        
+        // Check monthly on the 1st of the month
+        if (now.date() === 1) {
+            for (const sign of this.config.zodiacSign) {
+                await this.checkAndUpdateHoroscope(sign, "monthly");
+            }
         }
-    }
-},
+
+        this.sendSocketNotification("HOURLY_CHECK_COMPLETED");
+    },
 
     handleGetHoroscope: function(payload) {
         this.getCachedHoroscope(payload)
