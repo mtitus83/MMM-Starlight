@@ -265,9 +265,6 @@ createTextElement: function(sign, className, period) {
             case "CACHE_INITIALIZED":
                 this.handleCacheInitialized();
                 break;
-            case "IMAGE_RESULT":
-                this.handleImageResult(payload);
-                break;
             case "CACHE_RESET_COMPLETE":
                 this.handleCacheResetComplete(payload);
                 break;
@@ -360,25 +357,19 @@ createTextElement: function(sign, className, period) {
         console.log(`[${this.name}] Midnight update simulation completed`, payload);
         this.updateDom(0); // Force an immediate update of the display
         
-        // Refresh daily and tomorrow horoscopes for all signs
+        // Refresh horoscopes for all signs
         this.config.zodiacSign.forEach(sign => {
             this.getHoroscope(sign, "daily");
             this.getHoroscope(sign, "tomorrow");
-        });
-
-        // Refresh weekly horoscopes if updated
-        if (payload.updatedWeekly) {
-            this.config.zodiacSign.forEach(sign => {
+            
+            if (payload.updatedWeekly) {
                 this.getHoroscope(sign, "weekly");
-            });
-        }
-
-        // Refresh monthly horoscopes if updated
-        if (payload.updatedMonthly) {
-            this.config.zodiacSign.forEach(sign => {
+            }
+            
+            if (payload.updatedMonthly) {
                 this.getHoroscope(sign, "monthly");
-            });
-        }
+            }
+        });
     },
 
     areAllHoroscopesLoaded: function() {
@@ -524,7 +515,8 @@ const currentText = textSlideContainer.querySelector(".starlight-text-content.cu
 
     simulateMidnightUpdate: function() {
         Log.info(`${this.name}: Simulating midnight update`);
-        this.sendSocketNotification("SIMULATE_MIDNIGHT_UPDATE", {});
+        const simulationDate = moment().add(1, 'day').startOf('day');
+        this.sendSocketNotification("SIMULATE_MIDNIGHT_UPDATE", { date: simulationDate.format('YYYY-MM-DD') });
     },
 
     resetCache: function() {

@@ -17,6 +17,8 @@ module.exports = NodeHelper.create({
             weekly: false,
             monthly: false
         };
+        this.simulationMode = false;
+        this.simulatedDate = null;
     },
 
     socketNotificationReceived: function(notification, payload) {
@@ -30,7 +32,7 @@ module.exports = NodeHelper.create({
                 this.handleGetHoroscope(payload);
                 break;
             case "SIMULATE_MIDNIGHT_UPDATE":
-                this.simulateMidnightUpdate();
+                this.simulateMidnightUpdate(payload);
                 break;
             case "RESET_CACHE":
                 this.resetCache();
@@ -119,20 +121,45 @@ fetchHoroscope: async function (period, zodiacSign) {
         }, msUntilMidnight);
     },
 
-    async performMidnightUpdate() {
-        console.log("Performing midnight update");
+    performMidnightUpdate: async function() {
+        console.log(`[${this.name}] Performing ${this.simulationMode ? 'simulated' : 'real'} midnight update`);
+        const currentDate = this.simulationMode ? this.simulatedDate : moment();
+        
         for (const sign of this.config.zodiacSign) {
+            // Move tomorrow's data to today
             const tomorrowData = this.cache.get(sign, "tomorrow");
             if (tomorrowData) {
                 this.cache.set(sign, "daily", tomorrowData);
-                this.cache.set(sign, "tomorrow", null); // Clear tomorrow's data
+                this.cache.set(sign, "tomorrow", null);
             }
+            
             // Fetch new data for tomorrow
             await this.fetchAndUpdateCache(sign, "tomorrow");
+            
+            // Check if it's time for weekly update (Monday)
+            if (currentDate.day() === 1) {
+                await this.fetchAndUpdateCache(sign, "weekly");
+            }
+            
+            // Check if it's time for monthly update (1st of the month)
+            if (currentDate.date() === 1) {
+                await this.fetchAndUpdateCache(sign, "monthly");
+            }
         }
+        
         this.updateStatus.daily = false;
         this.updateStatus.tomorrow = false;
         await this.cache.saveToFile();
+        
+        if (this.simulationMode) {
+            this.sendSocketNotification("MIDNIGHT_UPDATE_SIMULATED", {
+                date: this.simulatedDate.format('YYYY-MM-DD'),
+                updatedWeekly: this.simulatedDate.day() === 1,
+                updatedMonthly: this.simulatedDate.date() === 1
+            });
+            this.simulationMode = false;
+            this.simulatedDate = null;
+        }
     },
 
     schedule6AMUpdate() {
@@ -299,44 +326,46 @@ shouldUpdate(cachedData, period) {
         }
     },
 
-async fetchFromAPI(sign, period) {
-    let url;
-    switch(period) {
-        case "daily":
-            url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign=${sign}&day=today`;
-            break;
-        case "tomorrow":
-            url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign=${sign}&day=tomorrow`;
-            break;
-        case "weekly":
-            url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/weekly?sign=${sign}`;
-            break;
-        case "monthly":
-            url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/monthly?sign=${sign}`;
-            break;
-        default:
-            throw new Error("Invalid period specified");
-    }
-
-    console.log(`Fetching horoscope from source: ${url}`);
-
-    try {
-        const response = await axios.get(url, { timeout: 30000 });
-        if (response.data.success) {
-            return {
-                horoscope_data: response.data.data.horoscope_data,
-                date: response.data.data.date,
-                challenging_days: response.data.data.challenging_days,
-                standout_days: response.data.data.standout_days
-            };
-        } else {
-            throw new Error("API returned unsuccessful response");
+    fetchFromAPI: async function(sign, period) {
+        let url;
+        const date = this.simulationMode ? this.simulatedDate : moment();
+        
+        switch(period) {
+            case "daily":
+                url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign=${sign}&day=today`;
+                break;
+            case "tomorrow":
+                url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign=${sign}&day=tomorrow`;
+                break;
+            case "weekly":
+                url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/weekly?sign=${sign}`;
+                break;
+            case "monthly":
+                url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/monthly?sign=${sign}`;
+                break;
+            default:
+                throw new Error("Invalid period specified");
         }
-    } catch (error) {
-        console.error(`Error fetching horoscope for ${sign}, period: ${period}:`, error.message);
-        throw error;
-    }
-},
+
+        console.log(`Fetching horoscope from source: ${url}`);
+
+        try {
+            const response = await axios.get(url, { timeout: 30000 });
+            if (response.data.success) {
+                return {
+                    horoscope_data: response.data.data.horoscope_data,
+                    date: date.format('YYYY-MM-DD'),
+                    challenging_days: response.data.data.challenging_days,
+                    standout_days: response.data.data.standout_days
+                };
+            } else {
+                throw new Error("API returned unsuccessful response");
+            }
+        } catch (error) {
+            console.error(`Error fetching horoscope for ${sign}, period: ${period}:`, error.message);
+            throw error;
+        }
+    },
 
     async checkAndUpdateHoroscope(sign, period) {
         const cachedData = this.cache.get(sign, period);
@@ -355,70 +384,12 @@ async fetchFromAPI(sign, period) {
         return false;
     },
 
-// ... (previous code remains the same)
-
-simulateMidnightUpdate: async function () {
-  try {
-    console.log("[MMM-Starlight] Simulating midnight update...");
-
-    const currentDate = moment();
-    console.log("[MMM-Starlight] Current Date:", currentDate.format("MMM D, YYYY"));
-
-    const isFirstDayOfWeek = currentDate.day() === 1; // Monday is 1
-    const isFirstDayOfMonth = currentDate.date() === 1;
-
-    for (const zodiacSign in this.cache.memoryCache) {
-      console.log(`[MMM-Starlight] Processing ${zodiacSign}...`);
-
-      // Handle daily and tomorrow updates
-      if (this.cache.memoryCache[zodiacSign]?.["tomorrow"]) {
-        this.cache.memoryCache[zodiacSign]["daily"] = this.cache.memoryCache[zodiacSign]["tomorrow"];
-        delete this.cache.memoryCache[zodiacSign]["tomorrow"];
-        console.log(`[MMM-Starlight] Moved 'tomorrow' data to 'daily' for ${zodiacSign}.`);
-        
-        const newTomorrowData = await this.fetchHoroscope("tomorrow", zodiacSign);
-        if (newTomorrowData) {
-          this.cache.memoryCache[zodiacSign]["tomorrow"] = newTomorrowData;
-          console.log(`[MMM-Starlight] Fetched new 'tomorrow' data for ${zodiacSign}.`);
-        }
-
-        this.sendSocketNotification("CACHE_UPDATED", { sign: zodiacSign, period: "daily" });
-        this.sendSocketNotification("CACHE_UPDATED", { sign: zodiacSign, period: "tomorrow" });
-      }
-
-      // Handle weekly update
-      if (isFirstDayOfWeek) {
-        const newWeeklyData = await this.fetchHoroscope("weekly", zodiacSign);
-        if (newWeeklyData) {
-          this.cache.memoryCache[zodiacSign]["weekly"] = newWeeklyData;
-          console.log(`[MMM-Starlight] Fetched new 'weekly' data for ${zodiacSign}.`);
-          this.sendSocketNotification("CACHE_UPDATED", { sign: zodiacSign, period: "weekly" });
-        }
-      }
-
-      // Handle monthly update
-      if (isFirstDayOfMonth) {
-        const newMonthlyData = await this.fetchHoroscope("monthly", zodiacSign);
-        if (newMonthlyData) {
-          this.cache.memoryCache[zodiacSign]["monthly"] = newMonthlyData;
-          console.log(`[MMM-Starlight] Fetched new 'monthly' data for ${zodiacSign}.`);
-          this.sendSocketNotification("CACHE_UPDATED", { sign: zodiacSign, period: "monthly" });
-        }
-      }
-    }
-
-    await this.cache.saveToFile();
-    console.log("[MMM-Starlight] Cache updated and saved after midnight update.");
-
-    this.sendSocketNotification("MIDNIGHT_UPDATE_SIMULATED", {
-      updatedWeekly: isFirstDayOfWeek,
-      updatedMonthly: isFirstDayOfMonth
-    });
-    console.log("[MMM-Starlight] Midnight update completed and frontend notified.");
-  } catch (error) {
-    console.error("[MMM-Starlight] Error during midnight simulation:", error);
-  }
-},
+    simulateMidnightUpdate: function(payload) {
+        this.simulationMode = true;
+        this.simulatedDate = moment(payload.date);
+        console.log(`[${this.name}] Starting simulation for date: ${this.simulatedDate.format('YYYY-MM-DD')}`);
+        this.performMidnightUpdate();
+    },
 
 resetCache: async function () {
   try {
