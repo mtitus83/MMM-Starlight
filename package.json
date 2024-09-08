@@ -1,6 +1,24 @@
 {
+  "name": "MMM-YourModule",
+  "version": "1.0.0",
+  "description": "A modular MagicMirror module for displaying horoscopes",
+  "main": "MMM-YourModule.js",
+  "author": "Your Name",
+  "license": "MIT",
   "dependencies": {
     "axios": "^1.7.4",
-    "cheerio": "^1.0.0"
+    "cheerio": "^1.0.0",
+    "fs": "0.0.1-security",
+    "path": "^0.12.7",
+    "node-fetch": "^3.2.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "start": "node node_helper.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mtitus83/MMM-Starlight.git"
   }
 }
+
