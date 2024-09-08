@@ -338,19 +338,22 @@ createTextElement: function(sign, className, period) {
     },
 
     handleCacheResetComplete: function(payload) {
-        Log.info(`Cache reset complete: ${payload.success ? "Success" : "Failed"}`);
+        console.log(`[${this.name}] Cache reset complete:`, payload);
         if (payload.success) {
-            this.isPreloading = false;
-            this.loaded = true;
-            this.config.zodiacSign.forEach(sign => {
-                this.config.period.forEach(period => {
-                    this.getHoroscope(sign, period);
-                });
-            });
+            this.updateDom(0); // Force an immediate update of the display
+            // Optionally, you can trigger a refresh of all horoscopes here
+            this.loadAllHoroscopes();
         } else {
-            Log.error(`Cache reset failed: ${payload.message}`);
+            console.error(`[${this.name}] Cache reset failed:`, payload.error);
         }
-        this.updateDom();
+    },
+
+    loadAllHoroscopes: function() {
+        this.config.zodiacSign.forEach(sign => {
+            this.config.period.forEach(period => {
+                this.getHoroscope(sign, period);
+            });
+        });
     },
 
     handleMidnightUpdateSimulated: function(payload) {

@@ -40,10 +40,24 @@ module.exports = NodeHelper.create({
 
 fetchHoroscope: async function (period, zodiacSign) {
   try {
-    // Map "daily" to "today" since the API expects "today" and not "daily"
-    const actualPeriod = period === "daily" ? "today" : period;
+    let requestUrl;
+    switch (period) {
+      case "daily":
+        requestUrl = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign=${zodiacSign}&day=today`;
+        break;
+      case "tomorrow":
+        requestUrl = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign=${zodiacSign}&day=tomorrow`;
+        break;
+      case "weekly":
+        requestUrl = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/weekly?sign=${zodiacSign}`;
+        break;
+      case "monthly":
+        requestUrl = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/monthly?sign=${zodiacSign}`;
+        break;
+      default:
+        throw new Error(`Invalid period: ${period}`);
+    }
 
-    const requestUrl = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign=${zodiacSign}&day=${actualPeriod}`;
     console.log("[MMM-Starlight] Requesting URL:", requestUrl);
 
     const response = await axios.get(requestUrl);
@@ -285,44 +299,44 @@ shouldUpdate(cachedData, period) {
         }
     },
 
-    async fetchFromAPI(sign, period) {
-        let url;
-        switch(period) {
-            case "daily":
-                url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign=${sign}&day=today`;
-                break;
-            case "tomorrow":
-                url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign=${sign}&day=tomorrow`;
-                break;
-            case "weekly":
-                url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/weekly?sign=${sign}`;
-                break;
-            case "monthly":
-                url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/monthly?sign=${sign}`;
-                break;
-            default:
-                throw new Error("Invalid period specified");
-        }
+async fetchFromAPI(sign, period) {
+    let url;
+    switch(period) {
+        case "daily":
+            url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign=${sign}&day=today`;
+            break;
+        case "tomorrow":
+            url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign=${sign}&day=tomorrow`;
+            break;
+        case "weekly":
+            url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/weekly?sign=${sign}`;
+            break;
+        case "monthly":
+            url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/monthly?sign=${sign}`;
+            break;
+        default:
+            throw new Error("Invalid period specified");
+    }
 
-        console.log(`Fetching horoscope from source: ${url}`);
+    console.log(`Fetching horoscope from source: ${url}`);
 
-        try {
-            const response = await axios.get(url, { timeout: 30000 });
-            if (response.data.success) {
-                return {
-                    horoscope_data: response.data.data.horoscope_data,
-                    date: response.data.data.date,
-                    challenging_days: response.data.data.challenging_days,
-                    standout_days: response.data.data.standout_days
-                };
-            } else {
-                throw new Error("API returned unsuccessful response");
-            }
-        } catch (error) {
-            console.error(`Error fetching horoscope for ${sign}, period: ${period}:`, error.message);
-            throw error;
+    try {
+        const response = await axios.get(url, { timeout: 30000 });
+        if (response.data.success) {
+            return {
+                horoscope_data: response.data.data.horoscope_data,
+                date: response.data.data.date,
+                challenging_days: response.data.data.challenging_days,
+                standout_days: response.data.data.standout_days
+            };
+        } else {
+            throw new Error("API returned unsuccessful response");
         }
-    },
+    } catch (error) {
+        console.error(`Error fetching horoscope for ${sign}, period: ${period}:`, error.message);
+        throw error;
+    }
+},
 
     async checkAndUpdateHoroscope(sign, period) {
         const cachedData = this.cache.get(sign, period);
@@ -414,34 +428,35 @@ resetCache: async function () {
     this.cache.memoryCache = {};
 
     // Re-fetch fresh data for all zodiac signs
-    const zodiacSigns = ["taurus", "virgo", "libra", /* add other signs */];
+    const zodiacSigns = this.config.zodiacSign;
+    const periods = this.config.period;
+
     for (const sign of zodiacSigns) {
       console.log(`[MMM-Starlight] Fetching horoscope data for ${sign}...`);
+      this.cache.memoryCache[sign] = {};
 
-      const dailyData = await this.fetchHoroscope("daily", sign);
-      const tomorrowData = await this.fetchHoroscope("tomorrow", sign);
-
-      // Ensure the zodiac sign object exists in memoryCache before setting properties
-      if (!this.cache.memoryCache[sign]) {
-        this.cache.memoryCache[sign] = {};  // Initialize the object if it doesn't exist
+      for (const period of periods) {
+        const data = await this.fetchHoroscope(period, sign);
+        if (data) {
+          this.cache.memoryCache[sign][period] = data;
+          console.log(`[MMM-Starlight] Fetched and stored ${period} data for ${sign}.`);
+          // Notify frontend of each update
+          this.sendSocketNotification("CACHE_UPDATED", { sign, period });
+        } else {
+          console.error(`[MMM-Starlight] Failed to fetch ${period} data for ${sign}.`);
+        }
       }
-
-      // Store daily and tomorrow data
-      if (dailyData) {
-        this.cache.memoryCache[sign].daily = dailyData;
-      }
-      if (tomorrowData) {
-        this.cache.memoryCache[sign].tomorrow = tomorrowData;
-      }
-
-      console.log(`[MMM-Starlight] Fetched and stored data for ${sign}.`);
     }
 
     // Save the reset cache to file
     await this.cache.saveToFile();
     console.log("[MMM-Starlight] Cache reset and saved successfully.");
+
+    // Notify frontend that cache reset is complete
+    this.sendSocketNotification("CACHE_RESET_COMPLETE", { success: true });
   } catch (error) {
     console.error("[MMM-Starlight] Error during cache reset:", error);
+    this.sendSocketNotification("CACHE_RESET_COMPLETE", { success: false, error: error.toString() });
   }
 },
 
