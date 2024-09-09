@@ -42,9 +42,9 @@ getStyles: function() {
     }
 },
     initializeModule: function() {
+        this.log("Initializing module and sending config to node helper");
         this.sendSocketNotification("INIT", { config: this.config });
     },
-
     getDom: function() {
         var wrapper = document.createElement("div");
         wrapper.className = "MMM-Starlight";
