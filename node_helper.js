@@ -28,6 +28,7 @@ module.exports = NodeHelper.create({
         this.simulationMode = false;
         this.simulatedDate = null;
         this.scheduledJobs = {};
+	setInterval(() => this.checkSchedule(), 3600000);
     },
 
     socketNotificationReceived: function(notification, payload) {
@@ -55,15 +56,9 @@ checkSchedule() {
     } else {
         console.log(`[${this.name}] No midnight update job scheduled`);
     }
-}
-
-// Add this to your start method
-start: function() {
-    // ... (existing code)
-    
-    // Check schedule every hour
-    setInterval(() => this.checkSchedule(), 3600000);
 },
+
+
 
 fetchHoroscope: async function (period, zodiacSign) {
   try {
