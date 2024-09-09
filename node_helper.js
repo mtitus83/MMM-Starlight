@@ -19,7 +19,7 @@ module.exports = NodeHelper.create({
         };
         this.simulationMode = false;
         this.simulatedDate = null;
-        this.scheduledUpdates = {};
+        this.scheduledJobs = {};
     },
 
     socketNotificationReceived: function(notification, payload) {
@@ -112,20 +112,16 @@ fetchHoroscope: async function (period, zodiacSign) {
     },
 
     scheduleMidnightUpdate() {
-        const now = moment();
-        const midnight = moment(now).add(1, 'day').startOf('day');
-        const msUntilMidnight = midnight.diff(now);
-
-        if (this.scheduledUpdates.midnight) {
-            clearTimeout(this.scheduledUpdates.midnight);
+        if (this.scheduledJobs.midnight) {
+            this.scheduledJobs.midnight.cancel();
         }
 
-        this.scheduledUpdates.midnight = setTimeout(() => {
+        this.scheduledJobs.midnight = schedule.scheduleJob('0 0 * * *', () => {
+            console.log(`[${this.name}] Triggering scheduled midnight update`);
             this.performMidnightUpdate();
-            this.scheduleMidnightUpdate(); // Reschedule for the next day
-        }, msUntilMidnight);
+        });
 
-        console.log(`[${this.name}] Scheduled midnight update in ${msUntilMidnight}ms`);
+        console.log(`[${this.name}] Scheduled midnight update`);
     },
 
     performMidnightUpdate: async function() {
@@ -172,23 +168,16 @@ fetchHoroscope: async function (period, zodiacSign) {
     },
 
     schedule6AMUpdate() {
-        const now = moment();
-        const sixAM = moment(now).startOf('day').add(6, 'hours');
-        if (now.isAfter(sixAM)) {
-            sixAM.add(1, 'day');
-        }
-        const msUntil6AM = sixAM.diff(now);
-
-        if (this.scheduledUpdates.sixAM) {
-            clearTimeout(this.scheduledUpdates.sixAM);
+        if (this.scheduledJobs.sixAM) {
+            this.scheduledJobs.sixAM.cancel();
         }
 
-        this.scheduledUpdates.sixAM = setTimeout(() => {
+        this.scheduledJobs.sixAM = schedule.scheduleJob('0 6 * * *', () => {
+            console.log(`[${this.name}] Triggering scheduled 6 AM update`);
             this.perform6AMUpdate();
-            this.schedule6AMUpdate(); // Reschedule for the next day
-        }, msUntil6AM);
+        });
 
-        console.log(`[${this.name}] Scheduled 6 AM update in ${msUntil6AM}ms`);
+        console.log(`[${this.name}] Scheduled 6 AM update`);
     },
 
     async perform6AMUpdate() {
@@ -208,14 +197,16 @@ fetchHoroscope: async function (period, zodiacSign) {
         this.sendSocketNotification("SIX_AM_UPDATE_COMPLETED");
     },
 
+
     scheduleHourlyChecks() {
-        if (this.scheduledUpdates.hourly) {
-            clearInterval(this.scheduledUpdates.hourly);
+        if (this.scheduledJobs.hourly) {
+            this.scheduledJobs.hourly.cancel();
         }
 
-        this.scheduledUpdates.hourly = setInterval(async () => {
-            await this.performHourlyCheck();
-        }, 3600000); // Check every hour
+        this.scheduledJobs.hourly = schedule.scheduleJob('0 * * * *', () => {
+            console.log(`[${this.name}] Triggering scheduled hourly check`);
+            this.performHourlyCheck();
+        });
 
         console.log(`[${this.name}] Scheduled hourly checks`);
     },

@@ -360,17 +360,19 @@ createTextElement: function(sign, className, period) {
     },
 
     loadAllHoroscopes: function() {
+        console.log(`[${this.name}] Loading all horoscopes after midnight update`);
         this.config.zodiacSign.forEach(sign => {
             this.config.period.forEach(period => {
+                console.log(`[${this.name}] Requesting horoscope for ${sign}, period: ${period}`);
                 this.getHoroscope(sign, period);
             });
         });
     },
 
     handleMidnightUpdateCompleted: function() {
-        console.log(`[${this.name}] Midnight update completed`);
-        this.updateDom(0);
+        console.log(`[${this.name}] Midnight update completed, refreshing all horoscopes`);
         this.loadAllHoroscopes();
+        this.updateDom(0);
     },
 
     handleSixAMUpdateCompleted: function() {
