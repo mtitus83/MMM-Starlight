@@ -528,23 +528,25 @@ startScrolling: function() {
             if (contentHeight > wrapperHeight) {
                 self.isScrolling = true;
 
-                var scrollDistance = contentHeight - (wrapperHeight * 0.75);
+                // Scroll distance will stop 1/4 from the bottom
+                var scrollDistance = contentHeight - (wrapperHeight * 0.75); 
                 var verticalDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
 
+                // Apply transition for smooth scrolling
                 textContent.style.transition = `transform ${verticalDuration}ms linear`;
-                textContent.style.transform = `translateY(-${scrollDistance}px)`;
+                textContent.style.transform = `translateY(-${scrollDistance}px)`; // Scroll up
 
                 setTimeout(() => {
                     self.isScrolling = false;
-                    // Reset scroll position
+                    // Reset scroll position after the scroll is done
                     textContent.style.transition = "none";
                     textContent.style.transform = "translateY(0)";
                     // Schedule next rotation
                     self.scheduleRotation();
-                }, verticalDuration + self.config.pauseDuration);
+                }, verticalDuration + self.config.pauseDuration); // Include pause duration
             } else {
                 self.isScrolling = false;
-                // If no scrolling needed, schedule next rotation immediately
+                // If no scrolling is needed, schedule the next rotation
                 self.scheduleRotation();
             }
         }
