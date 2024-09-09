@@ -517,6 +517,20 @@ startScrolling: function() {
     var self = this;
     clearTimeout(this.scrollTimer);
 
+    // Check if this is the very first slide
+    if (this.currentSignIndex === 0 && this.currentPeriodIndex === 0 && !this.initialSlideShown) {
+        this.initialSlideShown = true; // Mark that the first slide has been shown
+
+        // Show the first slide for pauseDuration, then wait for signWaitTime before proceeding
+        this.scrollTimer = setTimeout(function() {
+            self.scrollTimer = setTimeout(function() {
+                self.startScrolling(); // Start scrolling after signWaitTime
+            }, self.config.signWaitTime); // Wait for signWaitTime after the first slide
+        }, self.config.pauseDuration); // Pause initially for pauseDuration
+
+        return; // Return here so it doesn't proceed to the usual scrolling logic
+    }
+
     this.scrollTimer = setTimeout(function() {
         var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
         var textContent = document.querySelector(".MMM-Starlight .starlight-text");
