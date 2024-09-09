@@ -31,9 +31,6 @@ module.exports = NodeHelper.create({
         this.lastMidnightUpdate = null;
     },
 
-
-
-
     socketNotificationReceived: function(notification, payload) {
         this.log(`Received socket notification: ${notification}`);
         
@@ -297,28 +294,55 @@ fetchHoroscope: async function (period, zodiacSign) {
         }
 
         this.scheduledJobs.sixAM = schedule.scheduleJob('0 6 * * *', () => {
-            console.log(`[${this.name}] Triggering scheduled 6 AM update`);
+            this.log("6 AM update triggered by schedule");
             this.perform6AMUpdate();
         });
 
-        console.log(`[${this.name}] Scheduled 6 AM update`);
+        if (this.scheduledJobs.sixAM) {
+            const nextRun = this.scheduledJobs.sixAM.nextInvocation();
+            this.log(`6 AM update scheduled. Next run: ${nextRun}`);
+        } else {
+            this.log("Failed to schedule 6 AM update");
+        }
+
+        // Log current time for reference
+        this.log(`Current time: ${new Date().toLocaleString()}`);
+
+        // Add an immediate check
+        const now = new Date();
+        if (now.getHours() === 6 && now.getMinutes() === 0) {
+            this.log("It's 6 AM now. Triggering update immediately.");
+            this.perform6AMUpdate();
+        } else {
+            this.log(`Current time is not 6 AM. Current hour: ${now.getHours()}, minute: ${now.getMinutes()}`);
+        }
     },
 
     async perform6AMUpdate() {
-        console.log(`[${this.name}] Performing 6 AM update`);
+        this.log("Starting 6 AM update process");
         for (const sign of this.config.zodiacSign) {
+            this.log(`Updating horoscope for ${sign}`);
             await this.checkAndUpdateHoroscope(sign, "daily");
             await this.checkAndUpdateHoroscope(sign, "tomorrow");
             
             if (moment().day() === 1) { // Monday
+                this.log(`It's Monday. Updating weekly horoscope for ${sign}`);
                 await this.checkAndUpdateHoroscope(sign, "weekly");
             }
             
             if (moment().date() === 1) {
+                this.log(`It's the first day of the month. Updating monthly horoscope for ${sign}`);
                 await this.checkAndUpdateHoroscope(sign, "monthly");
             }
         }
         this.sendSocketNotification("SIX_AM_UPDATE_COMPLETED");
+        this.log("6 AM update process completed");
+    },
+
+    // ... (keep other existing methods)
+
+    log: function(message) {
+        console.log(`[${this.name}] ${new Date().toISOString()} - ${message}`);
     },
 
 

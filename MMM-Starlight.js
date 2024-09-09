@@ -288,6 +288,10 @@ createTextElement: function(sign, className, period) {
                 this.log(`Midnight update completed at ${payload.timestamp}`);
                 this.handleMidnightUpdateCompleted();
                 break;
+            case "SIX_AM_UPDATE_COMPLETED":
+                this.log("6 AM update completed");
+                this.handleSixAMUpdateCompleted();
+                break;
         }
     },
 
@@ -375,7 +379,7 @@ createTextElement: function(sign, className, period) {
     },
 
     handleMidnightUpdateCompleted: function() {
-        this.log("Handling midnight update completion");
+        this.log("Loading all horoscopes after update");
         this.loadAllHoroscopes();
         this.updateDom(0);
     },
