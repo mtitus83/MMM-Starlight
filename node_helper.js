@@ -6,6 +6,14 @@ const fs = require('fs').promises;
 const path = require('path');
 const moment = require('moment');
 
+let schedule;
+try {
+    schedule = require('node-schedule');
+    console.log("node-schedule successfully imported");
+} catch (error) {
+    console.error("Failed to import node-schedule:", error);
+}
+
 module.exports = NodeHelper.create({
     start: function() {
         console.log("Starting node helper for: " + this.name);
@@ -106,12 +114,20 @@ fetchHoroscope: async function (period, zodiacSign) {
     },
 
     scheduleUpdates() {
+        if (!schedule) {
+            console.error("node-schedule is not available. Skipping scheduling.");
+            return;
+        }
         this.scheduleMidnightUpdate();
         this.schedule6AMUpdate();
         this.scheduleHourlyChecks();
     },
 
     scheduleMidnightUpdate() {
+        if (!schedule) {
+            console.error("node-schedule is not available. Cannot schedule midnight update.");
+            return;
+        }
         if (this.scheduledJobs.midnight) {
             this.scheduledJobs.midnight.cancel();
         }
