@@ -418,17 +418,17 @@ createTextElement: function(sign, className, period) {
         );
     },
 
-    scheduleRotation: function() {
-        if (this.config.zodiacSign.length === 1 && this.config.period.length === 1) {
-            return;
-        }
+scheduleRotation: function() {
+    if (this.config.zodiacSign.length === 1 && this.config.period.length === 1) {
+        return;
+    } 
 
-        clearTimeout(this.rotationTimer);
-        var self = this;
-        this.rotationTimer = setTimeout(function() {
-            self.checkAndRotate();
-        }, this.config.signWaitTime);
-    },
+    clearTimeout(this.rotationTimer);
+    var self = this;
+    this.rotationTimer = setTimeout(function() {
+        self.checkAndRotate(); // Make sure this triggers the proper DOM update and scrolling
+    }, this.config.signWaitTime);
+},
 
     checkAndRotate: function() {
         if (this.config.zodiacSign.length === 1 && this.config.period.length === 1) {
@@ -513,43 +513,43 @@ const currentText = textSlideContainer.querySelector(".starlight-text-content.cu
         };
     },
 
-    startScrolling: function() {
-        var self = this;
-        clearTimeout(this.scrollTimer);
+startScrolling: function() {
+    var self = this;
+    clearTimeout(this.scrollTimer);
 
-        this.scrollTimer = setTimeout(function() {
-            var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
-            var textContent = document.querySelector(".MMM-Starlight .starlight-text");
+    this.scrollTimer = setTimeout(function() {
+        var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
+        var textContent = document.querySelector(".MMM-Starlight .starlight-text");
 
-            if (textWrapper && textContent) {
-                var wrapperHeight = textWrapper.offsetHeight;
-                var contentHeight = textContent.scrollHeight;
+        if (textWrapper && textContent) {
+            var wrapperHeight = textWrapper.offsetHeight;
+            var contentHeight = textContent.scrollHeight;
 
-                if (contentHeight > wrapperHeight) {
-                    self.isScrolling = true;
+            if (contentHeight > wrapperHeight) {
+                self.isScrolling = true;
 
-                    var scrollDistance = contentHeight - (wrapperHeight * 0.75);
-                    var verticalDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
+                var scrollDistance = contentHeight - (wrapperHeight * 0.75);
+                var verticalDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
 
-                    textContent.style.transition = `transform ${verticalDuration}ms linear`;
-                    textContent.style.transform = `translateY(-${scrollDistance}px)`;
+                textContent.style.transition = `transform ${verticalDuration}ms linear`;
+                textContent.style.transform = `translateY(-${scrollDistance}px)`;
 
-                    setTimeout(() => {
-                        self.isScrolling = false;
-                        // Reset scroll position
-                        textContent.style.transition = "none";
-                        textContent.style.transform = "translateY(0)";
-                        // Schedule next rotation
-                        self.scheduleRotation();
-                    }, verticalDuration + self.config.pauseDuration);
-                } else {
+                setTimeout(() => {
                     self.isScrolling = false;
-                    // If no scrolling needed, schedule next rotation immediately
+                    // Reset scroll position
+                    textContent.style.transition = "none";
+                    textContent.style.transform = "translateY(0)";
+                    // Schedule next rotation
                     self.scheduleRotation();
-                }
+                }, verticalDuration + self.config.pauseDuration);
+            } else {
+                self.isScrolling = false;
+                // If no scrolling needed, schedule next rotation immediately
+                self.scheduleRotation();
             }
-        }, self.config.pauseDuration);
-    },
+        }
+    }, self.config.pauseDuration);
+},
 
     simulateMidnightUpdate: function() {
         Log.info(`${this.name}: Simulating midnight update`);
