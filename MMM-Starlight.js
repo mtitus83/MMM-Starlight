@@ -28,6 +28,10 @@ Module.register("MMM-Starlight", {
         this.initializeModule();
     },
 
+    log: function(message) {
+        console.log(`[${this.name}] ${new Date().toISOString()} - ${message}`);
+    },
+
 getStyles: function() {
     var cssPath = this.file("MMM-Starlight.css");
     if (this.fileExists(cssPath)) {
@@ -246,6 +250,7 @@ createTextElement: function(sign, className, period) {
     },
 
     getHoroscope: function(sign, period) {
+        this.log(`Requesting horoscope for ${sign}, period: ${period}`);
         this.sendSocketNotification("GET_HOROSCOPE", {
             sign: sign,
             period: period
@@ -257,31 +262,31 @@ createTextElement: function(sign, className, period) {
     },
 
     socketNotificationReceived: function(notification, payload) {
-        console.log(`[${this.name}] Received socket notification:`, notification, payload);
+        this.log(`Received socket notification: ${notification}`);
         switch(notification) {
             case "HOROSCOPE_RESULT":
+                this.log(`Received horoscope result for ${payload.sign}, period: ${payload.period}`);
                 this.handleHoroscopeResult(payload);
                 break;
             case "CACHE_INITIALIZED":
+                this.log("Cache initialized notification received");
                 this.handleCacheInitialized();
                 break;
             case "CACHE_RESET_COMPLETE":
+                this.log("Cache reset complete notification received");
                 this.handleCacheResetComplete(payload);
                 break;
             case "MIDNIGHT_UPDATE_SIMULATED":
+                this.log("Midnight update simulation completed");
                 this.handleMidnightUpdateSimulated(payload);
                 break;
             case "CACHE_UPDATED":
+                this.log(`Cache updated for ${payload.sign}, period: ${payload.period}`);
                 this.handleCacheUpdated(payload);
                 break;
             case "MIDNIGHT_UPDATE_COMPLETED":
+                this.log(`Midnight update completed at ${payload.timestamp}`);
                 this.handleMidnightUpdateCompleted();
-                break;
-            case "SIX_AM_UPDATE_COMPLETED":
-                this.handleSixAMUpdateCompleted();
-                break;
-            case "HOURLY_CHECK_COMPLETED":
-                this.handleHourlyCheckCompleted();
                 break;
         }
     },
@@ -360,17 +365,17 @@ createTextElement: function(sign, className, period) {
     },
 
     loadAllHoroscopes: function() {
-        console.log(`[${this.name}] Loading all horoscopes after midnight update`);
+        this.log("Loading all horoscopes after midnight update");
         this.config.zodiacSign.forEach(sign => {
             this.config.period.forEach(period => {
-                console.log(`[${this.name}] Requesting horoscope for ${sign}, period: ${period}`);
+                this.log(`Requesting horoscope for ${sign}, period: ${period}`);
                 this.getHoroscope(sign, period);
             });
         });
     },
 
     handleMidnightUpdateCompleted: function() {
-        console.log(`[${this.name}] Midnight update completed, refreshing all horoscopes`);
+        this.log("Handling midnight update completion");
         this.loadAllHoroscopes();
         this.updateDom(0);
     },
