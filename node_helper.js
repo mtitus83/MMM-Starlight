@@ -49,6 +49,22 @@ module.exports = NodeHelper.create({
         }
     },
 
+checkSchedule() {
+    if (this.scheduledJobs.midnight) {
+        console.log(`[${this.name}] Next midnight update scheduled for: ${this.scheduledJobs.midnight.nextInvocation()}`);
+    } else {
+        console.log(`[${this.name}] No midnight update job scheduled`);
+    }
+}
+
+// Add this to your start method
+start: function() {
+    // ... (existing code)
+    
+    // Check schedule every hour
+    setInterval(() => this.checkSchedule(), 3600000);
+},
+
 fetchHoroscope: async function (period, zodiacSign) {
   try {
     let requestUrl;
@@ -123,65 +139,67 @@ fetchHoroscope: async function (period, zodiacSign) {
         this.scheduleHourlyChecks();
     },
 
-    scheduleMidnightUpdate() {
-        if (!schedule) {
-            console.error("node-schedule is not available. Cannot schedule midnight update.");
-            return;
-        }
-        if (this.scheduledJobs.midnight) {
-            this.scheduledJobs.midnight.cancel();
-        }
+scheduleMidnightUpdate() {
+    if (!schedule) {
+        console.error("node-schedule is not available. Cannot schedule midnight update.");
+        return;
+    }
+    if (this.scheduledJobs.midnight) {
+        this.scheduledJobs.midnight.cancel();
+    }
 
-        this.scheduledJobs.midnight = schedule.scheduleJob('0 0 * * *', () => {
-            console.log(`[${this.name}] Triggering scheduled midnight update`);
-            this.performMidnightUpdate();
-        });
+    // Schedule the job to run at midnight in the local timezone
+    this.scheduledJobs.midnight = schedule.scheduleJob('0 0 * * *', () => {
+        console.log(`[${this.name}] Midnight update job triggered at ${new Date().toLocaleString()}`);
+        this.performMidnightUpdate();
+    });
 
-        console.log(`[${this.name}] Scheduled midnight update`);
-    },
+    console.log(`[${this.name}] Scheduled midnight update. Next run: ${this.scheduledJobs.midnight.nextInvocation()}`);
+},
 
-    performMidnightUpdate: async function() {
-        console.log(`[${this.name}] Performing ${this.simulationMode ? 'simulated' : 'real'} midnight update`);
-        const currentDate = this.simulationMode ? this.simulatedDate : moment();
+performMidnightUpdate: async function() {
+    console.log(`[${this.name}] Performing midnight update at ${new Date().toLocaleString()}`);
+    const currentDate = this.simulationMode ? this.simulatedDate : moment();
+    
+    for (const sign of this.config.zodiacSign) {
+        console.log(`[${this.name}] Processing midnight update for ${sign}`);
         
-        for (const sign of this.config.zodiacSign) {
-            // Move tomorrow's data to today
-            const tomorrowData = this.cache.get(sign, "tomorrow");
-            if (tomorrowData) {
-                this.cache.set(sign, "daily", tomorrowData);
-                this.cache.set(sign, "tomorrow", null);
-            }
-            
-            // Fetch new data for tomorrow
-            await this.fetchAndUpdateCache(sign, "tomorrow");
-            
-            // Check if it's time for weekly update (Monday)
-            if (currentDate.day() === 1) {
-                await this.fetchAndUpdateCache(sign, "weekly");
-            }
-            
-            // Check if it's time for monthly update (1st of the month)
-            if (currentDate.date() === 1) {
-                await this.fetchAndUpdateCache(sign, "monthly");
-            }
+        // Move tomorrow's data to today
+        const tomorrowData = this.cache.get(sign, "tomorrow");
+        if (tomorrowData) {
+            console.log(`[${this.name}] Moving tomorrow's data to today for ${sign}`);
+            this.cache.set(sign, "daily", tomorrowData);
+            this.cache.set(sign, "tomorrow", null);
+        } else {
+            console.log(`[${this.name}] No tomorrow data found for ${sign}`);
         }
         
-        this.updateStatus.daily = false;
-        this.updateStatus.tomorrow = false;
-        await this.cache.saveToFile();
+        // Fetch new data for tomorrow
+        console.log(`[${this.name}] Fetching new data for tomorrow for ${sign}`);
+        await this.fetchAndUpdateCache(sign, "tomorrow");
         
-        if (this.simulationMode) {
-            this.sendSocketNotification("MIDNIGHT_UPDATE_SIMULATED", {
-                date: this.simulatedDate.format('YYYY-MM-DD'),
-                updatedWeekly: this.simulatedDate.day() === 1,
-                updatedMonthly: this.simulatedDate.date() === 1
-            });
-            this.simulationMode = false;
-            this.simulatedDate = null;
+        // Check if it's time for weekly update (Monday)
+        if (currentDate.day() === 1) {
+            console.log(`[${this.name}] Performing weekly update for ${sign}`);
+            await this.fetchAndUpdateCache(sign, "weekly");
         }
-
-        this.sendSocketNotification("MIDNIGHT_UPDATE_COMPLETED");
-    },
+        
+        // Check if it's time for monthly update (1st of the month)
+        if (currentDate.date() === 1) {
+            console.log(`[${this.name}] Performing monthly update for ${sign}`);
+            await this.fetchAndUpdateCache(sign, "monthly");
+        }
+    }
+    
+    this.updateStatus.daily = false;
+    this.updateStatus.tomorrow = false;
+    
+    console.log(`[${this.name}] Saving updated cache to file after midnight update`);
+    await this.cache.saveToFile();
+    
+    console.log(`[${this.name}] Midnight update completed`);
+    this.sendSocketNotification("MIDNIGHT_UPDATE_COMPLETED");
+},
 
     schedule6AMUpdate() {
         if (this.scheduledJobs.sixAM) {
