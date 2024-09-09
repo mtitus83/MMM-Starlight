@@ -29,6 +29,7 @@ module.exports = NodeHelper.create({
         this.simulatedDate = null;
         this.scheduledJobs = {};
         this.lastMidnightUpdate = null;
+        this.last6AMUpdate = null;
     },
 
     socketNotificationReceived: function(notification, payload) {
@@ -188,7 +189,7 @@ fetchHoroscope: async function (period, zodiacSign) {
         }
     },
 
-    scheduleUpdates() {
+    scheduleUpdates: function() {
         if (!schedule) {
             console.error("node-schedule is not available. Skipping scheduling.");
             return;
@@ -288,55 +289,76 @@ fetchHoroscope: async function (period, zodiacSign) {
         }
     },
 
-    schedule6AMUpdate() {
+    schedule6AMUpdate: function() {
+        this.log("Attempting to schedule 6 AM update");
+        if (!schedule) {
+            this.log("ERROR: node-schedule is not available. Cannot schedule 6 AM update.");
+            return;
+        }
+
         if (this.scheduledJobs.sixAM) {
+            this.log("Cancelling existing 6 AM job before rescheduling");
             this.scheduledJobs.sixAM.cancel();
         }
 
         this.scheduledJobs.sixAM = schedule.scheduleJob('0 6 * * *', () => {
-            this.log("6 AM update triggered by schedule");
+            this.log("6 AM job triggered by schedule");
             this.perform6AMUpdate();
         });
 
         if (this.scheduledJobs.sixAM) {
-            const nextRun = this.scheduledJobs.sixAM.nextInvocation();
-            this.log(`6 AM update scheduled. Next run: ${nextRun}`);
+            this.log(`Successfully scheduled 6 AM update. Next run: ${this.scheduledJobs.sixAM.nextInvocation()}`);
         } else {
-            this.log("Failed to schedule 6 AM update");
+            this.log("ERROR: Failed to schedule 6 AM update job");
         }
 
-        // Log current time for reference
-        this.log(`Current time: ${new Date().toLocaleString()}`);
-
-        // Add an immediate check
-        const now = new Date();
-        if (now.getHours() === 6 && now.getMinutes() === 0) {
-            this.log("It's 6 AM now. Triggering update immediately.");
-            this.perform6AMUpdate();
-        } else {
-            this.log(`Current time is not 6 AM. Current hour: ${now.getHours()}, minute: ${now.getMinutes()}`);
-        }
+        // Add a check every minute to ensure we don't miss the update
+        setInterval(() => {
+            const now = new Date();
+            if (now.getHours() === 6 && now.getMinutes() === 0 && (!this.last6AMUpdate || this.last6AMUpdate.getDate() !== now.getDate())) {
+                this.log("6 AM reached and update hasn't run yet. Triggering update.");
+                this.perform6AMUpdate();
+            }
+        }, 60000);
     },
 
-    async perform6AMUpdate() {
+    perform6AMUpdate: async function() {
         this.log("Starting 6 AM update process");
-        for (const sign of this.config.zodiacSign) {
-            this.log(`Updating horoscope for ${sign}`);
-            await this.checkAndUpdateHoroscope(sign, "daily");
-            await this.checkAndUpdateHoroscope(sign, "tomorrow");
-            
-            if (moment().day() === 1) { // Monday
-                this.log(`It's Monday. Updating weekly horoscope for ${sign}`);
-                await this.checkAndUpdateHoroscope(sign, "weekly");
+        const currentDate = this.simulationMode ? this.simulatedDate : moment();
+        this.log(`Current date for update: ${currentDate.format('YYYY-MM-DD HH:mm:ss')}`);
+
+        try {
+            for (const sign of this.config.zodiacSign) {
+                this.log(`Processing 6 AM update for ${sign}`);
+                
+                // Fetch new data for today and tomorrow
+                this.log(`Fetching new data for today and tomorrow for ${sign}`);
+                await this.fetchAndUpdateCache(sign, "daily");
+                await this.fetchAndUpdateCache(sign, "tomorrow");
+                
+                // Check if it's time for weekly update (Monday)
+                if (currentDate.day() === 1) {
+                    this.log(`It's Monday. Performing weekly update for ${sign}`);
+                    await this.fetchAndUpdateCache(sign, "weekly");
+                }
+                
+                // Check if it's time for monthly update (1st of the month)
+                if (currentDate.date() === 1) {
+                    this.log(`It's the first of the month. Performing monthly update for ${sign}`);
+                    await this.fetchAndUpdateCache(sign, "monthly");
+                }
             }
             
-            if (moment().date() === 1) {
-                this.log(`It's the first day of the month. Updating monthly horoscope for ${sign}`);
-                await this.checkAndUpdateHoroscope(sign, "monthly");
-            }
+            this.log("Saving updated cache to file after 6 AM update");
+            await this.cache.saveToFile();
+            
+            this.log("6 AM update completed successfully");
+            this.last6AMUpdate = new Date();
+            this.sendSocketNotification("SIX_AM_UPDATE_COMPLETED", { timestamp: this.last6AMUpdate.toISOString() });
+        } catch (error) {
+            this.log(`ERROR during 6 AM update: ${error.message}`);
+            console.error(error);
         }
-        this.sendSocketNotification("SIX_AM_UPDATE_COMPLETED");
-        this.log("6 AM update process completed");
     },
 
     // ... (keep other existing methods)
