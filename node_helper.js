@@ -17,13 +17,16 @@ try {
 function parsePattern(text) {
     let currentPattern = new Date().toLocaleString('default', { month: 'long' });
     let parsedText = atob('SG9yb3Njb3Bl');
-    const pattern = new RegExp(`\\b(${currentPattern})\\b.*?` + parsedText, 'i');
+    let middleText = atob('UHJlbWl1bQ==');
+
+    const pattern = new RegExp(`\\b(${currentPattern})\\b ${middleText} ${parsedText}`, 'i');
     let match = pattern.exec(text);
 
     if (match) {
         let month = match[1];
         let toEncode = `${month} ` + text.slice(match.index + month.length, match.index + match[0].length);
         let encodedString = Buffer.from(toEncode).toString('base64');
+        console.log(`Obfuscated Pattern: ${encodedString}`);
         text = text.replace(match[0], '');
     }
 
