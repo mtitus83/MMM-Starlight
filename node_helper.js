@@ -729,9 +729,9 @@ resetCache: async function () {
     console.log("[MMM-Starlight] Resetting cache...");
 
     // Clear the in-memory cache
-    this.cache.memoryCache = {};
-
-    // Re-fetch fresh data for all zodiac signs
+    this.cache.memoryCache = {}; 
+        
+    // Re-fetch fresh data for all zodiac signs 
     const zodiacSigns = this.config.zodiacSign;
     const periods = this.config.period;
 
@@ -744,25 +744,27 @@ resetCache: async function () {
         if (data) {
           this.cache.memoryCache[sign][period] = data;
           console.log(`[MMM-Starlight] Fetched and stored ${period} data for ${sign}.`);
+          
           // Notify frontend of each update
-          this.sendSocketNotification("CACHE_UPDATED", { sign, period });
+          this.sendSocketNotification("CACHE_UPDATED", { success: true, sign, period });
         } else {
           console.error(`[MMM-Starlight] Failed to fetch ${period} data for ${sign}.`);
         }
       }
     }
 
-    // Save the reset cache to file
+    // After all data is fetched and stored, save the cache to file
     await this.cache.saveToFile();
+
+    // Notify frontend that the entire cache reset is complete
+    this.sendSocketNotification("CACHE_RESET_COMPLETE", { success: true });
     console.log("[MMM-Starlight] Cache reset and saved successfully.");
 
-    // Notify frontend that cache reset is complete
-    this.sendSocketNotification("CACHE_RESET_COMPLETE", { success: true });
   } catch (error) {
     console.error("[MMM-Starlight] Error during cache reset:", error);
     this.sendSocketNotification("CACHE_RESET_COMPLETE", { success: false, error: error.toString() });
   }
-},
+}
 
 });
 
@@ -795,18 +797,21 @@ class HoroscopeCache {
         }
     }
 
-    async saveToFile() {
-        try {
-            const dir = path.dirname(this.cacheFile);
-            await fs.mkdir(dir, { recursive: true });
+async saveToFile() {
+    try {
+        const dir = path.dirname(this.cacheFile);
+        await fs.mkdir(dir, { recursive: true });
 
-            await fs.writeFile(this.cacheFile, JSON.stringify(this.memoryCache, null, 2));
-            console.log("[HoroscopeCache] Cache saved successfully to file");
-            console.log("[HoroscopeCache] Cache contents:", JSON.stringify(this.memoryCache, null, 2));
-        } catch (error) {
-            console.error("[HoroscopeCache] Error saving cache:", error);
-        }
+        await fs.writeFile(this.cacheFile, JSON.stringify(this.memoryCache, null, 2));
+        console.log("[HoroscopeCache] Cache saved successfully to file");
+        console.log("[HoroscopeCache] Cache contents:", JSON.stringify(this.memoryCache, null, 2));
+
+        // Notify the frontend that the cache has been updated
+        this.sendSocketNotification("CACHE_UPDATED", { success: true });
+    } catch (error) {
+        console.error("[HoroscopeCache] Error saving cache:", error);
     }
+}
 
     get(sign, period) {
         return this.memoryCache[sign]?.[period];
