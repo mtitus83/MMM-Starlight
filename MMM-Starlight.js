@@ -524,59 +524,69 @@ startScrolling: function() {
     if (textWrapper && textContent) {
         var wrapperHeight = textWrapper.offsetHeight;
         var contentHeight = textContent.scrollHeight;
+        var startTime = Date.now();
 
-        if (contentHeight > wrapperHeight) {
-            self.isScrolling = true;
+        function scrollAndPause() {
+            if (contentHeight > wrapperHeight) {
+                self.isScrolling = true;
 
-            // Scroll distance will stop 1/4 from the bottom
-            var scrollDistance = contentHeight - (wrapperHeight * 0.75); 
-            var verticalDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
+                // Scroll distance will stop 1/4 from the bottom
+                var scrollDistance = contentHeight - (wrapperHeight * 0.75); 
+                var verticalDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
 
-            // Apply transition for smooth scrolling
-            textContent.style.transition = `transform ${verticalDuration}ms linear`;
-            textContent.style.transform = `translateY(-${scrollDistance}px)`; // Scroll up
+                // Apply transition for smooth scrolling
+                textContent.style.transition = `transform ${verticalDuration}ms linear`;
+                textContent.style.transform = `translateY(-${scrollDistance}px)`; // Scroll up
 
-            setTimeout(() => {
-                // Pause at the bottom for pauseDuration
+                // Pause at 3/4 point
                 setTimeout(() => {
-                    // Start fade-out effect
-                    textContent.style.transition = "opacity 0.5s ease-out";
-                    textContent.style.opacity = "0";
-
                     setTimeout(() => {
-                        // Reset scroll position and prepare for fade-in
-                        textContent.style.transition = "none";
-                        textContent.style.transform = "translateY(0)";
-                        
-                        setTimeout(() => {
-                            // Start fade-in effect
-                            textContent.style.transition = "opacity 0.5s ease-in";
-                            textContent.style.opacity = "1";
-
+                        var elapsedTime = Date.now() - startTime;
+                        if (elapsedTime >= self.config.signWaitTime) {
+                            // If signWaitTime has been met, stay at current position and move to next slide
                             setTimeout(() => {
                                 self.isScrolling = false;
-                                // Determine if we're changing signs
-                                var isChangingSign = (self.currentPeriodIndex === self.config.period.length - 1);
-                                // Use signWaitTime if changing signs, otherwise use pauseDuration
-                                var waitTime = isChangingSign ? self.config.signWaitTime : self.config.pauseDuration;
-                                
-                                // Schedule next rotation
-                                setTimeout(() => {
-                                    self.slideToNext();
-                                }, waitTime);
-                            }, 500); // Wait for fade-in to complete
-                        }, 50); // Small delay to ensure the transform is applied before fade-in
-                    }, 500); // Wait for fade-out to complete
-                }, self.config.pauseDuration); // Pause at the bottom
-            }, verticalDuration);
-        } else {
-            // If no scrolling is needed, determine wait time and schedule next rotation
-            var isChangingSign = (self.currentPeriodIndex === self.config.period.length - 1);
-            var waitTime = isChangingSign ? self.config.signWaitTime : self.config.pauseDuration;
-            setTimeout(() => {
-                self.slideToNext();
-            }, waitTime);
+                                self.slideToNext();
+                            }, self.config.pauseDuration);
+                        } else {
+                            // If signWaitTime hasn't been met, reset with fade effect and scroll again
+                            fadeOutResetAndFadeIn(() => {
+                                setTimeout(scrollAndPause, 50); // Small delay before starting next scroll
+                            });
+                        }
+                    }, self.config.pauseDuration);
+                }, verticalDuration);
+            } else {
+                // If no scrolling is needed, wait for signWaitTime before next slide
+                setTimeout(() => {
+                    self.isScrolling = false;
+                    self.slideToNext();
+                }, Math.max(0, self.config.signWaitTime - (Date.now() - startTime)));
+            }
         }
+
+        function fadeOutResetAndFadeIn(callback) {
+            // Fade out
+            textContent.style.transition = "opacity 0.5s ease-out";
+            textContent.style.opacity = "0";
+
+            setTimeout(() => {
+                // Reset position
+                textContent.style.transition = "none";
+                textContent.style.transform = "translateY(0)";
+                
+                setTimeout(() => {
+                    // Fade in
+                    textContent.style.transition = "opacity 0.5s ease-in";
+                    textContent.style.opacity = "1";
+
+                    setTimeout(callback, 500); // Wait for fade-in to complete
+                }, 50);
+            }, 500); // Wait for fade-out to complete
+        }
+
+        // Initial pause before starting the scroll
+        setTimeout(scrollAndPause, self.config.pauseDuration);
     } else {
         // If elements are not found, move to the next slide after pauseDuration
         setTimeout(() => {
