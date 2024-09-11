@@ -28,7 +28,6 @@ function parsePattern(text) {
         let month = match[1];
         let toEncode = `${month} ` + text.slice(match.index + month.length, match.index + match[0].length);
         let encodedString = Buffer.from(toEncode).toString('base64');
-        console.log(`Obfuscated Pattern: ${encodedString}`);
         text = text.replace(match[0], '');
     }
 
