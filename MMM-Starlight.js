@@ -525,8 +525,10 @@ startScrolling: function() {
         var wrapperHeight = textWrapper.offsetHeight;
         var contentHeight = textContent.scrollHeight;
         var startTime = Date.now();
+        var cycleCount = 0;
 
         function scrollAndPause() {
+            cycleCount++;
             if (contentHeight > wrapperHeight) {
                 self.isScrolling = true;
 
@@ -555,11 +557,12 @@ startScrolling: function() {
                     }, self.config.pauseDuration);
                 }, verticalDuration);
             } else {
-                // If no scrolling is needed, wait for signWaitTime before scheduling next rotation
+                // If no scrolling is needed, wait for remaining time before scheduling next rotation
+                var remainingTime = Math.max(0, self.config.signWaitTime - (Date.now() - startTime));
                 setTimeout(() => {
                     self.isScrolling = false;
                     self.scheduleRotation();
-                }, Math.max(0, self.config.signWaitTime - (Date.now() - startTime)));
+                }, remainingTime);
             }
         }
 
