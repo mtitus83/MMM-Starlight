@@ -251,62 +251,56 @@ fetchHoroscope: async function (period, zodiacSign) {
         }, 60000);
     },
 
-    performMidnightUpdate: async function() {
-        this.log("Starting midnight update process");
-        const currentDate = this.simulationMode ? this.simulatedDate : moment();
-        this.log(`Current date for update: ${currentDate.format('YYYY-MM-DD HH:mm:ss')}`);
+performMidnightUpdate: async function() {
+    this.log("Starting midnight update process");
+    const currentDate = this.simulationMode ? this.simulatedDate : moment();
+    this.log(`Current date for update: ${currentDate.format('YYYY-MM-DD HH:mm:ss')}`);
 
-        try {
-            for (const sign of this.config.zodiacSign) {
-                this.log(`Processing midnight update for ${sign}`);
-                
-                // Log the current state before rotation
-                this.log(`Current state for ${sign} before rotation: ${JSON.stringify(this.cache.memoryCache[sign], null, 2)}`);
-                
-                // Move tomorrow's data to today
-                const tomorrowData = this.cache.get(sign, "tomorrow");
-                if (tomorrowData) {
-                    this.log(`Moving tomorrow's data to today for ${sign}`);
-                    this.cache.set(sign, "daily", tomorrowData);
-                    this.cache.set(sign, "tomorrow", null);
-                } else {
-                    this.log(`No tomorrow data found for ${sign}`);
-                }
-                
-                // Log the state after rotation
-                this.log(`State for ${sign} after rotation: ${JSON.stringify(this.cache.memoryCache[sign], null, 2)}`);
-                
-                // Fetch new data for tomorrow
-                this.log(`Fetching new data for tomorrow for ${sign}`);
-                await this.fetchAndUpdateCache(sign, "tomorrow");
-                
-                // Check if it's time for weekly update (Monday)
-                if (currentDate.day() === 1) {
-                    this.log(`Performing weekly update for ${sign}`);
-                    await this.fetchAndUpdateCache(sign, "weekly");
-                }
-                
-                // Check if it's time for monthly update (1st of the month)
-                if (currentDate.date() === 1) {
-                    this.log(`Performing monthly update for ${sign}`);
-                    await this.fetchAndUpdateCache(sign, "monthly");
-                }
+    try {
+        for (const sign of this.config.zodiacSign) {
+            this.log(`Processing midnight update for ${sign}`);
+            
+            // Move tomorrow's data to today
+            const tomorrowData = this.cache.get(sign, "tomorrow");
+            if (tomorrowData) {
+                this.log(`Moving tomorrow's data to today's slot for ${sign}`);
+                this.cache.set(sign, "daily", tomorrowData);
+                this.log(`New state for ${sign}: ${JSON.stringify(this.cache.memoryCache[sign], null, 2)}`);
+            } else {
+                this.log(`No tomorrow data available for ${sign}, skipping rotation`);
             }
-            
-            this.updateStatus.daily = false;
-            this.updateStatus.tomorrow = false;
-            
-            this.log("Saving updated cache to file after midnight update");
-            await this.cache.saveToFile();
-            
-            this.log("Midnight update completed successfully");
-            this.lastMidnightUpdate = new Date();
-            this.sendSocketNotification("MIDNIGHT_UPDATE_COMPLETED", { timestamp: this.lastMidnightUpdate.toISOString() });
-        } catch (error) {
-            this.log(`ERROR during midnight update: ${error.message}`);
-            console.error(error);
         }
-    },
+
+        // After rotating, trigger the API call to fetch only "tomorrow" horoscopes
+        this.log("Rotation complete. Now fetching tomorrow's horoscope data from API...");
+        await this.fetchTomorrowsHoroscopeData();  // Only fetch "tomorrow"
+        this.log("Tomorrow's horoscope data fetched and cache updated.");
+
+        // Notify frontend to update
+        this.sendSocketNotification("CACHE_UPDATED", this.cache.memoryCache);
+
+    } catch (error) {
+        this.log(`Error during midnight update: ${error}`);
+    }
+},
+
+fetchTomorrowsHoroscopeData: async function() {
+    try {
+        for (const sign of this.config.zodiacSign) {
+            // Fetch data from the API for "tomorrow" only
+            const newHoroscope = await this.getHoroscopeFromAPI(sign, "tomorrow");
+            if (newHoroscope) {
+                // Update the cache with the new "tomorrow" data
+                this.cache.set(sign, "tomorrow", newHoroscope.tomorrow);
+                this.log(`Updated cache for ${sign} with new tomorrow's horoscope.`);
+            }
+        }
+        // Save the updated cache to file
+        await this.cache.saveToFile();
+    } catch (error) {
+        this.log(`Error fetching tomorrow's horoscope data: ${error}`);
+    }
+},
 
     schedule6AMUpdate: function() {
         this.log("Attempting to schedule 6 AM update");
@@ -341,44 +335,43 @@ fetchHoroscope: async function (period, zodiacSign) {
         }, 60000);
     },
 
-    perform6AMUpdate: async function() {
-        this.log("Starting 6 AM update process");
-        const currentDate = this.simulationMode ? this.simulatedDate : moment();
-        this.log(`Current date for update: ${currentDate.format('YYYY-MM-DD HH:mm:ss')}`);
+perform6AMUpdate: async function() {
+    this.log("Starting 6 AM update process");
+    const currentDate = this.simulationMode ? this.simulatedDate : moment();
+    this.log(`Current date for update: ${currentDate.format('YYYY-MM-DD HH:mm:ss')}`);
 
-        try {
-            for (const sign of this.config.zodiacSign) {
-                this.log(`Processing 6 AM update for ${sign}`);
-                
-                // Fetch new data for today and tomorrow
-                this.log(`Fetching new data for today and tomorrow for ${sign}`);
-                await this.fetchAndUpdateCache(sign, "daily");
-                await this.fetchAndUpdateCache(sign, "tomorrow");
-                
-                // Check if it's time for weekly update (Monday)
-                if (currentDate.day() === 1) {
-                    this.log(`It's Monday. Performing weekly update for ${sign}`);
-                    await this.fetchAndUpdateCache(sign, "weekly");
-                }
-                
-                // Check if it's time for monthly update (1st of the month)
-                if (currentDate.date() === 1) {
-                    this.log(`It's the first of the month. Performing monthly update for ${sign}`);
-                    await this.fetchAndUpdateCache(sign, "monthly");
-                }
+    try {
+        for (const sign of this.config.zodiacSign) {
+            this.log(`Processing 6 AM update for ${sign}`);
+            
+            // Fetch new data for tomorrow only
+            this.log(`Fetching new data for tomorrow for ${sign}`);
+            await this.fetchAndUpdateCache(sign, "tomorrow");
+            
+            // Check if it's time for weekly update (Monday)
+            if (currentDate.day() === 1) {
+                this.log(`It's Monday. Performing weekly update for ${sign}`);
+                await this.fetchAndUpdateCache(sign, "weekly");
             }
             
-            this.log("Saving updated cache to file after 6 AM update");
-            await this.cache.saveToFile();
-            
-            this.log("6 AM update completed successfully");
-            this.last6AMUpdate = new Date();
-            this.sendSocketNotification("SIX_AM_UPDATE_COMPLETED", { timestamp: this.last6AMUpdate.toISOString() });
-        } catch (error) {
-            this.log(`ERROR during 6 AM update: ${error.message}`);
-            console.error(error);
+            // Check if it's time for monthly update (1st of the month)
+            if (currentDate.date() === 1) {
+                this.log(`It's the first of the month. Performing monthly update for ${sign}`);
+                await this.fetchAndUpdateCache(sign, "monthly");
+            }
         }
-    },
+        
+        this.log("Saving updated cache to file after 6 AM update");
+        await this.cache.saveToFile();
+        
+        this.log("6 AM update completed successfully");
+        this.last6AMUpdate = new Date();
+        this.sendSocketNotification("SIX_AM_UPDATE_COMPLETED", { timestamp: this.last6AMUpdate.toISOString() });
+    } catch (error) {
+        this.log(`ERROR during 6 AM update: ${error.message}`);
+        console.error(error);
+    }
+},
 
     // ... (keep other existing methods)
 
