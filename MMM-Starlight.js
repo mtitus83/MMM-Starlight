@@ -525,10 +525,8 @@ startScrolling: function() {
         var wrapperHeight = textWrapper.offsetHeight;
         var contentHeight = textContent.scrollHeight;
         var startTime = Date.now();
-        var cycleCount = 0;
 
         function scrollAndPause() {
-            cycleCount++;
             if (contentHeight > wrapperHeight) {
                 self.isScrolling = true;
 
@@ -545,53 +543,33 @@ startScrolling: function() {
                     setTimeout(() => {
                         var elapsedTime = Date.now() - startTime;
                         if (elapsedTime >= self.config.signWaitTime) {
-                            // If signWaitTime has been met, stay at current position and schedule next rotation
+                            // If signWaitTime has been met, move to next slide
                             self.isScrolling = false;
-                            self.scheduleRotation();
+                            self.slideToNext();
                         } else {
-                            // If signWaitTime hasn't been met, reset with fade effect and scroll again
-                            fadeOutResetAndFadeIn(() => {
-                                setTimeout(scrollAndPause, 50); // Small delay before starting next scroll
-                            });
+                            // If signWaitTime hasn't been met, reset and scroll again
+                            textContent.style.transition = "none";
+                            textContent.style.transform = "translateY(0)";
+                            setTimeout(scrollAndPause, 50); // Small delay before starting next scroll
                         }
                     }, self.config.pauseDuration);
                 }, verticalDuration);
             } else {
-                // If no scrolling is needed, wait for remaining time before scheduling next rotation
+                // If no scrolling is needed, wait for signWaitTime before moving to next slide
                 var remainingTime = Math.max(0, self.config.signWaitTime - (Date.now() - startTime));
                 setTimeout(() => {
                     self.isScrolling = false;
-                    self.scheduleRotation();
+                    self.slideToNext();
                 }, remainingTime);
             }
-        }
-
-        function fadeOutResetAndFadeIn(callback) {
-            // Fade out
-            textContent.style.transition = "opacity 0.5s ease-out";
-            textContent.style.opacity = "0";
-
-            setTimeout(() => {
-                // Reset position
-                textContent.style.transition = "none";
-                textContent.style.transform = "translateY(0)";
-                
-                setTimeout(() => {
-                    // Fade in
-                    textContent.style.transition = "opacity 0.5s ease-in";
-                    textContent.style.opacity = "1";
-
-                    setTimeout(callback, 500); // Wait for fade-in to complete
-                }, 50);
-            }, 500); // Wait for fade-out to complete
         }
 
         // Initial pause before starting the scroll
         setTimeout(scrollAndPause, self.config.pauseDuration);
     } else {
-        // If elements are not found, schedule next rotation after pauseDuration
+        // If elements are not found, move to next slide after pauseDuration
         setTimeout(() => {
-            self.scheduleRotation();
+            self.slideToNext();
         }, self.config.pauseDuration);
     }
 },
