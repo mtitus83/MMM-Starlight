@@ -793,7 +793,9 @@ class HoroscopeCache {
         this.nodeHelper = nodeHelperContext;
         this.cacheFile = cacheFilePath;
         this.memoryCache = {};
-        this.saveToFile = this.saveToFile.bind(this);  // Bind the context
+
+        // Ensure saveToFile is properly defined before binding
+        this.saveToFile = this.saveToFile.bind(this);
     }
 
     async initialize() {
@@ -818,7 +820,6 @@ class HoroscopeCache {
             return this.memoryCache;
         }
     }
-
 
     get(sign, period) {
         return this.memoryCache[sign]?.[period];
@@ -854,4 +855,21 @@ class HoroscopeCache {
             }
         }
     }
+
+    async saveToFile() {
+        try {
+            const dir = path.dirname(this.cacheFile);
+            await fs.mkdir(dir, { recursive: true });
+
+            await fs.writeFile(this.cacheFile, JSON.stringify(this.memoryCache, null, 2));
+            console.log("[HoroscopeCache] Cache saved successfully to file");
+            console.log("[HoroscopeCache] Cache contents:", JSON.stringify(this.memoryCache, null, 2));
+
+            // Notify the frontend that the cache has been updated
+            this.nodeHelper.sendSocketNotification("CACHE_UPDATED", { success: true });
+        } catch (error) {
+            console.error("[HoroscopeCache] Error saving cache:", error);
+        }
+    }
 }
+
