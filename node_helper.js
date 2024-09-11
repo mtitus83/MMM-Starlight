@@ -106,12 +106,6 @@ socketNotificationReceived: function(notification, payload) {
 },
 
 performMidnightUpdate: async function() {
-    if (isPerformingMidnightUpdate) {
-        this.log("Midnight update already in progress. Skipping.");
-        return;
-    }
-
-    isPerformingMidnightUpdate = true;
     this.log("Starting midnight update process");
     const currentDate = this.simulationMode ? this.simulatedDate : moment();
     this.log(`Current date for update: ${currentDate.format('YYYY-MM-DD HH:mm:ss')}`);
@@ -121,31 +115,29 @@ performMidnightUpdate: async function() {
             this.log(`Processing midnight update for ${sign}`);
             
             const tomorrowData = this.cache.get(sign, "tomorrow");
-            const dailyData = this.cache.get(sign, "daily");
-
             if (tomorrowData) {
                 this.log(`Moving tomorrow's data to today's slot for ${sign}`);
-                this.log(`Previous daily data: ${JSON.stringify(dailyData)}`);
-                this.cache.set(sign, "daily", tomorrowData);
-                this.log(`New daily data: ${JSON.stringify(tomorrowData)}`);
+                this.cache.set(sign, "daily", {
+                    ...tomorrowData,
+                    lastUpdate: currentDate.toISOString(),
+                    nextUpdate: currentDate.clone().add(1, 'day').startOf('day').toISOString()
+                });
+                this.log(`New state for ${sign}: ${JSON.stringify(this.cache.get(sign, "daily"), null, 2)}`);
             } else {
                 this.log(`No tomorrow data available for ${sign}, daily data remains unchanged`);
             }
         }
 
-        this.log("Data rotation complete. Fetching new tomorrow's horoscope data...");
+        this.log("Rotation complete. Now fetching tomorrow's horoscope data from API...");
         await this.fetchTomorrowsHoroscopeData();
         
-        this.log("Saving updated cache to file");
         await this.cache.saveToFile();
+        this.log("Tomorrow's horoscope data fetched and cache updated.");
 
-        this.log("Midnight update completed successfully");
         this.sendSocketNotification("MIDNIGHT_UPDATE_COMPLETED", { timestamp: new Date().toISOString() });
 
     } catch (error) {
-        this.log(`Error during midnight update: ${error.stack}`);
-    } finally {
-        isPerformingMidnightUpdate = false;
+        this.log(`Error during midnight update: ${error}`);
     }
 },
 
@@ -461,46 +453,44 @@ handleGetHoroscope: function(payload) {
     this.log(`Received request to get horoscope with payload: ${JSON.stringify(payload)}`);
 
     if (!payload || Object.keys(payload).length === 0) {
-        this.log("Received empty payload in handleGetHoroscope, using default values");
-        payload = {
-            sign: this.config.zodiacSign[0],  // Use the first configured sign
-            period: "daily"  // Default to daily horoscope
-        };
+        this.log("Received empty payload in handleGetHoroscope");
+        return;
     }
 
-    if (!payload.sign || !payload.period) {
-        this.log(`Invalid payload received: missing sign or period. Using default values. Payload: ${JSON.stringify(payload)}`);
-        payload.sign = payload.sign || this.config.zodiacSign[0];
-        payload.period = payload.period || "daily";
+    const { sign, period } = payload;
+    
+    if (!sign || !period) {
+        this.log(`Invalid payload received: missing sign or period. Payload: ${JSON.stringify(payload)}`);
+        return;
     }
 
-    this.getCachedHoroscope(payload.sign, payload.period)
+    this.getCachedHoroscope(sign, period)
         .then(data => {
             if (data) {
-                this.log(`Successfully retrieved horoscope for ${payload.sign}, period: ${payload.period}`);
+                this.log(`Successfully retrieved horoscope for ${sign}, period: ${period}`);
                 this.sendSocketNotification("HOROSCOPE_RESULT", { 
                     success: true,
                     data: data,
-                    sign: payload.sign,
-                    period: payload.period
+                    sign: sign,
+                    period: period
                 });
             } else {
-                this.log(`No data found for ${payload.sign}, period: ${payload.period}`);
+                this.log(`No data found for ${sign}, period: ${period}`);
                 this.sendSocketNotification("HOROSCOPE_RESULT", { 
                     success: false,
                     message: "No data available",
-                    sign: payload.sign,
-                    period: payload.period
+                    sign: sign,
+                    period: period
                 });
             }
         })
         .catch(error => {
-            this.log(`Error in getHoroscope for ${payload.sign}, period: ${payload.period}: ${error}`);
+            this.log(`Error in getHoroscope for ${sign}, period: ${period}: ${error}`);
             this.sendSocketNotification("HOROSCOPE_RESULT", { 
                 success: false, 
                 message: "An error occurred while fetching the horoscope.",
-                sign: payload.sign,
-                period: payload.period,
+                sign: sign,
+                period: period,
                 error: error.toString()
             });
         });
