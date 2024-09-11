@@ -297,17 +297,16 @@ createTextElement: function(sign, className, period) {
                 break;
             case "MIDNIGHT_UPDATE_COMPLETED":
                 this.log(`Midnight update completed at ${payload.timestamp}`);
-                this.handleMidnightUpdateCompleted();
+                this.handleMidnightUpdateCompleted(payload);
                 break;
             case "SIX_AM_UPDATE_COMPLETED":
                 this.log("6 AM update completed");
                 this.handleSixAMUpdateCompleted();
                 break;
-       case "PERFORM_MIDNIGHT_UPDATE":
-            this.log("Received confirmation of midnight update performance");
-            // You can add any frontend logic needed after midnight update here
-            this.updateDom();
-            break;
+            case "PERFORM_MIDNIGHT_UPDATE":
+                this.log("Received confirmation of midnight update performance");
+                this.updateDom();
+                break;
         }
     },
 
@@ -317,12 +316,16 @@ createTextElement: function(sign, className, period) {
     },
 
     handleCacheUpdated: function(payload) {
-        console.log(`[${this.name}] Received cache update for ${payload.sign}, period: ${payload.period}`);
-        this.getHoroscope(payload.sign, payload.period);
+        this.log(`Handling cache update for ${payload.sign}, period: ${payload.period}`);
+        if (!this.horoscopes[payload.sign]) {
+            this.horoscopes[payload.sign] = {};
+        }
+        this.horoscopes[payload.sign][payload.period] = payload.data;
+        this.updateDom(0);
     },
 
     handleHoroscopeResult: function(payload) {
-        console.log(`[${this.name}] Handling horoscope result:`, payload);
+        this.log(`Handling horoscope result:`, payload);
         if (payload.success) {
             if (!this.horoscopes[payload.sign]) {
                 this.horoscopes[payload.sign] = {};
@@ -342,7 +345,7 @@ createTextElement: function(sign, className, period) {
                 }
             }
         } else {
-            console.error(`[${this.name}] Error in horoscope result:`, payload.message);
+            this.log(`Error in horoscope result:`, payload.message);
             if (!this.horoscopes[payload.sign]) {
                 this.horoscopes[payload.sign] = {};
             }
@@ -394,9 +397,8 @@ createTextElement: function(sign, className, period) {
         });
     },
 
-    handleMidnightUpdateCompleted: function() {
-        this.log("Loading all horoscopes after update");
-        this.loadAllHoroscopes();
+    handleMidnightUpdateCompleted: function(payload) {
+        this.log(`Handling midnight update completion at ${payload.timestamp}`);
         this.updateDom(0);
     },
 
