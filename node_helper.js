@@ -317,6 +317,10 @@ isHoroscopeValid(cachedData, period, currentDate) {
 },
 
     scheduleUpdates: function() {
+    	if (!this.scheduledJobs) {
+       		this.scheduledJobs = {};
+    	}
+
         if (!schedule) {
             console.error("node-schedule is not available. Skipping scheduling.");
             return;
