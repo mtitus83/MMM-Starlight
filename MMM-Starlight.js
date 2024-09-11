@@ -540,19 +540,21 @@ startScrolling: function() {
 
                 // Pause at 3/4 point
                 setTimeout(() => {
-                    setTimeout(() => {
-                        var elapsedTime = Date.now() - startTime;
-                        if (elapsedTime >= self.config.signWaitTime) {
-                            // If signWaitTime has been met, move to next slide
+                    var elapsedTime = Date.now() - startTime;
+                    if (elapsedTime >= self.config.signWaitTime) {
+                        // If signWaitTime has been met, move to next slide after pauseDuration
+                        setTimeout(() => {
                             self.isScrolling = false;
                             self.slideToNext();
-                        } else {
-                            // If signWaitTime hasn't been met, reset and scroll again
+                        }, self.config.pauseDuration);
+                    } else {
+                        // If signWaitTime hasn't been met, pause then reset and scroll again
+                        setTimeout(() => {
                             textContent.style.transition = "none";
                             textContent.style.transform = "translateY(0)";
                             setTimeout(scrollAndPause, 50); // Small delay before starting next scroll
-                        }
-                    }, self.config.pauseDuration);
+                        }, self.config.pauseDuration);
+                    }
                 }, verticalDuration);
             } else {
                 // If no scrolling is needed, wait for signWaitTime before moving to next slide
