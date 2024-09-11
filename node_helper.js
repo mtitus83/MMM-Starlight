@@ -217,22 +217,42 @@ fetchHoroscope: async function (period, zodiacSign) {
         }
     },
 
-    async initializeCache() {
-        console.log(`${this.name}: Initializing cache for all configured zodiac signs and periods`);
-        try {
-            await this.cache.initialize();
-            this.scheduleUpdates();
-            console.log(`${this.name}: Cache initialization completed`);
-            this.sendSocketNotification("CACHE_INITIALIZED");
-        } catch (error) {
-            console.error(`${this.name}: Error initializing cache:`, error);
-            this.sendSocketNotification("HOROSCOPE_RESULT", {
-                success: false,
-                message: "Error initializing cache",
-                error: error.toString()
-            });
+async initializeCache() {
+    console.log(`${this.name}: Initializing cache for all configured zodiac signs and periods`);
+    try {
+        await this.cache.loadFromFile();
+        const currentDate = moment();
+        let cacheReport = "Cache status at initialization:";
+
+        for (const sign of this.config.zodiacSign) {
+            cacheReport += `\n${sign}:`;
+            for (const period of this.config.period) {
+                const cachedData = this.cache.get(sign, period);
+                const isValid = this.isHoroscopeValid(cachedData, period, currentDate);
+                cacheReport += ` ${period} (${isValid ? "cached" : "needs fetch"})`;
+                
+                if (!isValid) {
+                    this.log(`Fetching new data for ${sign}, period: ${period}`);
+                    await this.fetchAndUpdateCache(sign, period);
+                } else {
+                    this.log(`Using cached data for ${sign}, period: ${period}`);
+                }
+            }
         }
-    },
+
+        this.log(cacheReport);
+        this.scheduleUpdates();
+        console.log(`${this.name}: Cache initialization completed`);
+        this.sendSocketNotification("CACHE_INITIALIZED");
+    } catch (error) {
+        console.error(`${this.name}: Error initializing cache:`, error);
+        this.sendSocketNotification("HOROSCOPE_RESULT", {
+            success: false,
+            message: "Error initializing cache",
+            error: error.toString()
+        });
+    }
+},
 
     scheduleUpdates: function() {
         if (!schedule) {
