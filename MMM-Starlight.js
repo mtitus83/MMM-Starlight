@@ -537,27 +537,30 @@ startScrolling: function() {
             textContent.style.transform = `translateY(-${scrollDistance}px)`; // Scroll up
 
             setTimeout(() => {
-                // Start fade-out effect
-                textContent.style.transition = "opacity 0.5s ease-out";
-                textContent.style.opacity = "0";
-
+                // Pause at the bottom for pauseDuration
                 setTimeout(() => {
-                    // Reset scroll position and prepare for fade-in
-                    textContent.style.transition = "none";
-                    textContent.style.transform = "translateY(0)";
-                    
-                    setTimeout(() => {
-                        // Start fade-in effect
-                        textContent.style.transition = "opacity 0.5s ease-in";
-                        textContent.style.opacity = "1";
+                    // Start fade-out effect
+                    textContent.style.transition = "opacity 0.5s ease-out";
+                    textContent.style.opacity = "0";
 
+                    setTimeout(() => {
+                        // Reset scroll position and prepare for fade-in
+                        textContent.style.transition = "none";
+                        textContent.style.transform = "translateY(0)";
+                        
                         setTimeout(() => {
-                            self.isScrolling = false;
-                            // Schedule next rotation
-                            self.slideToNext();
-                        }, 500); // Wait for fade-in to complete
-                    }, 50); // Small delay to ensure the transform is applied before fade-in
-                }, 500); // Wait for fade-out to complete
+                            // Start fade-in effect
+                            textContent.style.transition = "opacity 0.5s ease-in";
+                            textContent.style.opacity = "1";
+
+                            setTimeout(() => {
+                                self.isScrolling = false;
+                                // Schedule next rotation
+                                self.slideToNext();
+                            }, 500); // Wait for fade-in to complete
+                        }, 50); // Small delay to ensure the transform is applied before fade-in
+                    }, 500); // Wait for fade-out to complete
+                }, self.config.pauseDuration); // Pause at the bottom
             }, verticalDuration);
         } else {
             // If no scrolling is needed, schedule the next rotation immediately
