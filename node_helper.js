@@ -733,8 +733,8 @@ async saveToFile() {
         console.log("[HoroscopeCache] Cache saved successfully to file");
         console.log("[HoroscopeCache] Cache contents:", JSON.stringify(this.memoryCache, null, 2));
 
-        // Notify the frontend that the cache has been updated
-        this.sendSocketNotification("CACHE_UPDATED", { success: true });
+        // Use nodeHelper reference to send notification
+        this.nodeHelper.sendSocketNotification("CACHE_UPDATED", { success: true });
     } catch (error) {
         console.error("[HoroscopeCache] Error saving cache:", error);
     }
