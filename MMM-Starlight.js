@@ -69,6 +69,17 @@ getStyles: function() {
         return wrapper;
     },
 
+notificationReceived: function(notification, payload, sender) {
+    if (notification === "CLOCK_MINUTE") {
+        const now = moment();
+        if (now.hour() === 0 && now.minute() === 0) {
+            this.log("Triggering midnight update");
+            this.sendSocketNotification("PERFORM_MIDNIGHT_UPDATE", {});
+        }
+    }
+},
+
+
     createDebugButtons: function() {
         var buttonContainer = document.createElement("div");
         buttonContainer.className = "starlight-debug-buttons";
@@ -292,6 +303,11 @@ createTextElement: function(sign, className, period) {
                 this.log("6 AM update completed");
                 this.handleSixAMUpdateCompleted();
                 break;
+       case "PERFORM_MIDNIGHT_UPDATE":
+            this.log("Received confirmation of midnight update performance");
+            // You can add any frontend logic needed after midnight update here
+            this.updateDom();
+            break;
         }
     },
 

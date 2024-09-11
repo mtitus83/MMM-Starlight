@@ -51,30 +51,57 @@ module.exports = NodeHelper.create({
         this.last6AMUpdate = null;
     },
 
-    socketNotificationReceived: function(notification, payload) {
-        this.log(`Received socket notification: ${notification}`);
-        
-        switch(notification) {
-            case "INIT":
-                this.handleInit(payload);
-                break;
-            case "GET_HOROSCOPE":
-                this.handleGetHoroscope(payload);
-                break;
-            case "SIMULATE_MIDNIGHT_UPDATE":
-                this.log("Received request to simulate midnight update");
-                this.simulateMidnightUpdate(payload);
-                break;
-            case "RESET_CACHE":
-                this.resetCache();
-                break;
-        }
-    },
+socketNotificationReceived: function(notification, payload) {
+    this.log(`Received socket notification: ${notification}`);
+    
+    switch(notification) {
+        case "INIT":
+            this.handleInit(payload);
+            break;
+        case "GET_HOROSCOPE":
+            this.handleGetHoroscope(payload);
+            break;
+        case "SIMULATE_MIDNIGHT_UPDATE":
+            this.log("Received request to simulate midnight update");
+            this.simulateMidnightUpdate(payload);
+            break;
+        case "RESET_CACHE":
+            this.resetCache();
+            break;
+        case "PERFORM_MIDNIGHT_UPDATE":
+            this.log("Received request to perform midnight update");
+            this.performMidnightUpdate();
+            break;
+    }
+},
 
 
     log: function(message) {
         console.log(`[${this.name}] ${new Date().toISOString()} - ${message}`);
     },
+
+socketNotificationReceived: function(notification, payload) {
+    this.log(`Received socket notification: ${notification}`);
+    
+    switch(notification) {
+        case "INIT":
+            this.handleInit(payload);
+            break;
+        case "GET_HOROSCOPE":
+            this.handleGetHoroscope(payload);
+            break;
+        case "PERFORM_MIDNIGHT_UPDATE":
+            this.performMidnightUpdate();
+            break;
+        case "SIMULATE_MIDNIGHT_UPDATE":
+            this.log("Received request to simulate midnight update");
+            this.simulateMidnightUpdate(payload);
+            break;
+        case "RESET_CACHE":
+            this.resetCache();
+            break;
+    }
+},
 
 performMidnightUpdate: async function() {
     this.log("Starting midnight update process");
@@ -90,7 +117,6 @@ performMidnightUpdate: async function() {
             if (tomorrowData) {
                 this.log(`Moving tomorrow's data to today's slot for ${sign}`);
                 this.cache.set(sign, "daily", tomorrowData);
-                // We're not clearing tomorrow's data here
                 this.log(`New state for ${sign}: ${JSON.stringify(this.cache.memoryCache[sign], null, 2)}`);
             } else {
                 this.log(`No tomorrow data available for ${sign}, skipping rotation`);
@@ -105,8 +131,8 @@ performMidnightUpdate: async function() {
         // Save the updated cache to file
         await this.cache.saveToFile();
 
-        // Notify frontend to update
-        this.sendSocketNotification("CACHE_UPDATED", this.cache.memoryCache);
+        // Notify frontend that midnight update is complete
+        this.sendSocketNotification("PERFORM_MIDNIGHT_UPDATE", { timestamp: new Date().toISOString() });
 
     } catch (error) {
         this.log(`Error during midnight update: ${error}`);
@@ -407,25 +433,17 @@ handleGetHoroscope: function(payload) {
     this.log(`Received request to get horoscope with payload: ${JSON.stringify(payload)}`);
 
     if (!payload || Object.keys(payload).length === 0) {
-        this.log("Received empty payload in handleGetHoroscope");
-        this.sendSocketNotification("HOROSCOPE_RESULT", { 
-            success: false, 
-            message: "Invalid request: empty payload received",
-            sign: null,
-            period: null
-        });
-        return;
+        this.log("Received empty payload in handleGetHoroscope, using default values");
+        payload = {
+            sign: this.config.zodiacSign[0],  // Use the first configured sign
+            period: "daily"  // Default to daily horoscope
+        };
     }
 
     if (!payload.sign || !payload.period) {
-        this.log(`Invalid payload received: missing sign or period. Payload: ${JSON.stringify(payload)}`);
-        this.sendSocketNotification("HOROSCOPE_RESULT", { 
-            success: false, 
-            message: "Invalid request: missing sign or period",
-            sign: payload.sign || null,
-            period: payload.period || null
-        });
-        return;
+        this.log(`Invalid payload received: missing sign or period. Using default values. Payload: ${JSON.stringify(payload)}`);
+        payload.sign = payload.sign || this.config.zodiacSign[0];
+        payload.period = payload.period || "daily";
     }
 
     this.getCachedHoroscope(payload.sign, payload.period)
