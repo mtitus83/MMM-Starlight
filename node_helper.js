@@ -254,6 +254,30 @@ async initializeCache() {
     }
 },
 
+isHoroscopeValid(cachedData, period, currentDate) {
+    if (!cachedData || !cachedData.lastUpdate) return false;
+
+    const lastUpdate = moment(cachedData.lastUpdate);
+    const nextUpdate = cachedData.nextUpdate ? moment(cachedData.nextUpdate) : null;
+
+    if (nextUpdate && currentDate.isBefore(nextUpdate)) {
+        return true;
+    }
+
+    switch(period) {
+        case "daily":
+            return currentDate.isSame(lastUpdate, 'day');
+        case "tomorrow":
+            return currentDate.isSame(lastUpdate, 'day') && currentDate.hour() < 6;
+        case "weekly":
+            return currentDate.isSame(lastUpdate, 'week');
+        case "monthly":
+            return currentDate.isSame(lastUpdate, 'month');
+        default:
+            return false;
+    }
+},
+
     scheduleUpdates: function() {
         if (!schedule) {
             console.error("node-schedule is not available. Skipping scheduling.");
