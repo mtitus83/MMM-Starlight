@@ -724,6 +724,22 @@ fetchFromAPI: async function(sign, period) {
         this.performMidnightUpdate();
     },
 
+async saveToFile() {
+    try {
+        const dir = path.dirname(this.cacheFile);
+        await fs.mkdir(dir, { recursive: true });
+
+        await fs.writeFile(this.cacheFile, JSON.stringify(this.memoryCache, null, 2));
+        console.log("[HoroscopeCache] Cache saved successfully to file");
+        console.log("[HoroscopeCache] Cache contents:", JSON.stringify(this.memoryCache, null, 2));
+
+        // Notify the frontend that the cache has been updated
+        this.sendSocketNotification("CACHE_UPDATED", { success: true });
+    } catch (error) {
+        console.error("[HoroscopeCache] Error saving cache:", error);
+    }
+},
+
 resetCache: async function () {
   try {
     console.log("[MMM-Starlight] Resetting cache...");
@@ -797,21 +813,6 @@ class HoroscopeCache {
         }
     }
 
-async saveToFile() {
-    try {
-        const dir = path.dirname(this.cacheFile);
-        await fs.mkdir(dir, { recursive: true });
-
-        await fs.writeFile(this.cacheFile, JSON.stringify(this.memoryCache, null, 2));
-        console.log("[HoroscopeCache] Cache saved successfully to file");
-        console.log("[HoroscopeCache] Cache contents:", JSON.stringify(this.memoryCache, null, 2));
-
-        // Notify the frontend that the cache has been updated
-        this.sendSocketNotification("CACHE_UPDATED", { success: true });
-    } catch (error) {
-        console.error("[HoroscopeCache] Error saving cache:", error);
-    }
-}
 
     get(sign, period) {
         return this.memoryCache[sign]?.[period];
