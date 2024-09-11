@@ -222,12 +222,28 @@ async initializeCache() {
         await this.cache.loadFromFile();
         const currentDate = moment();
         let cacheReport = "Cache status at initialization:";
+        const isInitialBuild = this.isInitialCacheBuild();
 
         for (const sign of this.config.zodiacSign) {
             cacheReport += `\n${sign}:`;
             for (const period of this.config.period) {
                 const cachedData = this.cache.get(sign, period);
-                const isValid = this.isHoroscopeValid(cachedData, period, currentDate);
+                let isValid = false;
+
+                if (cachedData && cachedData.nextUpdate) {
+                    const nextUpdate = moment(cachedData.nextUpdate);
+                    isValid = currentDate.isBefore(nextUpdate);
+                }
+
+                // Special handling for daily horoscope
+                if (period === 'daily') {
+                    if (isInitialBuild) {
+                        isValid = false; // Force fetch on initial build
+                    } else {
+                        isValid = true; // Always consider valid after initial build
+                    }
+                }
+
                 cacheReport += ` ${period} (${isValid ? "cached" : "needs fetch"})`;
                 
                 if (!isValid) {
@@ -251,6 +267,11 @@ async initializeCache() {
             error: error.toString()
         });
     }
+},
+
+isInitialCacheBuild() {
+    // Check if the cache is empty or if it's the first time running
+    return Object.keys(this.cache.memoryCache).length === 0 || !this.cache.get(this.config.zodiacSign[0], 'daily');
 },
 
 isHoroscopeValid(cachedData, period, currentDate) {
