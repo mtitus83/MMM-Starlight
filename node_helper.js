@@ -541,7 +541,13 @@ fetchFromAPI: async function(sign, period) {
             url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/monthly?sign=${sign}`;
             break;
         default:
-            throw new Error("Invalid period specified");
+            console.error(`Invalid period specified: ${period}`);
+            return null; // Return null instead of throwing an error
+    }
+
+    if (!url) {
+        console.error(`URL not set for period: ${period}`);
+        return null;
     }
 
     console.log(`Fetching horoscope from source: ${url}`);
@@ -557,11 +563,12 @@ fetchFromAPI: async function(sign, period) {
                 standout_days: response.data.data.standout_days
             };
         } else {
-            throw new Error("API returned unsuccessful response");
+            console.error("API returned unsuccessful response");
+            return null;
         }
     } catch (error) {
         console.error(`Error fetching horoscope for ${sign}, period: ${period}:`, error.message);
-        throw error;
+        return null;
     }
 },
 
