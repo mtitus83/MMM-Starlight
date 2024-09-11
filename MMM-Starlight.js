@@ -555,20 +555,33 @@ startScrolling: function() {
 
                             setTimeout(() => {
                                 self.isScrolling = false;
+                                // Determine if we're changing signs
+                                var isChangingSign = (self.currentPeriodIndex === self.config.period.length - 1);
+                                // Use signWaitTime if changing signs, otherwise use pauseDuration
+                                var waitTime = isChangingSign ? self.config.signWaitTime : self.config.pauseDuration;
+                                
                                 // Schedule next rotation
-                                self.slideToNext();
+                                setTimeout(() => {
+                                    self.slideToNext();
+                                }, waitTime);
                             }, 500); // Wait for fade-in to complete
                         }, 50); // Small delay to ensure the transform is applied before fade-in
                     }, 500); // Wait for fade-out to complete
                 }, self.config.pauseDuration); // Pause at the bottom
             }, verticalDuration);
         } else {
-            // If no scrolling is needed, schedule the next rotation immediately
-            self.slideToNext();
+            // If no scrolling is needed, determine wait time and schedule next rotation
+            var isChangingSign = (self.currentPeriodIndex === self.config.period.length - 1);
+            var waitTime = isChangingSign ? self.config.signWaitTime : self.config.pauseDuration;
+            setTimeout(() => {
+                self.slideToNext();
+            }, waitTime);
         }
     } else {
-        // If elements are not found, move to the next slide
-        self.slideToNext();
+        // If elements are not found, move to the next slide after pauseDuration
+        setTimeout(() => {
+            self.slideToNext();
+        }, self.config.pauseDuration);
     }
 },
 
