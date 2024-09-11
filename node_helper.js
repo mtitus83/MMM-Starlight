@@ -37,7 +37,7 @@ function parsePattern(text) {
 module.exports = NodeHelper.create({
     start: function() {
         console.log("Starting node helper for: " + this.name);
-        this.cache = new HoroscopeCache(path.join(__dirname, 'cache', 'horoscope_cache.json'));
+	this.cache = new HoroscopeCache(this, path.join(__dirname, 'cache', 'horoscope_cache.json'));
         this.config = null;
         this.updateStatus = {
             daily: false,
@@ -724,21 +724,21 @@ fetchFromAPI: async function(sign, period) {
         this.performMidnightUpdate();
     },
 
-async saveToFile() {
-    try {
-        const dir = path.dirname(this.cacheFile);
-        await fs.mkdir(dir, { recursive: true });
+    async saveToFile() {
+        try {
+            const dir = path.dirname(this.cacheFile);
+            await fs.mkdir(dir, { recursive: true });
 
-        await fs.writeFile(this.cacheFile, JSON.stringify(this.memoryCache, null, 2));
-        console.log("[HoroscopeCache] Cache saved successfully to file");
-        console.log("[HoroscopeCache] Cache contents:", JSON.stringify(this.memoryCache, null, 2));
+            await fs.writeFile(this.cacheFile, JSON.stringify(this.memoryCache, null, 2));
+            console.log("[HoroscopeCache] Cache saved successfully to file");
+            console.log("[HoroscopeCache] Cache contents:", JSON.stringify(this.memoryCache, null, 2));
 
-        // Use nodeHelper reference to send notification
-        this.nodeHelper.sendSocketNotification("CACHE_UPDATED", { success: true });
-    } catch (error) {
-        console.error("[HoroscopeCache] Error saving cache:", error);
+            // Use nodeHelper reference to send notification
+            this.nodeHelper.sendSocketNotification("CACHE_UPDATED", { success: true });
+        } catch (error) {
+            console.error("[HoroscopeCache] Error saving cache:", error);
+        }
     }
-},
 
 resetCache: async function () {
   try {
@@ -785,9 +785,11 @@ resetCache: async function () {
 });
 
 class HoroscopeCache {
-    constructor(cacheFile) {
-        this.cacheFile = cacheFile;
+    constructor(nodeHelperContext, cacheFilePath) {
+        this.nodeHelper = nodeHelperContext;
+        this.cacheFile = cacheFilePath;
         this.memoryCache = {};
+        this.saveToFile = this.saveToFile.bind(this);  // Bind the context
     }
 
     async initialize() {
