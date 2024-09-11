@@ -228,25 +228,19 @@ async initializeCache() {
             cacheReport += `\n${sign}:`;
             for (const period of this.config.period) {
                 const cachedData = this.cache.get(sign, period);
-                let isValid = false;
+                let needsFetch = false;
 
-                if (cachedData && cachedData.nextUpdate) {
-                    const nextUpdate = moment(cachedData.nextUpdate);
-                    isValid = currentDate.isBefore(nextUpdate);
+                if (isInitialBuild) {
+                    // On initial build, fetch all periods including daily
+                    needsFetch = true;
+                } else if (period !== 'daily') {
+                    // For non-daily periods on subsequent runs, check if update is needed
+                    needsFetch = !cachedData || !cachedData.nextUpdate || currentDate.isAfter(moment(cachedData.nextUpdate));
                 }
 
-                // Special handling for daily horoscope
-                if (period === 'daily') {
-                    if (isInitialBuild) {
-                        isValid = false; // Force fetch on initial build
-                    } else {
-                        isValid = true; // Always consider valid after initial build
-                    }
-                }
-
-                cacheReport += ` ${period} (${isValid ? "cached" : "needs fetch"})`;
+                cacheReport += ` ${period} (${needsFetch ? "needs fetch" : "cached"})`;
                 
-                if (!isValid) {
+                if (needsFetch) {
                     this.log(`Fetching new data for ${sign}, period: ${period}`);
                     await this.fetchAndUpdateCache(sign, period);
                 } else {
