@@ -550,9 +550,26 @@ startScrolling: function() {
                     } else {
                         // If signWaitTime hasn't been met, pause then reset and scroll again
                         setTimeout(() => {
-                            textContent.style.transition = "none";
-                            textContent.style.transform = "translateY(0)";
-                            setTimeout(scrollAndPause, 50); // Small delay before starting next scroll
+                            // Fade out
+                            textContent.style.transition = "opacity 0.5s ease-out";
+                            textContent.style.opacity = "0";
+
+                            setTimeout(() => {
+                                // Reset position
+                                textContent.style.transition = "none";
+                                textContent.style.transform = "translateY(0)";
+                                
+                                setTimeout(() => {
+                                    // Fade in
+                                    textContent.style.transition = "opacity 0.5s ease-in";
+                                    textContent.style.opacity = "1";
+
+                                    // Pause at the top after fade-in
+                                    setTimeout(() => {
+                                        setTimeout(scrollAndPause, 50); // Small delay before starting next scroll
+                                    }, self.config.pauseDuration);
+                                }, 50);
+                            }, 500); // Wait for fade-out to complete
                         }, self.config.pauseDuration);
                     }
                 }, verticalDuration);
