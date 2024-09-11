@@ -543,11 +543,9 @@ startScrolling: function() {
                     setTimeout(() => {
                         var elapsedTime = Date.now() - startTime;
                         if (elapsedTime >= self.config.signWaitTime) {
-                            // If signWaitTime has been met, stay at current position and move to next slide
-                            setTimeout(() => {
-                                self.isScrolling = false;
-                                self.slideToNext();
-                            }, self.config.pauseDuration);
+                            // If signWaitTime has been met, stay at current position and schedule next rotation
+                            self.isScrolling = false;
+                            self.scheduleRotation();
                         } else {
                             // If signWaitTime hasn't been met, reset with fade effect and scroll again
                             fadeOutResetAndFadeIn(() => {
@@ -557,10 +555,10 @@ startScrolling: function() {
                     }, self.config.pauseDuration);
                 }, verticalDuration);
             } else {
-                // If no scrolling is needed, wait for signWaitTime before next slide
+                // If no scrolling is needed, wait for signWaitTime before scheduling next rotation
                 setTimeout(() => {
                     self.isScrolling = false;
-                    self.slideToNext();
+                    self.scheduleRotation();
                 }, Math.max(0, self.config.signWaitTime - (Date.now() - startTime)));
             }
         }
@@ -588,9 +586,9 @@ startScrolling: function() {
         // Initial pause before starting the scroll
         setTimeout(scrollAndPause, self.config.pauseDuration);
     } else {
-        // If elements are not found, move to the next slide after pauseDuration
+        // If elements are not found, schedule next rotation after pauseDuration
         setTimeout(() => {
-            self.slideToNext();
+            self.scheduleRotation();
         }, self.config.pauseDuration);
     }
 },
