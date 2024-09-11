@@ -456,45 +456,37 @@ perform6AMUpdate: async function() {
     },
 
 shouldUpdate(cachedData, period) {
-    if (!cachedData || !cachedData.lastUpdate) return true;
-    if (period === "daily") return false; // Daily is always up to date due to midnight swap
+    if (!cachedData || !cachedData.lastUpdate || !cachedData.nextUpdate) return true;
 
     const now = moment();
-    const lastUpdate = moment(cachedData.lastUpdate);
-    const nextUpdate = cachedData.nextUpdate ? moment(cachedData.nextUpdate) : null;
+    const nextUpdate = moment(cachedData.nextUpdate);
 
-    if (nextUpdate) {
-        return now.isAfter(nextUpdate);
-    } else {
-        // If no nextUpdate, use period-specific logic
-        switch(period) {
-            case "tomorrow":
-                return now.hour() >= 6 && now.isAfter(lastUpdate, 'day');
-            case "weekly":
-                return now.isAfter(lastUpdate, 'week') && now.day() === 1; // Monday
-            case "monthly":
-                return now.isAfter(lastUpdate, 'month') && now.date() === 1;
-            default:
-                return true;
-        }
-    }
+    // If current time is past the next update time, we should update
+    return now.isAfter(nextUpdate);
 },
 
-    async fetchAndUpdateCache(sign, period) {
-        try {
-            console.log(`[${this.name}] Fetching and updating cache for ${sign}, period: ${period}`);
-            console.log(`[${this.name}] Cache contents before update:`, JSON.stringify(this.cache.memoryCache, null, 2));
+async fetchAndUpdateCache(sign, period) {
+    try {
+        console.log(`[${this.name}] Checking if update is needed for ${sign}, period: ${period}`);
+        
+        const cachedData = this.cache.get(sign, period);
+        if (cachedData && !this.shouldUpdate(cachedData, period)) {
+            console.log(`[${this.name}] No update needed for ${sign}, period: ${period}`);
+            return cachedData;
+        }
 
-            const data = await this.fetchFromAPI(sign, period);
+        console.log(`[${this.name}] Fetching new data for ${sign}, period: ${period}`);
+        const data = await this.fetchFromAPI(sign, period);
+        
+        if (data) {
             const now = moment();
             let nextUpdate;
             switch(period) {
                 case "daily":
-                    nextUpdate = null;
+                    nextUpdate = now.clone().add(1, 'day').startOf('day');
                     break;
                 case "tomorrow":
-                    nextUpdate = now.hour() < 6 ? now.clone().set({hour: 6, minute: 0, second: 0, millisecond: 0}) 
-                                                : now.clone().add(1, 'day').set({hour: 6, minute: 0, second: 0, millisecond: 0});
+                    nextUpdate = now.clone().add(1, 'day').set({hour: 6, minute: 0, second: 0, millisecond: 0});
                     break;
                 case "weekly":
                     nextUpdate = now.clone().add(1, 'week').startOf('isoWeek');
@@ -503,25 +495,29 @@ shouldUpdate(cachedData, period) {
                     nextUpdate = now.clone().add(1, 'month').startOf('month');
                     break;
             }
+            
             this.cache.set(sign, period, {
                 ...data,
                 lastUpdate: now.toISOString(),
-                nextUpdate: nextUpdate ? nextUpdate.toISOString() : null
+                nextUpdate: nextUpdate.toISOString()
             });
+            
             await this.cache.saveToFile();
             console.log(`[${this.name}] Updated ${period} horoscope for ${sign}`);
-            console.log(`[${this.name}] Cache contents after update:`, JSON.stringify(this.cache.memoryCache, null, 2));
-
+            
             // Send notification to frontend about the update
             this.sendSocketNotification("CACHE_UPDATED", { sign, period });
-            console.log(`[${this.name}] Sent CACHE_UPDATED notification to frontend for ${sign}, period: ${period}`);
-
+            
             return this.cache.get(sign, period);
-        } catch (error) {
-            console.error(`[${this.name}] Error fetching ${period} horoscope for ${sign}:`, error);
-            throw error;
+        } else {
+            console.log(`[${this.name}] No new data fetched for ${sign}, period: ${period}`);
+            return cachedData;
         }
-    },
+    } catch (error) {
+        console.error(`[${this.name}] Error fetching ${period} horoscope for ${sign}:`, error);
+        return null;
+    }
+},
 
 fetchFromAPI: async function(sign, period) {
     let url;
