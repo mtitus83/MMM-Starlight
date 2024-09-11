@@ -426,21 +426,21 @@ scheduleRotation: function() {
     clearTimeout(this.rotationTimer);
     var self = this;
     this.rotationTimer = setTimeout(function() {
-        self.checkAndRotate(); // Make sure this triggers the proper DOM update and scrolling
-    }, this.config.signWaitTime);
+        self.startScrolling();
+    }, this.config.pauseDuration);
 },
 
-    checkAndRotate: function() {
-        if (this.config.zodiacSign.length === 1 && this.config.period.length === 1) {
-            return;
-        }
+checkAndRotate: function() {
+    if (this.config.zodiacSign.length === 1 && this.config.period.length === 1) {
+        return;
+    }
 
-        if (!this.isScrolling) {
-            this.slideToNext();
-        } else {
-            setTimeout(() => this.checkAndRotate(), 1000);
-        }
-    },
+    if (!this.isScrolling) {
+        this.startScrolling();
+    } else {
+        setTimeout(() => this.checkAndRotate(), 1000);
+    }
+},
 
     slideToNext: function() {
         const imageSlideContainer = document.querySelector(".MMM-Starlight .starlight-image-slide-container");
@@ -498,6 +498,7 @@ const currentText = textSlideContainer.querySelector(".starlight-text-content.cu
                 this.startScrolling();
             }, 1000);
         }
+	    this.scheduleRotation();
     },
 
     getNextPeriodAndSign: function() {
@@ -517,57 +518,55 @@ startScrolling: function() {
     var self = this;
     clearTimeout(this.scrollTimer);
 
-    this.scrollTimer = setTimeout(function() {
-        var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
-        var textContent = document.querySelector(".MMM-Starlight .starlight-text");
+    var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
+    var textContent = document.querySelector(".MMM-Starlight .starlight-text");
 
-        if (textWrapper && textContent) {
-            var wrapperHeight = textWrapper.offsetHeight;
-            var contentHeight = textContent.scrollHeight;
+    if (textWrapper && textContent) {
+        var wrapperHeight = textWrapper.offsetHeight;
+        var contentHeight = textContent.scrollHeight;
 
-            if (contentHeight > wrapperHeight) {
-                self.isScrolling = true;
+        if (contentHeight > wrapperHeight) {
+            self.isScrolling = true;
 
-                // Scroll distance will stop 1/4 from the bottom
-                var scrollDistance = contentHeight - (wrapperHeight * 0.75); 
-                var verticalDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
+            // Scroll distance will stop 1/4 from the bottom
+            var scrollDistance = contentHeight - (wrapperHeight * 0.75); 
+            var verticalDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
 
-                // Apply transition for smooth scrolling
-                textContent.style.transition = `transform ${verticalDuration}ms linear`;
-                textContent.style.transform = `translateY(-${scrollDistance}px)`; // Scroll up
+            // Apply transition for smooth scrolling
+            textContent.style.transition = `transform ${verticalDuration}ms linear`;
+            textContent.style.transform = `translateY(-${scrollDistance}px)`; // Scroll up
+
+            setTimeout(() => {
+                // Start fade-out effect
+                textContent.style.transition = "opacity 0.5s ease-out";
+                textContent.style.opacity = "0";
 
                 setTimeout(() => {
-                    // Start fade-out effect
-                    textContent.style.transition = "opacity 0.5s ease-out";
-                    textContent.style.opacity = "0";
-
+                    // Reset scroll position and prepare for fade-in
+                    textContent.style.transition = "none";
+                    textContent.style.transform = "translateY(0)";
+                    
                     setTimeout(() => {
-                        // Reset scroll position and prepare for fade-in
-                        textContent.style.transition = "none";
-                        textContent.style.transform = "translateY(0)";
-                        
-                        setTimeout(() => {
-                            // Start fade-in effect
-                            textContent.style.transition = "opacity 0.5s ease-in";
-                            textContent.style.opacity = "1";
+                        // Start fade-in effect
+                        textContent.style.transition = "opacity 0.5s ease-in";
+                        textContent.style.opacity = "1";
 
-                            setTimeout(() => {
-                                self.isScrolling = false;
-                                // Schedule next rotation
-                                self.scheduleRotation();
-                            }, 500); // Wait for fade-in to complete
-                        }, 50); // Small delay to ensure the transform is applied before fade-in
-                    }, 500); // Wait for fade-out to complete
-                }, verticalDuration + self.config.pauseDuration); // Include pause duration
-            } else {
-                self.isScrolling = false;
-                // If no scrolling is needed, schedule the next rotation
-                self.scheduleRotation();
-            }
+                        setTimeout(() => {
+                            self.isScrolling = false;
+                            // Schedule next rotation
+                            self.slideToNext();
+                        }, 500); // Wait for fade-in to complete
+                    }, 50); // Small delay to ensure the transform is applied before fade-in
+                }, 500); // Wait for fade-out to complete
+            }, verticalDuration);
         } else {
-            self.scheduleRotation();
+            // If no scrolling is needed, schedule the next rotation immediately
+            self.slideToNext();
         }
-    }, self.config.pauseDuration);
+    } else {
+        // If elements are not found, move to the next slide
+        self.slideToNext();
+    }
 },
 
     simulateMidnightUpdate: function() {
