@@ -404,28 +404,52 @@ perform6AMUpdate: async function() {
     },
 
 handleGetHoroscope: function(payload) {
-    if (!payload || !payload.sign || !payload.period) {
-        console.error(`[${this.name}] Invalid payload received:`, payload);
+    this.log(`Received request to get horoscope with payload: ${JSON.stringify(payload)}`);
+
+    if (!payload || Object.keys(payload).length === 0) {
+        this.log("Received empty payload in handleGetHoroscope");
+        this.sendSocketNotification("HOROSCOPE_RESULT", { 
+            success: false, 
+            message: "Invalid request: empty payload received",
+            sign: null,
+            period: null
+        });
+        return;
+    }
+
+    if (!payload.sign || !payload.period) {
+        this.log(`Invalid payload received: missing sign or period. Payload: ${JSON.stringify(payload)}`);
         this.sendSocketNotification("HOROSCOPE_RESULT", { 
             success: false, 
             message: "Invalid request: missing sign or period",
-            sign: payload?.sign,
-            period: payload?.period
+            sign: payload.sign || null,
+            period: payload.period || null
         });
         return;
     }
 
     this.getCachedHoroscope(payload.sign, payload.period)
         .then(data => {
-            this.sendSocketNotification("HOROSCOPE_RESULT", { 
-                success: true,
-                data: data,
-                sign: payload.sign,
-                period: payload.period
-            });
+            if (data) {
+                this.log(`Successfully retrieved horoscope for ${payload.sign}, period: ${payload.period}`);
+                this.sendSocketNotification("HOROSCOPE_RESULT", { 
+                    success: true,
+                    data: data,
+                    sign: payload.sign,
+                    period: payload.period
+                });
+            } else {
+                this.log(`No data found for ${payload.sign}, period: ${payload.period}`);
+                this.sendSocketNotification("HOROSCOPE_RESULT", { 
+                    success: false,
+                    message: "No data available",
+                    sign: payload.sign,
+                    period: payload.period
+                });
+            }
         })
         .catch(error => {
-            console.error(`[${this.name}] Error in getHoroscope:`, error);
+            this.log(`Error in getHoroscope for ${payload.sign}, period: ${payload.period}: ${error}`);
             this.sendSocketNotification("HOROSCOPE_RESULT", { 
                 success: false, 
                 message: "An error occurred while fetching the horoscope.",
