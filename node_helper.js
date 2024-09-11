@@ -738,7 +738,7 @@ fetchFromAPI: async function(sign, period) {
         } catch (error) {
             console.error("[HoroscopeCache] Error saving cache:", error);
         }
-    }
+    },
 
 resetCache: async function () {
   try {
