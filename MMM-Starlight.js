@@ -41,6 +41,56 @@ getStyles: function() {
         return [];
     }
 },
+
+logSlideDuration: function(zodiacSign, period, elapsedTime, signWaitTime, scrollSpeed) {
+    console.log(`${zodiacSign} ${period} remained on screen for ${elapsedTime} out of ${signWaitTime} at speed of ${scrollSpeed}`);
+},
+
+startRealTimeTimer: function(signWaitTime, pauseDuration) {
+    // Ensure pauseDuration is a valid number
+    pauseDuration = pauseDuration || 5000;  // Default to 5 seconds if undefined
+    let counter = 0;
+
+    // First, handle the pause before scrolling
+    const pauseInterval = setInterval(() => {
+        if (counter >= pauseDuration / 1000) {
+            clearInterval(pauseInterval); // Stop the pause timer once it's over
+
+            // Start the scroll timer after the pause
+            this.startScrollTimer(signWaitTime);
+        } else {
+            const timerDisplay = document.getElementById("scroll-timer");
+            if (!timerDisplay) {
+                let timerElement = document.createElement("div");
+                timerElement.id = "scroll-timer";
+                timerElement.style.textAlign = "center";
+                timerElement.style.margin = "10px 0";
+                document.querySelector(".MMM-Starlight .starlight-text-wrapper").before(timerElement);
+            } else {
+                // Ensure pauseDuration is a valid number to avoid NaN
+                const totalPauseTime = pauseDuration / 1000 || 5;  // Default to 5 seconds
+                timerDisplay.innerHTML = `Pause Timer: ${counter}s / ${totalPauseTime}s`;
+            }
+            counter++;
+        }
+    }, 1000);
+},
+startScrollTimer: function(signWaitTime) {
+    let counter = 0;
+
+    // Scroll timer starts after the pause is completed
+    const scrollInterval = setInterval(() => {
+        if (counter >= signWaitTime / 1000) {
+            clearInterval(scrollInterval); // Stop timer after the slide duration completes
+        } else {
+            const timerDisplay = document.getElementById("scroll-timer");
+            if (timerDisplay) {
+                timerDisplay.innerHTML = `Scroll Timer: ${counter}s / ${signWaitTime / 1000}s`;
+            }
+            counter++;
+        }
+    }, 1000);
+},
     initializeModule: function() {
         this.log("Initializing module and sending config to node helper");
         this.sendSocketNotification("INIT", { config: this.config });
@@ -81,11 +131,24 @@ notificationReceived: function(notification, payload, sender) {
 
 socketNotificationReceived: function(notification, payload) {
     this.log(`Received socket notification: ${notification}`);
-    
+
     switch(notification) {
         case "HOROSCOPE_RESULT":
             this.log(`Received horoscope result for ${payload.sign}, period: ${payload.period}`);
             this.handleHoroscopeResult(payload);  // Update horoscope results
+
+            // Track loaded horoscopes
+            if (!this.loadedHoroscopesCount) {
+                this.loadedHoroscopesCount = 0;  // Initialize the counter if it doesn't exist
+            }
+            this.loadedHoroscopesCount++;
+
+            // Check if all horoscopes have been loaded
+            const totalHoroscopes = this.config.zodiacSign.length * this.config.period.length;
+            if (this.loadedHoroscopesCount === totalHoroscopes) {
+                console.log("All horoscope data loaded, updating DOM...");
+                this.updateDom();
+            }
             break;
         
         case "CACHE_INITIALIZED":
@@ -174,6 +237,10 @@ socketNotificationReceived: function(notification, payload) {
     },
 
     createDebugInfo: function(sign, period) {
+    if (!this.horoscopes[sign]) {
+        console.error(`Horoscope data for ${sign} is undefined.`);
+        return;  // Prevent further execution if data is missing
+    }
         var debugInfoElement = document.createElement("div");
         debugInfoElement.className = "starlight-debug-info";
         var horoscopeData = this.horoscopes[sign][period];
@@ -371,14 +438,20 @@ socketNotificationReceived: function(notification, payload) {
         this.updateDom(0);
     },
 
-    handleCacheUpdated: function(payload) {
-        this.log(`Handling cache update for ${payload.sign}, period: ${payload.period}`);
-        if (!this.horoscopes[payload.sign]) {
-            this.horoscopes[payload.sign] = {};
-        }
-        this.horoscopes[payload.sign][payload.period] = payload.data;
-        this.updateDom(0);
-    },
+handleCacheInitialized: function() {
+    this.isPreloading = false;
+    this.loaded = true;
+
+    // Track how many horoscopes we need to load
+    const totalHoroscopes = this.config.zodiacSign.length * this.config.period.length;
+    this.loadedHoroscopesCount = 0;  // Reset the counter
+
+    this.config.zodiacSign.forEach(sign => {
+        this.config.period.forEach(period => {
+            this.getHoroscope(sign, period);
+        });
+    });
+},
 
     handleHoroscopeResult: function(payload) {
         this.log(`Handling horoscope result:`, payload);
@@ -412,16 +485,27 @@ socketNotificationReceived: function(notification, payload) {
         this.updateDom();
     },
 
-    handleCacheInitialized: function() {
-        this.isPreloading = false;
-        this.loaded = true;
-        this.config.zodiacSign.forEach(sign => {
-            this.config.period.forEach(period => {
-                this.getHoroscope(sign, period);
+handleCacheInitialized: function() {
+    this.isPreloading = false;
+    this.loaded = true;
+
+    // Track how many horoscopes we need to load
+    const totalHoroscopes = this.config.zodiacSign.length * this.config.period.length;
+    let loadedHoroscopes = 0;
+
+    this.config.zodiacSign.forEach(sign => {
+        this.config.period.forEach(period => {
+            this.getHoroscope(sign, period, () => {
+                loadedHoroscopes++;
+                if (loadedHoroscopes === totalHoroscopes) {
+                    // Only update DOM when all horoscopes have been fetched
+                    console.log("All horoscope data loaded, updating DOM...");
+                    this.updateDom();
+                }
             });
         });
-        this.updateDom();
-    },
+    });
+},
 
     handleImageResult: function(payload) {
         if (payload.success) {
@@ -516,64 +600,105 @@ checkAndRotate: function() {
     }
 },
 
-    slideToNext: function() {
-        const imageSlideContainer = document.querySelector(".MMM-Starlight .starlight-image-slide-container");
-        const textSlideContainer = document.querySelector(".MMM-Starlight .starlight-text-slide-container");
-        const titleElement = document.querySelector(".MMM-Starlight .starlight-title");
+slideToNext: function() {
+    const signWaitTime = this.config.signWaitTime;  // Retrieve sign wait time from config
+    this.startRealTimeTimer(signWaitTime);  // Make sure this is being called
 
-        if (imageSlideContainer && textSlideContainer && titleElement) {
-            const { currentSign, currentPeriod, nextSign, nextPeriod } = this.getNextPeriodAndSign();
+    const imageSlideContainer = document.querySelector(".MMM-Starlight .starlight-image-slide-container");
+    const textSlideContainer = document.querySelector(".MMM-Starlight .starlight-text-slide-container");
+    const titleElement = document.querySelector(".MMM-Starlight .starlight-title");
 
-const currentText = textSlideContainer.querySelector(".starlight-text-content.current");
-            const nextText = textSlideContainer.querySelector(".starlight-text-content.next");
-            const currentImage = imageSlideContainer.querySelector(".starlight-image-wrapper.current");
-            const nextImage = imageSlideContainer.querySelector(".starlight-image-wrapper.next");
+    if (imageSlideContainer && textSlideContainer && titleElement) {
+        const { currentSign, currentPeriod, nextSign, nextPeriod } = this.getNextPeriodAndSign();
 
-            nextText.innerHTML = this.createTextElement(currentSign, "next", currentPeriod).innerHTML;
+        // Log the time spent on the current slide
+        const elapsedTime = Date.now() - this.slideStartTime;
+       this.logSlideDuration(currentSign, currentPeriod, elapsedTime / 1000, this.config.signWaitTime / 1000, this.config.scrollSpeed);
+ 
+        if (this.config.debug) {
+            let timerElement = document.getElementById("scroll-timer");
             
-            const isSignChange = currentPeriod === this.config.period[0];
+            if (!timerElement) {
+                timerElement = document.createElement("div");
+                timerElement.id = "scroll-timer";
+                timerElement.style.textAlign = "center";
+                timerElement.style.margin = "10px 0";
+                document.querySelector(".MMM-Starlight .starlight-text-wrapper").before(timerElement);
+            }
             
-            if (isSignChange) {
-                nextImage.innerHTML = this.createImageElement(currentSign, "next").innerHTML;
-            }
+            let counter = 0;
+            const signWaitTime = this.config.signWaitTime / 1000;
 
-            textSlideContainer.style.transition = "transform 1s ease-in-out";
-            textSlideContainer.style.transform = "translateX(calc(-50% - 40px))";
-
-            if (isSignChange) {
-                imageSlideContainer.style.transition = "transform 1s ease-in-out";
-                imageSlideContainer.style.transform = "translateX(calc(-50% - 40px))";
-            }
-
-            titleElement.classList.add('fading');
+            const timerInterval = setInterval(() => {
+                if (counter >= signWaitTime) {
+                    clearInterval(timerInterval);
+                } else {
+                    timerElement.innerHTML = `Scroll Timer: ${counter}s / ${signWaitTime}s`;
+                    counter++;
+                }
+            }, 1000);
 
             setTimeout(() => {
-                titleElement.classList.remove('fading');
-
-                titleElement.innerHTML = this.formatPeriodText(currentPeriod) + " Horoscope for " + currentSign.charAt(0).toUpperCase() + currentSign.slice(1);
-
-                textSlideContainer.style.transition = "none";
-                textSlideContainer.style.transform = "translateX(0)";
-
-                currentText.innerHTML = nextText.innerHTML;
-
-                if (isSignChange) {
-                    imageSlideContainer.style.transition = "none";
-                    imageSlideContainer.style.transform = "translateX(0)";
-                    currentImage.innerHTML = nextImage.innerHTML;
-                }
-
-                nextText.innerHTML = this.createTextElement(nextSign, "next", nextPeriod).innerHTML;
-                
-                if (isSignChange) {
-                    nextImage.innerHTML = this.createImageElement(nextSign, "next").innerHTML;
-                }
-
-                this.startScrolling();
-            }, 1000);
+                clearInterval(timerInterval);
+                timerElement.innerHTML = '';  // Clear the timer after the slide transition
+            }, 1000 + signWaitTime * 1000);
         }
-	    this.scheduleRotation();
-    },
+
+        // Transition code (already in your function)
+        const currentText = textSlideContainer.querySelector(".starlight-text-content.current");
+        const nextText = textSlideContainer.querySelector(".starlight-text-content.next");
+        const currentImage = imageSlideContainer.querySelector(".starlight-image-wrapper.current");
+        const nextImage = imageSlideContainer.querySelector(".starlight-image-wrapper.next");
+
+        nextText.innerHTML = this.createTextElement(currentSign, "next", currentPeriod).innerHTML;
+        
+        const isSignChange = currentPeriod === this.config.period[0];
+        
+        if (isSignChange) {
+            nextImage.innerHTML = this.createImageElement(currentSign, "next").innerHTML;
+        }
+
+        textSlideContainer.style.transition = "transform 1s ease-in-out";
+        textSlideContainer.style.transform = "translateX(calc(-50% - 40px))";
+
+        if (isSignChange) {
+            imageSlideContainer.style.transition = "transform 1s ease-in-out";
+            imageSlideContainer.style.transform = "translateX(calc(-50% - 40px))";
+        }
+
+        titleElement.classList.add('fading');
+
+        setTimeout(() => {
+            titleElement.classList.remove('fading');
+
+            titleElement.innerHTML = this.formatPeriodText(currentPeriod) + " Horoscope for " + currentSign.charAt(0).toUpperCase() + currentSign.slice(1);
+
+            textSlideContainer.style.transition = "none";
+            textSlideContainer.style.transform = "translateX(0)";
+
+            currentText.innerHTML = nextText.innerHTML;
+
+            if (isSignChange) {
+                imageSlideContainer.style.transition = "none";
+                imageSlideContainer.style.transform = "translateX(0)";
+                currentImage.innerHTML = nextImage.innerHTML;
+            }
+
+            nextText.innerHTML = this.createTextElement(nextSign, "next", nextPeriod).innerHTML;
+            
+            if (isSignChange) {
+                nextImage.innerHTML = this.createImageElement(nextSign, "next").innerHTML;
+            }
+
+            this.startScrolling();
+
+            // Reset the timer for the next slide
+            this.slideStartTime = Date.now();  // Reset timer for the next slide
+
+        }, 1000);
+    }
+    this.scheduleRotation();
+},
 
     getNextPeriodAndSign: function() {
         this.currentPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
