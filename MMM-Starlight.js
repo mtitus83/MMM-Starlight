@@ -79,6 +79,53 @@ notificationReceived: function(notification, payload, sender) {
     }
 },
 
+socketNotificationReceived: function(notification, payload) {
+    this.log(`Received socket notification: ${notification}`);
+    
+    switch(notification) {
+        case "HOROSCOPE_RESULT":
+            this.log(`Received horoscope result for ${payload.sign}, period: ${payload.period}`);
+            this.handleHoroscopeResult(payload);  // Update horoscope results
+            break;
+        
+        case "CACHE_INITIALIZED":
+            this.log("Cache initialized notification received");
+            this.handleCacheInitialized();  // Handle cache initialization
+            break;
+        
+        case "CACHE_RESET_COMPLETE":
+            this.log("Cache reset complete notification received");
+            this.handleCacheResetComplete(payload);  // Handle cache reset
+            break;
+        
+        case "MIDNIGHT_UPDATE_SIMULATED":
+            this.log("Midnight update simulation completed");
+            this.handleMidnightUpdateSimulated(payload);  // Simulate midnight update
+            break;
+        
+        case "CACHE_UPDATED":
+            this.log("Cache updated, reloading data...");
+            this.handleCacheUpdated(payload);  // Add logic for loading data from memory
+            this.updateDom();  // Refresh UI after cache update
+            break;
+        
+        case "MIDNIGHT_UPDATE_COMPLETED":
+            this.log(`Midnight update completed at ${payload.timestamp}`);
+            this.handleMidnightUpdateCompleted(payload);  // Handle midnight update completion
+            break;
+        
+        case "SIX_AM_UPDATE_COMPLETED":
+            this.log("6 AM update completed");
+            this.handleSixAMUpdateCompleted();  // Handle 6 AM update completion
+            break;
+        
+        case "PERFORM_MIDNIGHT_UPDATE":
+            this.log("Received confirmation of midnight update performance");
+            this.updateDom();  // Refresh the UI after midnight update
+            break;
+    }
+},
+
 
     createDebugButtons: function() {
         var buttonContainer = document.createElement("div");
