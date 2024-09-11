@@ -5,6 +5,8 @@ var axios = require("axios");
 const fs = require('fs').promises;
 const path = require('path');
 const moment = require('moment');
+let isPerformingMidnightUpdate = false;
+
 
 let schedule;
 try {
@@ -104,6 +106,12 @@ socketNotificationReceived: function(notification, payload) {
 },
 
 performMidnightUpdate: async function() {
+    if (isPerformingMidnightUpdate) {
+        this.log("Midnight update already in progress. Skipping.");
+        return;
+    }
+
+    isPerformingMidnightUpdate = true;
     this.log("Starting midnight update process");
     const currentDate = this.simulationMode ? this.simulatedDate : moment();
     this.log(`Current date for update: ${currentDate.format('YYYY-MM-DD HH:mm:ss')}`);
@@ -112,49 +120,50 @@ performMidnightUpdate: async function() {
         for (const sign of this.config.zodiacSign) {
             this.log(`Processing midnight update for ${sign}`);
             
-            // Move tomorrow's data to today
             const tomorrowData = this.cache.get(sign, "tomorrow");
+            const dailyData = this.cache.get(sign, "daily");
+
             if (tomorrowData) {
                 this.log(`Moving tomorrow's data to today's slot for ${sign}`);
+                this.log(`Previous daily data: ${JSON.stringify(dailyData)}`);
                 this.cache.set(sign, "daily", tomorrowData);
-                this.log(`New daily data for ${sign}: ${JSON.stringify(tomorrowData)}`);
+                this.log(`New daily data: ${JSON.stringify(tomorrowData)}`);
             } else {
                 this.log(`No tomorrow data available for ${sign}, daily data remains unchanged`);
             }
-            
-            // Clear tomorrow's slot after moving (optional, depending on your preference)
-            // this.cache.set(sign, "tomorrow", null);
         }
 
-        // After rotating, fetch new data for tomorrow only
-        this.log("Rotation complete. Now fetching tomorrow's horoscope data from API...");
+        this.log("Data rotation complete. Fetching new tomorrow's horoscope data...");
         await this.fetchTomorrowsHoroscopeData();
         
-        // Save the updated cache to file
+        this.log("Saving updated cache to file");
         await this.cache.saveToFile();
 
         this.log("Midnight update completed successfully");
         this.sendSocketNotification("MIDNIGHT_UPDATE_COMPLETED", { timestamp: new Date().toISOString() });
 
     } catch (error) {
-        this.log(`Error during midnight update: ${error}`);
+        this.log(`Error during midnight update: ${error.stack}`);
+    } finally {
+        isPerformingMidnightUpdate = false;
     }
 },
 
 fetchTomorrowsHoroscopeData: async function() {
-    try {
-        for (const sign of this.config.zodiacSign) {
-            // Fetch data from the API for "tomorrow" only
+    for (const sign of this.config.zodiacSign) {
+        try {
+            this.log(`Fetching tomorrow's horoscope for ${sign}`);
             const newHoroscope = await this.fetchFromAPI(sign, "tomorrow");
             if (newHoroscope) {
+                this.log(`Received new data for ${sign}'s tomorrow horoscope`);
                 this.cache.set(sign, "tomorrow", newHoroscope);
                 this.log(`Updated cache for ${sign} with new tomorrow's horoscope.`);
             } else {
-                this.log(`Failed to fetch new data for ${sign}'s tomorrow horoscope.`);
+                this.log(`No new data received for ${sign}'s tomorrow horoscope.`);
             }
+        } catch (error) {
+            this.log(`Error fetching tomorrow's horoscope for ${sign}: ${error.message}`);
         }
-    } catch (error) {
-        this.log(`Error fetching tomorrow's horoscope data: ${error}`);
     }
 },
 
