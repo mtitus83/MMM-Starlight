@@ -54,13 +54,14 @@ startRealTimeTimer: function(signWaitTime) {
         } else {
             const timerDisplay = document.getElementById("scroll-timer");
             if (!timerDisplay) {
-                console.log("Timer display element not found, creating...");
+                console.log("Creating timer element...");
                 let timerElement = document.createElement("div");
                 timerElement.id = "scroll-timer";
                 timerElement.style.textAlign = "center";
                 timerElement.style.margin = "10px 0";
                 document.querySelector(".MMM-Starlight .starlight-text-wrapper").before(timerElement);
             } else {
+                console.log("Updating timer: " + counter + "s / " + signWaitTime / 1000 + "s");
                 timerDisplay.innerHTML = `Scroll Timer: ${counter}s / ${signWaitTime / 1000}s`;
             }
             counter++;
