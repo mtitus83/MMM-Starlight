@@ -727,17 +727,43 @@ startScrolling: function() {
     var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
     var textContent = document.querySelector(".MMM-Starlight .starlight-text");
 
+    function updateTimerDisplay(phase, duration, start) {
+        if (self.config.debug) {
+            let timerElement = document.getElementById("scroll-timer");
+            if (!timerElement) {
+                timerElement = document.createElement("div");
+                timerElement.id = "scroll-timer";
+                timerElement.style.textAlign = "center";
+                timerElement.style.margin = "10px 0";
+                document.querySelector(".MMM-Starlight .starlight-text-wrapper").before(timerElement);
+            }
+            
+            function updateTimer() {
+                let elapsed = Math.floor((Date.now() - start) / 1000);
+                timerElement.innerHTML = `${phase} Timer: ${elapsed}s / ${Math.floor(duration / 1000)}s`;
+                requestAnimationFrame(updateTimer);
+            }
+            updateTimer();
+        }
+    }
+
     if (textWrapper && textContent) {
         var wrapperHeight = textWrapper.offsetHeight;
         var contentHeight = textContent.scrollHeight;
         var startTime = Date.now();
 
-        function scrollAndPause() {
+        // Initial pause
+        updateTimerDisplay("Pause", this.config.pauseDuration, startTime);
+
+        setTimeout(() => {
             if (contentHeight > wrapperHeight) {
                 self.isScrolling = true;
 
                 var scrollDistance = contentHeight - (wrapperHeight * 0.75); 
                 var verticalDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
+
+                // Scroll timer
+                updateTimerDisplay("Scroll", verticalDuration, Date.now());
 
                 textContent.style.transition = `transform ${verticalDuration}ms linear`;
                 textContent.style.transform = `translateY(-${scrollDistance}px)`;
@@ -746,27 +772,31 @@ startScrolling: function() {
                     var elapsedTime = Date.now() - startTime;
                     var remainingTime = Math.max(0, self.config.signWaitTime - elapsedTime);
 
+                    // Final pause timer
+                    updateTimerDisplay("Pause", this.config.pauseDuration, Date.now());
+
                     self.slideTimer = setTimeout(() => {
                         self.isScrolling = false;
                         self.slideToNext();
                     }, remainingTime + self.config.pauseDuration);
-                }, verticalDuration + self.config.pauseDuration);
+                }, verticalDuration);
             } else {
+                // For non-scrolling content, show the full signWaitTime
+                updateTimerDisplay("Wait", self.config.signWaitTime, Date.now());
+
                 self.slideTimer = setTimeout(() => {
                     self.isScrolling = false;
                     self.slideToNext();
-                }, self.config.signWaitTime + self.config.pauseDuration);
+                }, self.config.signWaitTime);
             }
-        }
-
-        setTimeout(scrollAndPause, self.config.pauseDuration);
+        }, this.config.pauseDuration);
     } else {
+        updateTimerDisplay("Pause", this.config.pauseDuration, Date.now());
         self.slideTimer = setTimeout(() => {
             self.slideToNext();
-        }, self.config.pauseDuration);
+        }, this.config.pauseDuration);
     }
 },
-
     simulateMidnightUpdate: function() {
         Log.info(`${this.name}: Simulating midnight update`);
         const simulationDate = moment().add(1, 'day').startOf('day');
