@@ -108,11 +108,24 @@ notificationReceived: function(notification, payload, sender) {
 
 socketNotificationReceived: function(notification, payload) {
     this.log(`Received socket notification: ${notification}`);
-    
+
     switch(notification) {
         case "HOROSCOPE_RESULT":
             this.log(`Received horoscope result for ${payload.sign}, period: ${payload.period}`);
             this.handleHoroscopeResult(payload);  // Update horoscope results
+
+            // Track loaded horoscopes
+            if (!this.loadedHoroscopesCount) {
+                this.loadedHoroscopesCount = 0;  // Initialize the counter if it doesn't exist
+            }
+            this.loadedHoroscopesCount++;
+
+            // Check if all horoscopes have been loaded
+            const totalHoroscopes = this.config.zodiacSign.length * this.config.period.length;
+            if (this.loadedHoroscopesCount === totalHoroscopes) {
+                console.log("All horoscope data loaded, updating DOM...");
+                this.updateDom();
+            }
             break;
         
         case "CACHE_INITIALIZED":
@@ -402,14 +415,20 @@ socketNotificationReceived: function(notification, payload) {
         this.updateDom(0);
     },
 
-    handleCacheUpdated: function(payload) {
-        this.log(`Handling cache update for ${payload.sign}, period: ${payload.period}`);
-        if (!this.horoscopes[payload.sign]) {
-            this.horoscopes[payload.sign] = {};
-        }
-        this.horoscopes[payload.sign][payload.period] = payload.data;
-        this.updateDom(0);
-    },
+handleCacheInitialized: function() {
+    this.isPreloading = false;
+    this.loaded = true;
+
+    // Track how many horoscopes we need to load
+    const totalHoroscopes = this.config.zodiacSign.length * this.config.period.length;
+    this.loadedHoroscopesCount = 0;  // Reset the counter
+
+    this.config.zodiacSign.forEach(sign => {
+        this.config.period.forEach(period => {
+            this.getHoroscope(sign, period);
+        });
+    });
+},
 
     handleHoroscopeResult: function(payload) {
         this.log(`Handling horoscope result:`, payload);
@@ -443,16 +462,27 @@ socketNotificationReceived: function(notification, payload) {
         this.updateDom();
     },
 
-    handleCacheInitialized: function() {
-        this.isPreloading = false;
-        this.loaded = true;
-        this.config.zodiacSign.forEach(sign => {
-            this.config.period.forEach(period => {
-                this.getHoroscope(sign, period);
+handleCacheInitialized: function() {
+    this.isPreloading = false;
+    this.loaded = true;
+
+    // Track how many horoscopes we need to load
+    const totalHoroscopes = this.config.zodiacSign.length * this.config.period.length;
+    let loadedHoroscopes = 0;
+
+    this.config.zodiacSign.forEach(sign => {
+        this.config.period.forEach(period => {
+            this.getHoroscope(sign, period, () => {
+                loadedHoroscopes++;
+                if (loadedHoroscopes === totalHoroscopes) {
+                    // Only update DOM when all horoscopes have been fetched
+                    console.log("All horoscope data loaded, updating DOM...");
+                    this.updateDom();
+                }
             });
         });
-        this.updateDom();
-    },
+    });
+},
 
     handleImageResult: function(payload) {
         if (payload.success) {
