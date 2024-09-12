@@ -1,6 +1,7 @@
 // MMM-Starlight.js
 
 Module.register("MMM-Starlight", {
+
     defaults: {
         zodiacSign: ["taurus"],
         period: ["daily", "tomorrow", "weekly", "monthly"],
@@ -13,7 +14,9 @@ Module.register("MMM-Starlight", {
         fontSize: "1em",
         debug: false,
         showButton: false
+	isInitialized: false,
     },
+
 
     start: function() {
         Log.info("Starting module: " + this.name);
@@ -89,8 +92,13 @@ Module.register("MMM-Starlight", {
     },
 
     initializeModule: function() {
-        this.log("Initializing module and sending config to node helper");
-        this.sendSocketNotification("INIT", { config: this.config });
+        if (!this.isInitialized) {
+            this.log("Initializing module and sending config to node helper");
+            this.sendSocketNotification("INIT", { config: this.config });
+            this.isInitialized = true;
+        } else {
+            this.log("Module already initialized, skipping initialization");
+        }
     },
 
     getDom: function() {
