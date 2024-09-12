@@ -607,8 +607,11 @@ checkAndRotate: function() {
 },
 
 slideToNext: function() {
-    const signWaitTime = this.config.signWaitTime;  // Retrieve sign wait time from config
-    this.startRealTimeTimer(signWaitTime);  // Make sure this is being called
+    clearTimeout(this.scrollTimer);
+    clearTimeout(this.slideTimer);
+
+    const signWaitTime = this.config.signWaitTime;
+    this.startRealTimeTimer(signWaitTime);
 
     const imageSlideContainer = document.querySelector(".MMM-Starlight .starlight-image-slide-container");
     const textSlideContainer = document.querySelector(".MMM-Starlight .starlight-text-slide-container");
@@ -619,7 +622,7 @@ slideToNext: function() {
 
         // Log the time spent on the current slide
         const elapsedTime = Date.now() - this.slideStartTime;
-       this.logSlideDuration(currentSign, currentPeriod, elapsedTime / 1000, this.config.signWaitTime / 1000, this.config.scrollSpeed);
+        this.logSlideDuration(currentSign, currentPeriod, elapsedTime / 1000, this.config.signWaitTime / 1000, this.config.scrollSpeed);
  
         if (this.config.debug) {
             let timerElement = document.getElementById("scroll-timer");
@@ -650,7 +653,6 @@ slideToNext: function() {
             }, 1000 + signWaitTime * 1000);
         }
 
-        // Transition code (already in your function)
         const currentText = textSlideContainer.querySelector(".starlight-text-content.current");
         const nextText = textSlideContainer.querySelector(".starlight-text-content.next");
         const currentImage = imageSlideContainer.querySelector(".starlight-image-wrapper.current");
@@ -699,11 +701,9 @@ slideToNext: function() {
             this.startScrolling();
 
             // Reset the timer for the next slide
-            this.slideStartTime = Date.now();  // Reset timer for the next slide
-
+            this.slideStartTime = Date.now();
         }, 1000);
     }
-    this.scheduleRotation();
 },
 
     getNextPeriodAndSign: function() {
@@ -722,6 +722,7 @@ slideToNext: function() {
 startScrolling: function() {
     var self = this;
     clearTimeout(this.scrollTimer);
+    clearTimeout(this.slideTimer);
 
     var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
     var textContent = document.querySelector(".MMM-Starlight .starlight-text");
@@ -735,64 +736,32 @@ startScrolling: function() {
             if (contentHeight > wrapperHeight) {
                 self.isScrolling = true;
 
-                // Scroll distance will stop 1/4 from the bottom
                 var scrollDistance = contentHeight - (wrapperHeight * 0.75); 
                 var verticalDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
 
-                // Apply transition for smooth scrolling
                 textContent.style.transition = `transform ${verticalDuration}ms linear`;
-                textContent.style.transform = `translateY(-${scrollDistance}px)`; // Scroll up
+                textContent.style.transform = `translateY(-${scrollDistance}px)`;
 
-                // Pause at 3/4 point
-                setTimeout(() => {
+                self.scrollTimer = setTimeout(() => {
                     var elapsedTime = Date.now() - startTime;
-                    if (elapsedTime >= self.config.signWaitTime) {
-                        // If signWaitTime has been met, move to next slide after pauseDuration
-                        setTimeout(() => {
-                            self.isScrolling = false;
-                            self.slideToNext();
-                        }, self.config.pauseDuration);
-                    } else {
-                        // If signWaitTime hasn't been met, pause then reset and scroll again
-                        setTimeout(() => {
-                            // Fade out
-                            textContent.style.transition = "opacity 0.5s ease-out";
-                            textContent.style.opacity = "0";
+                    var remainingTime = Math.max(0, self.config.signWaitTime - elapsedTime);
 
-                            setTimeout(() => {
-                                // Reset position
-                                textContent.style.transition = "none";
-                                textContent.style.transform = "translateY(0)";
-                                
-                                setTimeout(() => {
-                                    // Fade in
-                                    textContent.style.transition = "opacity 0.5s ease-in";
-                                    textContent.style.opacity = "1";
-
-                                    // Pause at the top after fade-in
-                                    setTimeout(() => {
-                                        setTimeout(scrollAndPause, 50); // Small delay before starting next scroll
-                                    }, self.config.pauseDuration);
-                                }, 50);
-                            }, 500); // Wait for fade-out to complete
-                        }, self.config.pauseDuration);
-                    }
-                }, verticalDuration);
+                    self.slideTimer = setTimeout(() => {
+                        self.isScrolling = false;
+                        self.slideToNext();
+                    }, remainingTime + self.config.pauseDuration);
+                }, verticalDuration + self.config.pauseDuration);
             } else {
-                // If no scrolling is needed, wait for signWaitTime before moving to next slide
-                var remainingTime = Math.max(0, self.config.signWaitTime - (Date.now() - startTime));
-                setTimeout(() => {
+                self.slideTimer = setTimeout(() => {
                     self.isScrolling = false;
                     self.slideToNext();
-                }, remainingTime);
+                }, self.config.signWaitTime + self.config.pauseDuration);
             }
         }
 
-        // Initial pause before starting the scroll
         setTimeout(scrollAndPause, self.config.pauseDuration);
     } else {
-        // If elements are not found, move to next slide after pauseDuration
-        setTimeout(() => {
+        self.slideTimer = setTimeout(() => {
             self.slideToNext();
         }, self.config.pauseDuration);
     }
