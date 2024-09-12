@@ -25,6 +25,12 @@ Module.register("MMM-Starlight", {
         this.loaded = false;
         this.isPreloading = true;
         this.debugClickCount = 0;
+    // Display the first slide and start the timer
+    const signWaitTime = this.config.signWaitTime;
+    const pauseDuration = this.config.pauseDuration || 5000;  // Ensure pauseDuration has a value
+    this.startRealTimeTimer(signWaitTime, pauseDuration);  // Start the timer for the first slide
+
+
         this.initializeModule();
     },
 
