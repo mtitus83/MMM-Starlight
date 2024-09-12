@@ -47,6 +47,7 @@ logSlideDuration: function(zodiacSign, period, elapsedTime, signWaitTime, scroll
 },
 
 startRealTimeTimer: function(signWaitTime) {
+    console.log("startRealTimeTimer called with signWaitTime:", signWaitTime);
     let counter = 0;
     const timerInterval = setInterval(() => {
         if (counter >= signWaitTime / 1000) {
@@ -579,6 +580,9 @@ checkAndRotate: function() {
 },
 
 slideToNext: function() {
+    const signWaitTime = this.config.signWaitTime;  // Retrieve sign wait time from config
+    this.startRealTimeTimer(signWaitTime);  // Make sure this is being called
+
     const imageSlideContainer = document.querySelector(".MMM-Starlight .starlight-image-slide-container");
     const textSlideContainer = document.querySelector(".MMM-Starlight .starlight-text-slide-container");
     const titleElement = document.querySelector(".MMM-Starlight .starlight-title");
