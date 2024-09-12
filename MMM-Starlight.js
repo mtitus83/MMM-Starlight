@@ -26,11 +26,6 @@ Module.register("MMM-Starlight", {
         this.isPreloading = true;
         this.debugClickCount = 0;
 	this.apiCallCount = 0;
-    // Display the first slide and start the timer
-    const signWaitTime = this.config.signWaitTime;
-    const pauseDuration = this.config.pauseDuration || 5000;  // Ensure pauseDuration has a value
-    this.startRealTimeTimer(signWaitTime, pauseDuration);  // Start the timer for the first slide
-
 
         this.initializeModule();
     },
@@ -60,22 +55,29 @@ startRealTimeTimer: function(signWaitTime, pauseDuration) {
             // Start the scroll timer after the pause
             this.startScrollTimer(signWaitTime);
         } else {
-            const timerDisplay = document.getElementById("scroll-timer");
-            if (!timerDisplay) {
-                let timerElement = document.createElement("div");
-                timerElement.id = "scroll-timer";
-                timerElement.style.textAlign = "center";
-                timerElement.style.margin = "10px 0";
-                document.querySelector(".MMM-Starlight .starlight-text-wrapper").before(timerElement);
-            } else {
-                // Ensure pauseDuration is a valid number to avoid NaN
-                const totalPauseTime = pauseDuration / 1000 || 5;  // Default to 5 seconds
-                timerDisplay.innerHTML = `Pause Timer: ${counter}s / ${totalPauseTime}s`;
+            // Only try to update the timer display if the module is loaded
+            if (this.loaded) {
+                const timerDisplay = document.getElementById("scroll-timer");
+                if (!timerDisplay) {
+                    let timerElement = document.createElement("div");
+                    timerElement.id = "scroll-timer";
+                    timerElement.style.textAlign = "center";
+                    timerElement.style.margin = "10px 0";
+                    const wrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
+                    if (wrapper) {
+                        wrapper.before(timerElement);
+                    }
+                } else {
+                    // Ensure pauseDuration is a valid number to avoid NaN
+                    const totalPauseTime = pauseDuration / 1000 || 5;  // Default to 5 seconds
+                    timerDisplay.innerHTML = `Pause Timer: ${counter}s / ${totalPauseTime}s`;
+                }
             }
             counter++;
         }
     }, 1000);
 },
+
 startScrollTimer: function(signWaitTime) {
     let counter = 0;
 
@@ -177,6 +179,22 @@ socketNotificationReceived: function(notification, payload) {
     }
 },
 
+startTimerWhenReady: function() {
+    if (this.loaded) {
+        const signWaitTime = this.config.signWaitTime;
+        const pauseDuration = this.config.pauseDuration || 5000;
+        this.startRealTimeTimer(signWaitTime, pauseDuration);
+    } else {
+        setTimeout(() => this.startTimerWhenReady(), 1000);
+    }
+},
+
+handleCacheInitialized: function() {
+    this.isPreloading = false;
+    this.loaded = true;
+    this.updateDom();
+    this.startTimerWhenReady();
+},
 
 handleCacheUpdated: function(payload) {
     if (payload.sign && payload.period) {
