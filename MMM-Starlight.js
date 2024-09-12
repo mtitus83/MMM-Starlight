@@ -189,6 +189,23 @@ startTimerWhenReady: function() {
     }
 },
 
+createDebugInfo: function(sign, period) {
+    if (!this.horoscopes[sign]) {
+        console.error(`Horoscope data for ${sign} is undefined.`);
+        return document.createElement("div");  // Return an empty div to prevent further errors
+    }
+    var debugInfoElement = document.createElement("div");
+    debugInfoElement.className = "starlight-debug-info";
+    var horoscopeData = this.horoscopes[sign][period];
+    if (horoscopeData && horoscopeData.lastUpdate) {
+        debugInfoElement.innerHTML += `Last update: ${new Date(horoscopeData.lastUpdate).toLocaleString()}<br>`;
+    }
+    if (horoscopeData && horoscopeData.nextUpdate) {
+        debugInfoElement.innerHTML += `Next update: ${new Date(horoscopeData.nextUpdate).toLocaleString()}`;
+    }
+    return debugInfoElement;
+},
+
 handleCacheInitialized: function() {
     this.isPreloading = false;
     this.loaded = true;
@@ -235,30 +252,30 @@ handleCacheUpdated: function(payload) {
         return buttonContainer;
     },
 
-    createHoroscopeContent: function() {
-        var currentSign = this.config.zodiacSign[this.currentSignIndex];
-        var currentPeriod = this.config.period[this.currentPeriodIndex];
+createHoroscopeContent: function() {
+    var currentSign = this.config.zodiacSign[this.currentSignIndex];
+    var currentPeriod = this.config.period[this.currentPeriodIndex];
 
-        var content = document.createElement("div");
+    var content = document.createElement("div");
 
-        if (this.config.debug) {
-            content.appendChild(this.createDebugInfo(currentSign, currentPeriod));
-        }
-
-        content.appendChild(this.createTitleElement(currentSign, currentPeriod));
-
-        // Add API call count display
-        var apiCallCountElement = document.createElement("div");
-        apiCallCountElement.className = "starlight-api-call-count";
-        apiCallCountElement.innerHTML = `API calls: ${this.apiCallCount}`;
-        content.appendChild(apiCallCountElement);
-
-        if (this.config.showImage) {
-            content.appendChild(this.createImageSlideContainer(currentSign));
-        }
-
-        content.appendChild(this.createTextSlideContainer(currentSign, currentPeriod));
-
-        return content;
+    if (this.config.debug && typeof this.createDebugInfo === 'function') {
+        content.appendChild(this.createDebugInfo(currentSign, currentPeriod));
     }
+
+    content.appendChild(this.createTitleElement(currentSign, currentPeriod));
+
+    // Add API call count display
+    var apiCallCountElement = document.createElement("div");
+    apiCallCountElement.className = "starlight-api-call-count";
+    apiCallCountElement.innerHTML = `API calls: ${this.apiCallCount}`;
+    content.appendChild(apiCallCountElement);
+
+    if (this.config.showImage) {
+        content.appendChild(this.createImageSlideContainer(currentSign));
+    }
+
+    content.appendChild(this.createTextSlideContainer(currentSign, currentPeriod));
+
+    return content;
+}
 });
