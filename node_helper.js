@@ -249,52 +249,52 @@ fetchHoroscope: async function (period, zodiacSign) {
         }
     },
 
-async initializeCache() {
-    console.log(`${this.name}: Initializing cache for all configured zodiac signs and periods`);
-    try {
-        await this.cache.loadFromFile();
-        const currentDate = moment();
-        let cacheReport = "Cache status at initialization:";
-        const isInitialBuild = this.isInitialCacheBuild();
+    initializeCache: async function() {
+        console.log(`${this.name}: Initializing cache for all configured zodiac signs and periods`);
+        try {
+            await this.cache.loadFromFile();
+            const currentDate = moment();
+            let cacheReport = "Cache status at initialization:";
+            const isInitialBuild = this.isInitialCacheBuild();
 
-        for (const sign of this.config.zodiacSign) {
-            cacheReport += `\n${sign}:`;
-            for (const period of this.config.period) {
-                const cachedData = this.cache.get(sign, period);
-                let needsFetch = false;
+            for (const sign of this.config.zodiacSign) {
+                cacheReport += `\n${sign}:`;
+                for (const period of this.config.period) {
+                    const cachedData = this.cache.get(sign, period);
+                    let needsFetch = false;
 
-                if (isInitialBuild) {
-                    // On initial build, fetch all periods including daily
-                    needsFetch = true;
-                } else if (period !== 'daily') {
-                    // For non-daily periods on subsequent runs, check if update is needed
-                    needsFetch = !cachedData || !cachedData.nextUpdate || currentDate.isAfter(moment(cachedData.nextUpdate));
-                }
+                    if (isInitialBuild) {
+                        // On initial build, fetch all periods including daily
+                        needsFetch = true;
+                    } else if (period !== 'daily') {
+                        // For non-daily periods on subsequent runs, check if update is needed
+                        needsFetch = !cachedData || !cachedData.nextUpdate || currentDate.isAfter(moment(cachedData.nextUpdate));
+                    }
 
-                cacheReport += ` ${period} (${needsFetch ? "needs fetch" : "cached"})`;
-                
-                if (needsFetch) {
-                    this.log(`Fetching new data for ${sign}, period: ${period}`);
-                    await this.fetchAndUpdateCache(sign, period);
-                } else {
-                    this.log(`Using cached data for ${sign}, period: ${period}`);
+                    cacheReport += ` ${period} (${needsFetch ? "needs fetch" : "cached"})`;
+                    
+                    if (needsFetch) {
+                        this.log(`Fetching new data for ${sign}, period: ${period}`);
+                        await this.fetchAndUpdateCache(sign, period);
+                    } else {
+                        this.log(`Using cached data for ${sign}, period: ${period}`);
+                    }
                 }
             }
-        }
 
-        this.log(cacheReport);
-        this.scheduleUpdates();
-        console.log(`${this.name}: Cache initialization completed`);
-        this.sendSocketNotification("CACHE_INITIALIZED");
-    } catch (error) {
-        console.error(`${this.name}: Error initializing cache:`, error);
-        this.sendSocketNotification("HOROSCOPE_RESULT", {
-            success: false,
-            message: "Error initializing cache",
-            error: error.toString()
-        });
-    }
-},
+            this.log(cacheReport);
+            this.scheduleUpdates();
+            console.log(`${this.name}: Cache initialization completed`);
+            this.sendSocketNotification("CACHE_INITIALIZED");
+        } catch (error) {
+            console.error(`${this.name}: Error initializing cache:`, error);
+            this.sendSocketNotification("HOROSCOPE_RESULT", {
+                success: false,
+                message: "Error initializing cache",
+                error: error.toString()
+            });
+        }
+    },
 
 isInitialCacheBuild() {
     // Check if the cache is empty or if it's the first time running
@@ -372,38 +372,61 @@ isHoroscopeValid(cachedData, period, currentDate) {
         }, 60000);
     },
 
-performMidnightUpdate: async function() {
-    this.log("Starting midnight update process");
-    const currentDate = this.simulationMode ? this.simulatedDate : moment();
-    this.log(`Current date for update: ${currentDate.format('YYYY-MM-DD HH:mm:ss')}`);
+    performMidnightUpdate: async function() {
+        this.log("Starting midnight update process");
+        const currentDate = this.simulationMode ? this.simulatedDate : moment();
+        this.log(`Current date for update: ${currentDate.format('YYYY-MM-DD HH:mm:ss')}`);
 
-    try {
-        for (const sign of this.config.zodiacSign) {
-            this.log(`Processing midnight update for ${sign}`);
-            
-            // Move tomorrow's data to today
-            const tomorrowData = this.cache.get(sign, "tomorrow");
-            if (tomorrowData) {
-                this.log(`Moving tomorrow's data to today's slot for ${sign}`);
-                this.cache.set(sign, "daily", tomorrowData);
-                this.log(`New state for ${sign}: ${JSON.stringify(this.cache.memoryCache[sign], null, 2)}`);
-            } else {
-                this.log(`No tomorrow data available for ${sign}, skipping rotation`);
+        try {
+            for (const sign of this.config.zodiacSign) {
+                this.log(`Processing midnight update for ${sign}`);
+                
+                // Move tomorrow's data to today
+                const tomorrowData = this.cache.get(sign, "tomorrow");
+                if (tomorrowData) {
+                    this.log(`Moving tomorrow's data to today's slot for ${sign}`);
+                    const updatedDailyData = {
+                        ...tomorrowData,
+                        lastUpdate: currentDate.toISOString(),
+                        nextUpdate: currentDate.clone().add(1, 'day').startOf('day').toISOString()
+                    };
+                    this.cache.set(sign, "daily", updatedDailyData);
+                    this.log(`New state for ${sign}: ${JSON.stringify(updatedDailyData, null, 2)}`);
+                    
+                    // Notify frontend about the updated daily horoscope
+                    this.sendSocketNotification("CACHE_UPDATED", { 
+                        sign, 
+                        period: "daily", 
+                        data: updatedDailyData 
+                    });
+                } else {
+                    this.log(`No tomorrow data available for ${sign}, skipping rotation`);
+                }
             }
+
+            // After rotating, trigger the API call to fetch only "tomorrow" horoscopes
+            this.log("Rotation complete. Now fetching tomorrow's horoscope data from API...");
+            await this.fetchTomorrowsHoroscopeData();  // Only fetch "tomorrow"
+            
+            // Save the updated cache to file after all updates
+            await this.cache.saveToFile();
+            this.log("Tomorrow's horoscope data fetched and cache updated.");
+
+            // Notify frontend that the midnight update is complete
+            this.sendSocketNotification("MIDNIGHT_UPDATE_COMPLETED", { 
+                timestamp: currentDate.toISOString(),
+                updatedCache: this.cache.memoryCache
+            });
+
+        } catch (error) {
+            this.log(`Error during midnight update: ${error}`);
+            // Optionally, you might want to notify the frontend about the error
+            this.sendSocketNotification("MIDNIGHT_UPDATE_ERROR", { error: error.toString() });
         }
 
-        // After rotating, trigger the API call to fetch only "tomorrow" horoscopes
-        this.log("Rotation complete. Now fetching tomorrow's horoscope data from API...");
-        await this.fetchTomorrowsHoroscopeData();  // Only fetch "tomorrow"
-        this.log("Tomorrow's horoscope data fetched and cache updated.");
-
-        // Notify frontend to update
-        this.sendSocketNotification("CACHE_UPDATED", this.cache.memoryCache);
-
-    } catch (error) {
-        this.log(`Error during midnight update: ${error}`);
-    }
-},
+        // Reset the midnight update flag
+        this.lastMidnightUpdate = new Date();
+    },
 
 fetchTomorrowsHoroscopeData: async function() {
     try {

@@ -440,20 +440,27 @@ socketNotificationReceived: function(notification, payload) {
         this.updateDom(0);
     },
 
-handleCacheInitialized: function() {
-    this.isPreloading = false;
-    this.loaded = true;
+    handleCacheInitialized: function() {
+        this.isPreloading = false;
+        this.loaded = true;
 
-    // Track how many horoscopes we need to load
-    const totalHoroscopes = this.config.zodiacSign.length * this.config.period.length;
-    this.loadedHoroscopesCount = 0;  // Reset the counter
+        // Track how many horoscopes we need to load
+        const totalHoroscopes = this.config.zodiacSign.length * this.config.period.length;
+        this.loadedHoroscopesCount = 0;  // Reset the counter
 
-    this.config.zodiacSign.forEach(sign => {
-        this.config.period.forEach(period => {
-            this.getHoroscope(sign, period);
+        this.config.zodiacSign.forEach(sign => {
+            this.config.period.forEach(period => {
+                if (period !== 'daily' || this.isInitialCacheBuild()) {
+                    this.getHoroscope(sign, period);
+                }
+            });
         });
-    });
-},
+    },
+
+    isInitialCacheBuild: function() {
+        return !this.horoscopes || Object.keys(this.horoscopes).length === 0;
+    },
+
 
     handleHoroscopeResult: function(payload) {
         this.log(`Handling horoscope result:`, payload);
