@@ -248,5 +248,5 @@ handleCacheUpdated: function(payload) {
         content.appendChild(this.createTextSlideContainer(currentSign, currentPeriod));
 
         return content;
-    },
+    }
 
