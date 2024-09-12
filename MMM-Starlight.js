@@ -42,11 +42,11 @@ getStyles: function() {
     }
 },
 
-function logSlideDuration(zodiacSign, period, elapsedTime, signWaitTime, scrollSpeed) {
+logSlideDuration: function(zodiacSign, period, elapsedTime, signWaitTime, scrollSpeed) {
     console.log(`${zodiacSign} ${period} remained on screen for ${elapsedTime} out of ${signWaitTime} at speed of ${scrollSpeed}`);
 },
 
-function startRealTimeTimer(signWaitTime) {
+startRealTimeTimer: function(signWaitTime) {
     let counter = 0;
     const timerInterval = setInterval(() => {
         if (counter >= signWaitTime / 1000) {
