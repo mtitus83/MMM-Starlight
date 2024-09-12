@@ -31,6 +31,7 @@ Module.register("MMM-Starlight", {
         this.apiCallCount = 0;
 
         this.initializeModule();
+        this.sendSocketNotification("MODULE_STARTED", {});
     },
 
     log: function(message) {
@@ -136,6 +137,7 @@ Module.register("MMM-Starlight", {
     },
 
     socketNotificationReceived: function(notification, payload) {
+        Log.info(`${this.name} received notification: ${notification}`);
         this.log(`Received socket notification: ${notification}`);
         
         switch(notification) {
@@ -178,6 +180,13 @@ Module.register("MMM-Starlight", {
                 this.log(`API call count updated: ${payload.count}`);
                 this.apiCallCount = payload.count;
                 this.updateDom();
+                break;
+	    case "MODULE_INITIALIZED":
+                Log.info(`${this.name} module initialized`);
+                this.updateDom();
+                break;
+            case "ERROR":
+                Log.error(`${this.name} encountered an error:`, payload.error);
                 break;
         }
     },

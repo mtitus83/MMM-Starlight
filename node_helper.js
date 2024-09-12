@@ -36,7 +36,7 @@ function parsePattern(text) {
 
 module.exports = NodeHelper.create({
     start: function() {
-        console.log("Starting node helper for: " + this.name);
+	console.log("Starting node helper for: " + this.name);
 	this.cache = new HoroscopeCache(this, path.join(__dirname, 'cache', 'horoscope_cache.json'));
         this.config = null;
         this.updateStatus = {
@@ -74,9 +74,24 @@ socketNotificationReceived: function(notification, payload) {
             this.log("Received request to perform midnight update");
             this.performMidnightUpdate();
             break;
+        case "MODULE_STARTED":
+            this.initializeModule();
+            break;
     }
 },
 
+    initializeModule: function() {
+        console.log(`[${this.name}] Initializing module`);
+        if (this.config) {
+            this.initializeCache().catch(error => {
+                console.error(`[${this.name}] Error initializing cache:`, error);
+                this.sendSocketNotification("ERROR", { error: "Failed to initialize cache" });
+            });
+        } else {
+            console.error(`[${this.name}] Configuration not set. Cannot initialize.`);
+            this.sendSocketNotification("ERROR", { error: "Configuration not set" });
+        }
+    },
 
     log: function(message) {
         console.log(`[${this.name}] ${new Date().toISOString()} - ${message}`);
@@ -243,37 +258,26 @@ fetchHoroscope: async function (period, zodiacSign) {
     },
 
     initializeCache: async function() {
-        console.log(`${this.name}: Initializing cache for all configured zodiac signs and periods`);
+        console.log(`[${this.name}] Initializing cache`);
         try {
             await this.cache.loadFromFile();
-            const currentDate = moment();
-            let cacheReport = "Cache status at initialization:";
+            console.log(`[${this.name}] Cache loaded from file`);
 
-            for (const sign of this.config.zodiacSign) {
-                cacheReport += `\n${sign}:`;
-                for (const period of this.config.period) {
-                    const cachedData = this.cache.get(sign, period);
-                    if (!cachedData || this.shouldUpdate(cachedData, period)) {
-                        this.log(`Fetching new data for ${sign}, period: ${period}`);
-                        await this.fetchAndUpdateCache(sign, period);
-                    } else {
-                        this.log(`Using cached data for ${sign}, period: ${period}`);
-                    }
-                    cacheReport += ` ${period} (${cachedData ? "cached" : "fetched"})`;
-                }
+            const zodiacSign = this.config.zodiacSign[0];
+            const period = this.config.period[0];
+            
+            console.log(`[${this.name}] Attempting to fetch initial horoscope for ${zodiacSign}, ${period}`);
+            const data = await this.fetchAndUpdateCache(zodiacSign, period);
+            
+            if (data) {
+                console.log(`[${this.name}] Successfully fetched initial horoscope`);
+                this.sendSocketNotification("MODULE_INITIALIZED", {});
+            } else {
+                throw new Error("Failed to fetch initial horoscope");
             }
-
-            this.log(cacheReport);
-            this.scheduleUpdates();
-            console.log(`${this.name}: Cache initialization completed`);
-            this.sendSocketNotification("CACHE_INITIALIZED");
         } catch (error) {
-            console.error(`${this.name}: Error initializing cache:`, error);
-            this.sendSocketNotification("HOROSCOPE_RESULT", {
-                success: false,
-                message: "Error initializing cache",
-                error: error.toString()
-            });
+            console.error(`[${this.name}] Error in initializeCache:`, error);
+            this.sendSocketNotification("ERROR", { error: error.toString() });
         }
     },
 
@@ -624,8 +628,8 @@ handleGetHoroscope: function(payload) {
     },
 
     fetchAndUpdateCache: async function(sign, period) {
-        const cachedData = this.cache.get(sign, period);
-        if (this.shouldUpdate(cachedData, period)) {
+        console.log(`[${this.name}] Fetching and updating cache for ${sign}, ${period}`);
+        try {
             const data = await this.fetchFromAPI(sign, period);
             if (data) {
                 const updatedData = this.updateDataWithTimestamps(data, period);
@@ -633,9 +637,14 @@ handleGetHoroscope: function(payload) {
                 await this.cache.saveToFile();
                 this.sendSocketNotification("CACHE_UPDATED", { sign, period, data: updatedData });
                 return updatedData;
+            } else {
+                throw new Error(`No data returned from API for ${sign}, ${period}`);
             }
+        } catch (error) {
+            console.error(`[${this.name}] Error in fetchAndUpdateCache:`, error);
+            this.sendSocketNotification("ERROR", { error: error.toString() });
+            return null;
         }
-        return cachedData;
     },
 
     updateDataWithTimestamps: function(data, period) {
