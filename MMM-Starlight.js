@@ -137,61 +137,57 @@ notificationReceived: function(notification, payload, sender) {
 
 socketNotificationReceived: function(notification, payload) {
     this.log(`Received socket notification: ${notification}`);
-
+    
     switch(notification) {
         case "HOROSCOPE_RESULT":
             this.log(`Received horoscope result for ${payload.sign}, period: ${payload.period}`);
-            this.handleHoroscopeResult(payload);  // Update horoscope results
-
-            // Track loaded horoscopes
-            if (!this.loadedHoroscopesCount) {
-                this.loadedHoroscopesCount = 0;  // Initialize the counter if it doesn't exist
-            }
-            this.loadedHoroscopesCount++;
-
-            // Check if all horoscopes have been loaded
-            const totalHoroscopes = this.config.zodiacSign.length * this.config.period.length;
-            if (this.loadedHoroscopesCount === totalHoroscopes) {
-                console.log("All horoscope data loaded, updating DOM...");
-                this.updateDom();
-            }
+            this.handleHoroscopeResult(payload);
+            this.updateDom();
             break;
         
         case "CACHE_INITIALIZED":
             this.log("Cache initialized notification received");
-            this.handleCacheInitialized();  // Handle cache initialization
+            this.handleCacheInitialized();
+            this.updateDom();
             break;
         
         case "CACHE_RESET_COMPLETE":
             this.log("Cache reset complete notification received");
-            this.handleCacheResetComplete(payload);  // Handle cache reset
-            break;
-        
-        case "MIDNIGHT_UPDATE_SIMULATED":
-            this.log("Midnight update simulation completed");
-            this.handleMidnightUpdateSimulated(payload);  // Simulate midnight update
+            this.handleCacheResetComplete(payload);
+            this.updateDom();
             break;
         
         case "CACHE_UPDATED":
             this.log("Cache updated, reloading data...");
-            this.handleCacheUpdated(payload);  // Add logic for loading data from memory
-            this.updateDom();  // Refresh UI after cache update
+            this.handleCacheUpdated(payload);
+            this.updateDom();
             break;
         
         case "MIDNIGHT_UPDATE_COMPLETED":
             this.log(`Midnight update completed at ${payload.timestamp}`);
-            this.handleMidnightUpdateCompleted(payload);  // Handle midnight update completion
+            this.handleMidnightUpdateCompleted(payload);
+            this.updateDom();
             break;
         
         case "SIX_AM_UPDATE_COMPLETED":
             this.log("6 AM update completed");
-            this.handleSixAMUpdateCompleted();  // Handle 6 AM update completion
+            this.handleSixAMUpdateCompleted(payload);
+            this.updateDom();
             break;
-        
-        case "PERFORM_MIDNIGHT_UPDATE":
-            this.log("Received confirmation of midnight update performance");
-            this.updateDom();  // Refresh the UI after midnight update
-            break;
+    }
+},
+
+
+handleCacheUpdated: function(payload) {
+    if (payload.sign && payload.period) {
+        // Single horoscope update
+        if (!this.horoscopes[payload.sign]) {
+            this.horoscopes[payload.sign] = {};
+        }
+        this.horoscopes[payload.sign][payload.period] = payload.data;
+    } else {
+        // Full cache update
+        this.horoscopes = payload;
     }
 },
 
@@ -543,17 +539,19 @@ handleCacheInitialized: function() {
         });
     },
 
-    handleMidnightUpdateCompleted: function(payload) {
-        this.log(`Handling midnight update completion at ${payload.timestamp}`);
-        this.updateDom(0);
-    },
+handleMidnightUpdateCompleted: function(payload) {
+    // Update the horoscopes with the new data if provided
+    if (payload.updatedCache) {
+        this.horoscopes = payload.updatedCache;
+    }
+},
 
-    handleSixAMUpdateCompleted: function() {
-        console.log(`[${this.name}] 6 AM update completed`);
-        this.updateDom(0);
-        this.loadAllHoroscopes();
-    },
-
+handleSixAMUpdateCompleted: function(payload) {
+    // Update the horoscopes with the new data if provided
+    if (payload.updatedCache) {
+        this.horoscopes = payload.updatedCache;
+    }
+},
 
     handleMidnightUpdateSimulated: function(payload) {
         console.log(`[${this.name}] Midnight update simulation completed`, payload);
