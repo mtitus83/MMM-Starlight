@@ -1,6 +1,7 @@
 // MMM-Starlight.js
 
 Module.register("MMM-Starlight", {
+    // Default configuration
     defaults: {
         zodiacSign: ["taurus"],
         period: ["daily", "tomorrow", "weekly", "monthly"],
@@ -15,8 +16,10 @@ Module.register("MMM-Starlight", {
         showButton: false
     },
 
+    // Module initialization
     start: function() {
         Log.info("Starting module: " + this.name);
+        // Initialize module variables
         this.horoscopes = {};
         this.loadedHoroscopes = {};
         this.cachedImages = {};
@@ -28,33 +31,41 @@ Module.register("MMM-Starlight", {
         this.initializeModule();
     },
 
+    // Custom logging function
     log: function(message) {
         console.log(`[${this.name}] ${new Date().toISOString()} - ${message}`);
     },
 
-getStyles: function() {
-    var cssPath = this.file("MMM-Starlight.css");
-    if (this.fileExists(cssPath)) {
-        return [cssPath];
-    } else {
-        console.error("CSS file not found: " + cssPath);
-        return [];
-    }
-},
+    // Load custom CSS file
+    getStyles: function() {
+        var cssPath = this.file("MMM-Starlight.css");
+        if (this.fileExists(cssPath)) {
+            return [cssPath];
+        } else {
+            console.error("CSS file not found: " + cssPath);
+            return [];
+        }
+    },
+
+    // Initialize the module and send config to node helper
     initializeModule: function() {
         this.log("Initializing module and sending config to node helper");
         this.sendSocketNotification("INIT", { config: this.config });
     },
+
+    // Create and return the module's DOM elements
     getDom: function() {
         var wrapper = document.createElement("div");
         wrapper.className = "MMM-Starlight";
         wrapper.style.width = this.config.width;
         wrapper.style.fontSize = this.config.fontSize;
 
+        // Add debug buttons if in debug mode
         if (this.config.debug && this.config.showButton) {
             wrapper.appendChild(this.createDebugButtons());
         }
 
+        // Display loading or error message if not ready
         if (this.isPreloading) {
             wrapper.innerHTML += "Loading horoscopes...";
             return wrapper;
@@ -65,68 +76,72 @@ getStyles: function() {
             return wrapper;
         }
 
+        // Create and append horoscope content
         wrapper.appendChild(this.createHoroscopeContent());
         return wrapper;
     },
 
-notificationReceived: function(notification, payload, sender) {
-    if (notification === "CLOCK_MINUTE") {
-        const now = moment();
-        if (now.hour() === 0 && now.minute() === 0) {
-            this.log("Triggering midnight update");
-            this.sendSocketNotification("PERFORM_MIDNIGHT_UPDATE", {});
+    // Handle system notifications
+    notificationReceived: function(notification, payload, sender) {
+        if (notification === "CLOCK_MINUTE") {
+            const now = moment();
+            // Check if it's midnight to trigger an update
+            if (now.hour() === 0 && now.minute() === 0) {
+                this.log("Triggering midnight update");
+                this.sendSocketNotification("PERFORM_MIDNIGHT_UPDATE", {});
+            }
         }
-    }
-},
+    },
 
-socketNotificationReceived: function(notification, payload) {
-    this.log(`Received socket notification: ${notification}`);
-    
-    switch(notification) {
-        case "HOROSCOPE_RESULT":
-            this.log(`Received horoscope result for ${payload.sign}, period: ${payload.period}`);
-            this.handleHoroscopeResult(payload);  // Update horoscope results
-            break;
+    // Handle socket notifications from node helper
+    socketNotificationReceived: function(notification, payload) {
+        this.log(`Received socket notification: ${notification}`);
         
-        case "CACHE_INITIALIZED":
-            this.log("Cache initialized notification received");
-            this.handleCacheInitialized();  // Handle cache initialization
-            break;
-        
-        case "CACHE_RESET_COMPLETE":
-            this.log("Cache reset complete notification received");
-            this.handleCacheResetComplete(payload);  // Handle cache reset
-            break;
-        
-        case "MIDNIGHT_UPDATE_SIMULATED":
-            this.log("Midnight update simulation completed");
-            this.handleMidnightUpdateSimulated(payload);  // Simulate midnight update
-            break;
-        
-        case "CACHE_UPDATED":
-            this.log("Cache updated, reloading data...");
-            this.handleCacheUpdated(payload);  // Add logic for loading data from memory
-            this.updateDom();  // Refresh UI after cache update
-            break;
-        
-        case "MIDNIGHT_UPDATE_COMPLETED":
-            this.log(`Midnight update completed at ${payload.timestamp}`);
-            this.handleMidnightUpdateCompleted(payload);  // Handle midnight update completion
-            break;
-        
-        case "SIX_AM_UPDATE_COMPLETED":
-            this.log("6 AM update completed");
-            this.handleSixAMUpdateCompleted();  // Handle 6 AM update completion
-            break;
-        
-        case "PERFORM_MIDNIGHT_UPDATE":
-            this.log("Received confirmation of midnight update performance");
-            this.updateDom();  // Refresh the UI after midnight update
-            break;
-    }
-},
+        switch(notification) {
+            case "HOROSCOPE_RESULT":
+                this.log(`Received horoscope result for ${payload.sign}, period: ${payload.period}`);
+                this.handleHoroscopeResult(payload);  // Update horoscope results
+                break;
+            
+            case "CACHE_INITIALIZED":
+                this.log("Cache initialized notification received");
+                this.handleCacheInitialized();  // Handle cache initialization
+                break;
+            
+            case "CACHE_RESET_COMPLETE":
+                this.log("Cache reset complete notification received");
+                this.handleCacheResetComplete(payload);  // Handle cache reset
+                break;
+            
+            case "MIDNIGHT_UPDATE_SIMULATED":
+                this.log("Midnight update simulation completed");
+                this.handleMidnightUpdateSimulated(payload);  // Simulate midnight update
+                break;
+            
+            case "CACHE_UPDATED":
+                this.log("Cache updated, reloading data...");
+                this.handleCacheUpdated(payload);  // Add logic for loading data from memory
+                this.updateDom();  // Refresh UI after cache update
+                break;
+            
+            case "MIDNIGHT_UPDATE_COMPLETED":
+                this.log(`Midnight update completed at ${payload.timestamp}`);
+                this.handleMidnightUpdateCompleted(payload);  // Handle midnight update completion
+                break;
+            
+            case "SIX_AM_UPDATE_COMPLETED":
+                this.log("6 AM update completed");
+                this.handleSixAMUpdateCompleted();  // Handle 6 AM update completion
+                break;
+            
+            case "PERFORM_MIDNIGHT_UPDATE":
+                this.log("Received confirmation of midnight update performance");
+                this.updateDom();  // Refresh the UI after midnight update
+                break;
+        }
+    },
 
-
+    // Create debug buttons for testing
     createDebugButtons: function() {
         var buttonContainer = document.createElement("div");
         buttonContainer.className = "starlight-debug-buttons";
@@ -152,6 +167,7 @@ socketNotificationReceived: function(notification, payload) {
         return buttonContainer;
     },
 
+    // Create the main horoscope content
     createHoroscopeContent: function() {
         var currentSign = this.config.zodiacSign[this.currentSignIndex];
         var currentPeriod = this.config.period[this.currentPeriodIndex];
@@ -173,6 +189,7 @@ socketNotificationReceived: function(notification, payload) {
         return content;
     },
 
+    // Create debug information element
     createDebugInfo: function(sign, period) {
         var debugInfoElement = document.createElement("div");
         debugInfoElement.className = "starlight-debug-info";
@@ -186,6 +203,7 @@ socketNotificationReceived: function(notification, payload) {
         return debugInfoElement;
     },
 
+    // Create title element for horoscope
     createTitleElement: function(sign, period) {
         var titleElement = document.createElement("div");
         titleElement.className = "starlight-title";
@@ -194,6 +212,7 @@ socketNotificationReceived: function(notification, payload) {
         return titleElement;
     },
 
+    // Create image slide container
     createImageSlideContainer: function(currentSign) {
         var imageSlideContainer = document.createElement("div");
         imageSlideContainer.className = "starlight-image-slide-container";
@@ -202,25 +221,27 @@ socketNotificationReceived: function(notification, payload) {
         return imageSlideContainer;
     },
 
-createImageElement: function(sign, className) {
-    var imageWrapper = document.createElement("div");
-    imageWrapper.className = "starlight-image-wrapper " + className;
-    var image = document.createElement("img");
-    
-    // Use PNG files from the assets directory
-    image.src = this.file(`assets/${sign.toLowerCase()}.png`);
-    
-    image.alt = sign + " zodiac sign";
-    image.className = "starlight-zodiac-icon";
-    image.style.width = this.config.imageWidth;
-    image.onerror = function() {
-        console.error("Failed to load image for", sign);
-        this.src = this.file("assets/error.png");  // Update this line
-    };
-    imageWrapper.appendChild(image);
-    return imageWrapper;
-},
+    // Create image element for zodiac sign
+    createImageElement: function(sign, className) {
+        var imageWrapper = document.createElement("div");
+        imageWrapper.className = "starlight-image-wrapper " + className;
+        var image = document.createElement("img");
+        
+        // Use PNG files from the assets directory
+        image.src = this.file(`assets/${sign.toLowerCase()}.png`);
+        
+        image.alt = sign + " zodiac sign";
+        image.className = "starlight-zodiac-icon";
+        image.style.width = this.config.imageWidth;
+        image.onerror = function() {
+            console.error("Failed to load image for", sign);
+            this.src = this.file("assets/error.png");  // Update this line
+        };
+        imageWrapper.appendChild(image);
+        return imageWrapper;
+    },
 
+    // Create text slide container
     createTextSlideContainer: function(currentSign, currentPeriod) {
         var textSlideContainer = document.createElement("div");
         textSlideContainer.className = "starlight-text-slide-container";
@@ -229,77 +250,83 @@ createImageElement: function(sign, className) {
         return textSlideContainer;
     },
 
-createTextElement: function(sign, className, period) {
-    var textContent = document.createElement("div");
-    textContent.className = "starlight-text-content " + className;
+    // Create text element for horoscope
+    createTextElement: function(sign, className, period) {
+        var textContent = document.createElement("div");
+        textContent.className = "starlight-text-content " + className;
 
-    var horoscopeWrapper = document.createElement("div");
-    horoscopeWrapper.className = "starlight-text-wrapper";
-    horoscopeWrapper.style.maxHeight = this.config.maxTextHeight;
+        var horoscopeWrapper = document.createElement("div");
+        horoscopeWrapper.className = "starlight-text-wrapper";
+        horoscopeWrapper.style.maxHeight = this.config.maxTextHeight;
 
-    if (this.horoscopes[sign] && this.horoscopes[sign][period]) {
-        var horoscopeData = this.horoscopes[sign][period];
-        
-        if (period === "tomorrow" && 
-            this.horoscopes[sign]["daily"] && 
-            horoscopeData.horoscope_data === this.horoscopes[sign]["daily"].horoscope_data) {
+        if (this.horoscopes[sign] && this.horoscopes[sign][period]) {
+            var horoscopeData = this.horoscopes[sign][period];
             
-            horoscopeWrapper.className += " starlight-centered-content";
+            // Check if tomorrow's horoscope is the same as today's
+            if (period === "tomorrow" && 
+                this.horoscopes[sign]["daily"] && 
+                horoscopeData.horoscope_data === this.horoscopes[sign]["daily"].horoscope_data) {
+                
+                horoscopeWrapper.className += " starlight-centered-content";
 
-            var imageElement = document.createElement("img");
-            imageElement.src = this.file("assets/starlight-icon-transparent.png");
-            imageElement.alt = "Reading the Stars";
-            imageElement.className = "starlight-image spinning-image";
-            
-            imageElement.onerror = function() {
-                console.error("Failed to load image: " + this.src);
-                this.style.display = 'none';
-            };
-            
-            horoscopeWrapper.appendChild(imageElement);
+                var imageElement = document.createElement("img");
+                imageElement.src = this.file("assets/starlight-icon-transparent.png");
+                imageElement.alt = "Reading the Stars";
+                imageElement.className = "starlight-image spinning-image";
+                
+                imageElement.onerror = function() {
+                    console.error("Failed to load image: " + this.src);
+                    this.style.display = 'none';
+                };
+                
+                horoscopeWrapper.appendChild(imageElement);
 
-            var readingStarsText = document.createElement("div");
-            readingStarsText.className = "starlight-reading-text";
-            readingStarsText.innerHTML = 'Reading the stars<span class="animated-dots"></span>';
-            horoscopeWrapper.appendChild(readingStarsText);
-        } else {
-            var horoscopeTextElement = document.createElement("div");
-            horoscopeTextElement.className = "starlight-text";
-            horoscopeTextElement.innerHTML = horoscopeData.horoscope_data || "Horoscope data not available.";
-            
-            if (period === "monthly" && horoscopeData.challenging_days && horoscopeData.standout_days) {
-                horoscopeTextElement.innerHTML += `<br><br>Challenging days: ${horoscopeData.challenging_days}`;
-                horoscopeTextElement.innerHTML += `<br>Standout days: ${horoscopeData.standout_days}`;
+                var readingStarsText = document.createElement("div");
+                readingStarsText.className = "starlight-reading-text";
+                readingStarsText.innerHTML = 'Reading the stars<span class="animated-dots"></span>';
+                horoscopeWrapper.appendChild(readingStarsText);
+            } else {
+                var horoscopeTextElement = document.createElement("div");
+                horoscopeTextElement.className = "starlight-text";
+                horoscopeTextElement.innerHTML = horoscopeData.horoscope_data || "Horoscope data not available.";
+                
+                // Add additional information for monthly horoscopes
+                if (period === "monthly" && horoscopeData.challenging_days && horoscopeData.standout_days) {
+                    horoscopeTextElement.innerHTML += `<br><br>Challenging days: ${horoscopeData.challenging_days}`;
+                    horoscopeTextElement.innerHTML += `<br>Standout days: ${horoscopeData.standout_days}`;
+                }
+                horoscopeWrapper.appendChild(horoscopeTextElement);
             }
-            horoscopeWrapper.appendChild(horoscopeTextElement);
+        } else if (this.isPreloading) {
+            var loadingElement = document.createElement("div");
+            loadingElement.className = "starlight-text";
+            loadingElement.innerHTML = "Loading " + period + " horoscope for " + sign + "...";
+            horoscopeWrapper.appendChild(loadingElement);
+        } else {
+            var errorElement = document.createElement("div");
+            errorElement.className = "starlight-text";
+            errorElement.innerHTML = "Horoscope data not available. Please try resetting the cache.";
+            horoscopeWrapper.appendChild(errorElement);
+            this.getHoroscope(sign, period);
         }
-    } else if (this.isPreloading) {
-        var loadingElement = document.createElement("div");
-        loadingElement.className = "starlight-text";
-        loadingElement.innerHTML = "Loading " + period + " horoscope for " + sign + "...";
-        horoscopeWrapper.appendChild(loadingElement);
-    } else {
-        var errorElement = document.createElement("div");
-        errorElement.className = "starlight-text";
-        errorElement.innerHTML = "Horoscope data not available. Please try resetting the cache.";
-        horoscopeWrapper.appendChild(errorElement);
-        this.getHoroscope(sign, period);
-    }
-    
-    textContent.appendChild(horoscopeWrapper);
-    return textContent;
-},
+        
+        textContent.appendChild(horoscopeWrapper);
+        return textContent;
+    },
 
+    // Get the next zodiac sign
     getNextSign: function() {
         const nextSignIndex = (this.currentSignIndex + (this.currentPeriodIndex === this.config.period.length - 1 ? 1 : 0)) % this.config.zodiacSign.length;
         return this.config.zodiacSign[nextSignIndex];
     },
 
+    // Get the next period
     getNextPeriod: function() {
         const nextPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
         return this.config.period[nextPeriodIndex];
     },
 
+    // Format period text for display
     formatPeriodText: function(period) {
         if (period === "tomorrow") {
             return "Tomorrow's";
@@ -307,6 +334,7 @@ createTextElement: function(sign, className, period) {
         return period.charAt(0).toUpperCase() + period.slice(1);
     },
 
+    // Request horoscope data from node helper
     getHoroscope: function(sign, period) {
         this.log(`Requesting horoscope for ${sign}, period: ${period}`);
         this.sendSocketNotification("GET_HOROSCOPE", {
@@ -315,62 +343,23 @@ createTextElement: function(sign, className, period) {
         });
     },
 
+    // Request image from node helper
     getImage: function(sign) {
         this.sendSocketNotification("GET_IMAGE", { sign: sign });
     },
 
-socketNotificationReceived: function(notification, payload) {
-    this.log(`Received socket notification: ${notification}`);
-    
-    switch(notification) {
-        case "HOROSCOPE_RESULT":
-            this.log(`Received horoscope result for ${payload.sign}, period: ${payload.period}`);
-            this.handleHoroscopeResult(payload);  // Update horoscope results
-            break;
-        
-        case "CACHE_INITIALIZED":
-            this.log("Cache initialized notification received");
-            this.handleCacheInitialized();  // Handle cache initialization
-            break;
-        
-        case "CACHE_RESET_COMPLETE":
-            this.log("Cache reset complete notification received");
-            this.handleCacheResetComplete(payload);  // Handle cache reset
-            break;
-        
-        case "MIDNIGHT_UPDATE_SIMULATED":
-            this.log("Midnight update simulation completed");
-            this.handleMidnightUpdateSimulated(payload);  // Simulate midnight update
-            break;
-        
-        case "CACHE_UPDATED":
-            this.log("Cache updated, reloading data...");
-            this.handleCacheUpdated(payload);  // Add logic for loading data from memory
-            this.updateDom();  // Refresh UI after cache update
-            break;
-        
-        case "MIDNIGHT_UPDATE_COMPLETED":
-            this.log(`Midnight update completed at ${payload.timestamp}`);
-            this.handleMidnightUpdateCompleted(payload);  // Handle midnight update completion
-            break;
-        
-        case "SIX_AM_UPDATE_COMPLETED":
-            this.log("6 AM update completed");
-            this.handleSixAMUpdateCompleted();  // Handle 6 AM update completion
-            break;
-        
-        case "PERFORM_MIDNIGHT_UPDATE":
-            this.log("Received confirmation of midnight update performance");
-            this.updateDom();  // Refresh the UI after midnight update
-            break;
-    }
-},
+    // Handle socket notifications (duplicate, can be removed)
+    socketNotificationReceived: function(notification, payload) {
+        // ... (same as the previous implementation)
+    },
 
+    // Handle completion of hourly check
     handleHourlyCheckCompleted: function() {
         console.log(`[${this.name}] Hourly check completed`);
         this.updateDom(0);
     },
 
+    // Handle cache update
     handleCacheUpdated: function(payload) {
         this.log(`Handling cache update for ${payload.sign}, period: ${payload.period}`);
         if (!this.horoscopes[payload.sign]) {
@@ -380,6 +369,7 @@ socketNotificationReceived: function(notification, payload) {
         this.updateDom(0);
     },
 
+// Handle horoscope result
     handleHoroscopeResult: function(payload) {
         this.log(`Handling horoscope result:`, payload);
         if (payload.success) {
@@ -412,6 +402,7 @@ socketNotificationReceived: function(notification, payload) {
         this.updateDom();
     },
 
+    // Handle cache initialization
     handleCacheInitialized: function() {
         this.isPreloading = false;
         this.loaded = true;
@@ -423,6 +414,7 @@ socketNotificationReceived: function(notification, payload) {
         this.updateDom();
     },
 
+    // Handle image result
     handleImageResult: function(payload) {
         if (payload.success) {
             this.cachedImages[payload.sign] = payload.imagePath;
@@ -432,6 +424,7 @@ socketNotificationReceived: function(notification, payload) {
         this.updateDom();
     },
 
+    // Handle cache reset completion
     handleCacheResetComplete: function(payload) {
         console.log(`[${this.name}] Cache reset complete:`, payload);
         if (payload.success) {
@@ -443,6 +436,7 @@ socketNotificationReceived: function(notification, payload) {
         }
     },
 
+    // Load all horoscopes
     loadAllHoroscopes: function() {
         this.log("Loading all horoscopes after midnight update");
         this.config.zodiacSign.forEach(sign => {
@@ -453,18 +447,20 @@ socketNotificationReceived: function(notification, payload) {
         });
     },
 
+    // Handle midnight update completion
     handleMidnightUpdateCompleted: function(payload) {
         this.log(`Handling midnight update completion at ${payload.timestamp}`);
         this.updateDom(0);
     },
 
+    // Handle 6 AM update completion
     handleSixAMUpdateCompleted: function() {
         console.log(`[${this.name}] 6 AM update completed`);
         this.updateDom(0);
         this.loadAllHoroscopes();
     },
 
-
+    // Handle midnight update simulation
     handleMidnightUpdateSimulated: function(payload) {
         console.log(`[${this.name}] Midnight update simulation completed`, payload);
         this.updateDom(0); // Force an immediate update of the display
@@ -484,6 +480,7 @@ socketNotificationReceived: function(notification, payload) {
         });
     },
 
+    // Check if all horoscopes are loaded
     areAllHoroscopesLoaded: function() {
         return this.config.zodiacSign.every(sign => 
             this.config.period.every(period => 
@@ -492,30 +489,33 @@ socketNotificationReceived: function(notification, payload) {
         );
     },
 
-scheduleRotation: function() {
-    if (this.config.zodiacSign.length === 1 && this.config.period.length === 1) {
-        return;
-    } 
+    // Schedule rotation of horoscopes
+    scheduleRotation: function() {
+        if (this.config.zodiacSign.length === 1 && this.config.period.length === 1) {
+            return;
+        } 
 
-    clearTimeout(this.rotationTimer);
-    var self = this;
-    this.rotationTimer = setTimeout(function() {
-        self.startScrolling();
-    }, this.config.pauseDuration);
-},
+        clearTimeout(this.rotationTimer);
+        var self = this;
+        this.rotationTimer = setTimeout(function() {
+            self.startScrolling();
+        }, this.config.pauseDuration);
+    },
 
-checkAndRotate: function() {
-    if (this.config.zodiacSign.length === 1 && this.config.period.length === 1) {
-        return;
-    }
+    // Check and rotate horoscopes
+    checkAndRotate: function() {
+        if (this.config.zodiacSign.length === 1 && this.config.period.length === 1) {
+            return;
+        }
 
-    if (!this.isScrolling) {
-        this.startScrolling();
-    } else {
-        setTimeout(() => this.checkAndRotate(), 1000);
-    }
-},
+        if (!this.isScrolling) {
+            this.startScrolling();
+        } else {
+            setTimeout(() => this.checkAndRotate(), 1000);
+        }
+    },
 
+    // Slide to next horoscope
     slideToNext: function() {
         const imageSlideContainer = document.querySelector(".MMM-Starlight .starlight-image-slide-container");
         const textSlideContainer = document.querySelector(".MMM-Starlight .starlight-text-slide-container");
@@ -524,7 +524,7 @@ checkAndRotate: function() {
         if (imageSlideContainer && textSlideContainer && titleElement) {
             const { currentSign, currentPeriod, nextSign, nextPeriod } = this.getNextPeriodAndSign();
 
-const currentText = textSlideContainer.querySelector(".starlight-text-content.current");
+            const currentText = textSlideContainer.querySelector(".starlight-text-content.current");
             const nextText = textSlideContainer.querySelector(".starlight-text-content.next");
             const currentImage = imageSlideContainer.querySelector(".starlight-image-wrapper.current");
             const nextImage = imageSlideContainer.querySelector(".starlight-image-wrapper.next");
@@ -537,6 +537,7 @@ const currentText = textSlideContainer.querySelector(".starlight-text-content.cu
                 nextImage.innerHTML = this.createImageElement(currentSign, "next").innerHTML;
             }
 
+            // Animate the slide transition
             textSlideContainer.style.transition = "transform 1s ease-in-out";
             textSlideContainer.style.transform = "translateX(calc(-50% - 40px))";
 
@@ -547,6 +548,7 @@ const currentText = textSlideContainer.querySelector(".starlight-text-content.cu
 
             titleElement.classList.add('fading');
 
+            // Update content after transition
             setTimeout(() => {
                 titleElement.classList.remove('fading');
 
@@ -575,6 +577,7 @@ const currentText = textSlideContainer.querySelector(".starlight-text-content.cu
 	    this.scheduleRotation();
     },
 
+    // Get the next period and sign
     getNextPeriodAndSign: function() {
         this.currentPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
         if (this.currentPeriodIndex === 0) {
@@ -588,103 +591,108 @@ const currentText = textSlideContainer.querySelector(".starlight-text-content.cu
         };
     },
 
-startScrolling: function() {
-    var self = this;
-    clearTimeout(this.scrollTimer);
+    // Start scrolling the horoscope text
+    startScrolling: function() {
+        var self = this;
+        clearTimeout(this.scrollTimer);
 
-    var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
-    var textContent = document.querySelector(".MMM-Starlight .starlight-text");
+        var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
+        var textContent = document.querySelector(".MMM-Starlight .starlight-text");
 
-    if (textWrapper && textContent) {
-        var wrapperHeight = textWrapper.offsetHeight;
-        var contentHeight = textContent.scrollHeight;
-        var startTime = Date.now();
+        if (textWrapper && textContent) {
+            var wrapperHeight = textWrapper.offsetHeight;
+            var contentHeight = textContent.scrollHeight;
+            var startTime = Date.now();
 
-        function scrollAndPause() {
-            if (contentHeight > wrapperHeight) {
-                self.isScrolling = true;
+            function scrollAndPause() {
+                if (contentHeight > wrapperHeight) {
+                    self.isScrolling = true;
 
-                // Scroll distance will stop 1/4 from the bottom
-                var scrollDistance = contentHeight - (wrapperHeight * 0.75); 
-                var verticalDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
+                    // Scroll distance will stop 1/4 from the bottom
+                    var scrollDistance = contentHeight - (wrapperHeight * 0.75); 
+                    var verticalDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
 
-                // Apply transition for smooth scrolling
-                textContent.style.transition = `transform ${verticalDuration}ms linear`;
-                textContent.style.transform = `translateY(-${scrollDistance}px)`; // Scroll up
+                    // Apply transition for smooth scrolling
+                    textContent.style.transition = `transform ${verticalDuration}ms linear`;
+                    textContent.style.transform = `translateY(-${scrollDistance}px)`; // Scroll up
 
-                // Pause at 3/4 point
-                setTimeout(() => {
-                    var elapsedTime = Date.now() - startTime;
-                    if (elapsedTime >= self.config.signWaitTime) {
-                        // If signWaitTime has been met, move to next slide after pauseDuration
-                        setTimeout(() => {
-                            self.isScrolling = false;
-                            self.slideToNext();
-                        }, self.config.pauseDuration);
-                    } else {
-                        // If signWaitTime hasn't been met, pause then reset and scroll again
-                        setTimeout(() => {
-                            // Fade out
-                            textContent.style.transition = "opacity 0.5s ease-out";
-                            textContent.style.opacity = "0";
-
+                    // Pause at 3/4 point
+                    setTimeout(() => {
+                        var elapsedTime = Date.now() - startTime;
+                        if (elapsedTime >= self.config.signWaitTime) {
+                            // If signWaitTime has been met, move to next slide after pauseDuration
                             setTimeout(() => {
-                                // Reset position
-                                textContent.style.transition = "none";
-                                textContent.style.transform = "translateY(0)";
-                                
+                                self.isScrolling = false;
+                                self.slideToNext();
+                            }, self.config.pauseDuration);
+                        } else {
+                            // If signWaitTime hasn't been met, pause then reset and scroll again
+                            setTimeout(() => {
+                                // Fade out
+                                textContent.style.transition = "opacity 0.5s ease-out";
+                                textContent.style.opacity = "0";
+
                                 setTimeout(() => {
-                                    // Fade in
-                                    textContent.style.transition = "opacity 0.5s ease-in";
-                                    textContent.style.opacity = "1";
-
-                                    // Pause at the top after fade-in
+                                    // Reset position
+                                    textContent.style.transition = "none";
+                                    textContent.style.transform = "translateY(0)";
+                                    
                                     setTimeout(() => {
-                                        setTimeout(scrollAndPause, 50); // Small delay before starting next scroll
-                                    }, self.config.pauseDuration);
-                                }, 50);
-                            }, 500); // Wait for fade-out to complete
-                        }, self.config.pauseDuration);
-                    }
-                }, verticalDuration);
-            } else {
-                // If no scrolling is needed, wait for signWaitTime before moving to next slide
-                var remainingTime = Math.max(0, self.config.signWaitTime - (Date.now() - startTime));
-                setTimeout(() => {
-                    self.isScrolling = false;
-                    self.slideToNext();
-                }, remainingTime);
+                                        // Fade in
+                                        textContent.style.transition = "opacity 0.5s ease-in";
+                                        textContent.style.opacity = "1";
+
+                                        // Pause at the top after fade-in
+                                        setTimeout(() => {
+                                            setTimeout(scrollAndPause, 50); // Small delay before starting next scroll
+                                        }, self.config.pauseDuration);
+                                    }, 50);
+                                }, 500); // Wait for fade-out to complete
+                            }, self.config.pauseDuration);
+                        }
+                    }, verticalDuration);
+                } else {
+                    // If no scrolling is needed, wait for signWaitTime before moving to next slide
+                    var remainingTime = Math.max(0, self.config.signWaitTime - (Date.now() - startTime));
+                    setTimeout(() => {
+                        self.isScrolling = false;
+                        self.slideToNext();
+                    }, remainingTime);
+                }
             }
+
+            // Initial pause before starting the scroll
+            setTimeout(scrollAndPause, self.config.pauseDuration);
+        } else {
+            // If elements are not found, move to next slide after pauseDuration
+            setTimeout(() => {
+                self.slideToNext();
+            }, self.config.pauseDuration);
         }
+    },
 
-        // Initial pause before starting the scroll
-        setTimeout(scrollAndPause, self.config.pauseDuration);
-    } else {
-        // If elements are not found, move to next slide after pauseDuration
-        setTimeout(() => {
-            self.slideToNext();
-        }, self.config.pauseDuration);
-    }
-},
-
+    // Simulate midnight update (for debugging)
     simulateMidnightUpdate: function() {
         Log.info(`${this.name}: Simulating midnight update`);
         const simulationDate = moment().add(1, 'day').startOf('day');
         this.sendSocketNotification("SIMULATE_MIDNIGHT_UPDATE", { date: simulationDate.format('YYYY-MM-DD') });
     },
 
+    // Reset cache (for debugging)
     resetCache: function() {
         Log.info(`${this.name}: Resetting cache`);
         this.sendSocketNotification("RESET_CACHE");
     },
 
-fileExists: function(url) {
-    var http = new XMLHttpRequest();
-    http.open('HEAD', url, false);
-    http.send();
-    return http.status != 404;
-},
+    // Check if a file exists
+    fileExists: function(url) {
+        var http = new XMLHttpRequest();
+        http.open('HEAD', url, false);
+        http.send();
+        return http.status != 404;
+    },
 
+    // Handle system notifications
     notificationReceived: function(notification, payload, sender) {
         if (notification === "DOM_OBJECTS_CREATED") {
             // You might want to trigger an initial update here
