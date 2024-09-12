@@ -714,6 +714,7 @@ resetCache: async function () {
     this.sendSocketNotification("CACHE_RESET_COMPLETE", { success: false, error: error.toString() });
   }
 }
+});
 
 class HoroscopeCache {
     constructor(nodeHelperContext, cacheFilePath) {
