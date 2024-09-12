@@ -46,23 +46,42 @@ logSlideDuration: function(zodiacSign, period, elapsedTime, signWaitTime, scroll
     console.log(`${zodiacSign} ${period} remained on screen for ${elapsedTime} out of ${signWaitTime} at speed of ${scrollSpeed}`);
 },
 
-startRealTimeTimer: function(signWaitTime) {
-    console.log("startRealTimeTimer called with signWaitTime:", signWaitTime);
+startRealTimeTimer: function(signWaitTime, pauseDuration) {
     let counter = 0;
-    const timerInterval = setInterval(() => {
-        if (counter >= signWaitTime / 1000) {
-            clearInterval(timerInterval); // Stop timer after the slide duration completes
+
+    // First, handle the pause before scrolling
+    const pauseInterval = setInterval(() => {
+        if (counter >= pauseDuration / 1000) {
+            clearInterval(pauseInterval); // Stop the pause timer once it's over
+
+            // Start the scroll timer after the pause
+            this.startScrollTimer(signWaitTime);
         } else {
             const timerDisplay = document.getElementById("scroll-timer");
             if (!timerDisplay) {
-                console.log("Creating timer element...");
                 let timerElement = document.createElement("div");
                 timerElement.id = "scroll-timer";
                 timerElement.style.textAlign = "center";
                 timerElement.style.margin = "10px 0";
                 document.querySelector(".MMM-Starlight .starlight-text-wrapper").before(timerElement);
             } else {
-                console.log("Updating timer: " + counter + "s / " + signWaitTime / 1000 + "s");
+                timerDisplay.innerHTML = `Pause Timer: ${counter}s / ${pauseDuration / 1000}s`;
+            }
+            counter++;
+        }
+    }, 1000);
+},
+
+startScrollTimer: function(signWaitTime) {
+    let counter = 0;
+
+    // Scroll timer starts after the pause is completed
+    const scrollInterval = setInterval(() => {
+        if (counter >= signWaitTime / 1000) {
+            clearInterval(scrollInterval); // Stop timer after the slide duration completes
+        } else {
+            const timerDisplay = document.getElementById("scroll-timer");
+            if (timerDisplay) {
                 timerDisplay.innerHTML = `Scroll Timer: ${counter}s / ${signWaitTime / 1000}s`;
             }
             counter++;
