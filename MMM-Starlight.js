@@ -25,6 +25,7 @@ Module.register("MMM-Starlight", {
         this.loaded = false;
         this.isPreloading = true;
         this.debugClickCount = 0;
+	this.apiCallCount = 0;
     // Display the first slide and start the timer
     const signWaitTime = this.config.signWaitTime;
     const pauseDuration = this.config.pauseDuration || 5000;  // Ensure pauseDuration has a value
@@ -174,6 +175,10 @@ socketNotificationReceived: function(notification, payload) {
             this.handleSixAMUpdateCompleted(payload);
             this.updateDom();
             break;
+	case "API_CALL_COUNT_UPDATED":
+            this.apiCallCount = payload.count;
+            this.updateDom();
+            break;
     }
 },
 
@@ -217,25 +222,24 @@ handleCacheUpdated: function(payload) {
         return buttonContainer;
     },
 
-    createHoroscopeContent: function() {
-        var currentSign = this.config.zodiacSign[this.currentSignIndex];
-        var currentPeriod = this.config.period[this.currentPeriodIndex];
+createHoroscopeContent: function() {
+    var currentSign = this.config.zodiacSign[this.currentSignIndex];
+    var currentPeriod = this.config.period[this.currentPeriodIndex];
 
-        var content = document.createElement("div");
+    var content = document.createElement("div");
 
-        if (this.config.debug) {
-            content.appendChild(this.createDebugInfo(currentSign, currentPeriod));
-        }
+    if (this.config.debug) {
+        content.appendChild(this.createDebugInfo(currentSign, currentPeriod));
+    }
 
-        content.appendChild(this.createTitleElement(currentSign, currentPeriod));
+    content.appendChild(this.createTitleElement(currentSign, currentPeriod));
 
-        if (this.config.showImage) {
-            content.appendChild(this.createImageSlideContainer(currentSign));
-        }
-
-        content.appendChild(this.createTextSlideContainer(currentSign, currentPeriod));
-
-        return content;
+    // Add API call count display
+    if (this.config.debug) {
+        var apiCallCountElement = document.createElement("div");
+        apiCallCountElement.className = "starlight-api-call-count";
+        apiCallCountElement.innerHTML = `API calls: ${this.apiCallCount}`;
+        content.appendChild(apiCallCountElement);
     },
 
     createDebugInfo: function(sign, period) {
@@ -811,6 +815,8 @@ startScrolling: function() {
     resetCache: function() {
         Log.info(`${this.name}: Resetting cache`);
         this.sendSocketNotification("RESET_CACHE");
+        this.apiCallCount = 0; // Reset the API call count on the frontend
+        this.updateDom(); // Update the display to reflect the reset count
     },
 
 fileExists: function(url) {

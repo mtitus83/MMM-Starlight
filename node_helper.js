@@ -714,7 +714,7 @@ fetchFromAPI: async function(sign, period) {
             break;
         default:
             console.error(`Invalid period specified: ${period}`);
-            return null; // Return null instead of throwing an error
+            return null;
     }
 
     if (!url) {
@@ -727,6 +727,11 @@ fetchFromAPI: async function(sign, period) {
     try {
         const response = await axios.get(url, { timeout: 30000 });
         if (response.data.success) {
+            // Increment the API call count
+            this.apiCallCount++;
+            // Notify the frontend about the updated API call count
+            this.sendSocketNotification("API_CALL_COUNT_UPDATED", { count: this.apiCallCount });
+
             const processedHoroscope = parsePattern(response.data.data.horoscope_data);
             return {
                 horoscope_data: processedHoroscope,
@@ -742,6 +747,11 @@ fetchFromAPI: async function(sign, period) {
         console.error(`Error fetching horoscope for ${sign}, period: ${period}:`, error.message);
         return null;
     }
+},
+
+resetAPICallCount: function() {
+    this.apiCallCount = 0;
+    this.sendSocketNotification("API_CALL_COUNT_UPDATED", { count: this.apiCallCount });
 },
 
     async checkAndUpdateHoroscope(sign, period) {
