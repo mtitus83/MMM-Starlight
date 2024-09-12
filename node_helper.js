@@ -244,42 +244,43 @@ fetchHoroscope: async function (period, zodiacSign) {
   }
 },
 
-    handleInit: function(payload) {
-        if (payload && payload.config) {
-            this.config = payload.config;
-            this.log(`Configuration received: ${JSON.stringify(this.config)}`);
-            this.initializeCache().catch(error => {
-                this.log(`Error initializing cache: ${error.message}`);
-            });
-            this.scheduleMidnightUpdate();  // Schedule the midnight update when initializing
-        } else {
-            this.log("ERROR: INIT notification received without config payload");
-        }
-    },
-
-    initializeCache: async function() {
-        console.log(`[${this.name}] Initializing cache`);
-        try {
-            await this.cache.loadFromFile();
-            console.log(`[${this.name}] Cache loaded from file`);
-
-            const zodiacSign = this.config.zodiacSign[0];
-            const period = this.config.period[0];
-            
-            console.log(`[${this.name}] Attempting to fetch initial horoscope for ${zodiacSign}, ${period}`);
-            const data = await this.fetchAndUpdateCache(zodiacSign, period);
-            
-            if (data) {
-                console.log(`[${this.name}] Successfully fetched initial horoscope`);
-                this.sendSocketNotification("MODULE_INITIALIZED", {});
-            } else {
-                throw new Error("Failed to fetch initial horoscope");
-            }
-        } catch (error) {
-            console.error(`[${this.name}] Error in initializeCache:`, error);
+handleInit: function(payload) {
+    if (payload && payload.config) {
+        this.config = payload.config;
+        this.log(`Configuration received: ${JSON.stringify(this.config)}`);
+        this.initializeCache().catch(error => {
+            this.log(`Error initializing cache: ${error.message}`);
             this.sendSocketNotification("ERROR", { error: error.toString() });
+        });
+    } else {
+        this.log("ERROR: INIT notification received without config payload");
+        this.sendSocketNotification("ERROR", { error: "No config received" });
+    }
+},
+
+initializeCache: async function() {
+    console.log(`[${this.name}] Initializing cache`);
+    try {
+        await this.cache.loadFromFile();
+        console.log(`[${this.name}] Cache loaded from file`);
+
+        const zodiacSign = this.config.zodiacSign[0];
+        const period = this.config.period[0];
+        
+        console.log(`[${this.name}] Attempting to fetch initial horoscope for ${zodiacSign}, ${period}`);
+        const data = await this.fetchAndUpdateCache(zodiacSign, period);
+        
+        if (data) {
+            console.log(`[${this.name}] Successfully fetched initial horoscope`);
+            this.sendSocketNotification("MODULE_INITIALIZED", {});
+        } else {
+            throw new Error("Failed to fetch initial horoscope");
         }
-    },
+    } catch (error) {
+        console.error(`[${this.name}] Error in initializeCache:`, error);
+        this.sendSocketNotification("ERROR", { error: error.toString() });
+    }
+},
 
 isInitialCacheBuild() {
     // Check if the cache is empty or if it's the first time running

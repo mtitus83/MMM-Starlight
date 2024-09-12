@@ -18,21 +18,20 @@ Module.register("MMM-Starlight", {
     },
 
 
-    start: function() {
-        Log.info("Starting module: " + this.name);
-        this.horoscopes = {};
-        this.loadedHoroscopes = {};
-        this.cachedImages = {};
-        this.currentSignIndex = 0;
-        this.currentPeriodIndex = 0;
-        this.loaded = false;
-        this.isPreloading = true;
-        this.debugClickCount = 0;
-        this.apiCallCount = 0;
+start: function() {
+    Log.info("Starting module: " + this.name);
+    this.horoscopes = {};
+    this.loadedHoroscopes = {};
+    this.cachedImages = {};
+    this.currentSignIndex = 0;
+    this.currentPeriodIndex = 0;
+    this.loaded = false;
+    this.isPreloading = true;
+    this.debugClickCount = 0;
+    this.apiCallCount = 0;
 
-        this.initializeModule();
-        this.sendSocketNotification("MODULE_STARTED", {});
-    },
+    this.sendSocketNotification("INIT", { config: this.config });
+},
 
     log: function(message) {
         console.log(`[${this.name}] ${new Date().toISOString()} - ${message}`);
@@ -102,29 +101,29 @@ Module.register("MMM-Starlight", {
         }
     },
 
-    getDom: function() {
-        var wrapper = document.createElement("div");
-        wrapper.className = "MMM-Starlight";
-        wrapper.style.width = this.config.width;
-        wrapper.style.fontSize = this.config.fontSize;
+getDom: function() {
+    var wrapper = document.createElement("div");
+    wrapper.className = "MMM-Starlight";
+    wrapper.style.width = this.config.width;
+    wrapper.style.fontSize = this.config.fontSize;
 
-        if (this.config.debug && this.config.showButton) {
-            wrapper.appendChild(this.createDebugButtons());
-        }
+    if (this.config.debug && this.config.showButton) {
+        wrapper.appendChild(this.createDebugButtons());
+    }
 
-        if (this.isPreloading) {
-            wrapper.innerHTML += "Loading horoscopes...";
-            return wrapper;
-        }
-
-        if (!this.loaded) {
-            wrapper.innerHTML += "Error loading horoscopes. Please check your configuration and logs.";
-            return wrapper;
-        }
-
-        wrapper.appendChild(this.createHoroscopeContent());
+    if (this.isPreloading) {
+        wrapper.innerHTML += "Loading horoscopes...";
         return wrapper;
-    },
+    }
+
+    if (!this.loaded) {
+        wrapper.innerHTML += "Error loading horoscopes. Please check your configuration and logs.";
+        return wrapper;
+    }
+
+    wrapper.appendChild(this.createHoroscopeContent());
+    return wrapper;
+},
 
     notificationReceived: function(notification, payload, sender) {
         if (notification === "CLOCK_MINUTE") {
@@ -181,13 +180,18 @@ Module.register("MMM-Starlight", {
                 this.apiCallCount = payload.count;
                 this.updateDom();
                 break;
-	    case "MODULE_INITIALIZED":
-                Log.info(`${this.name} module initialized`);
-                this.updateDom();
-                break;
-            case "ERROR":
-                Log.error(`${this.name} encountered an error:`, payload.error);
-                break;
+        case "MODULE_INITIALIZED":
+            Log.info(`${this.name} module initialized`);
+            this.isPreloading = false;
+            this.loaded = true;
+            this.updateDom();
+            break;
+        case "ERROR":
+            Log.error(`${this.name} encountered an error:`, payload.error);
+            this.isPreloading = false;
+            this.loaded = false;
+            this.updateDom();
+            break;
         }
     },
 
