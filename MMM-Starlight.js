@@ -40,13 +40,7 @@ Module.register("MMM-Starlight", {
     },
 
 getStyles: function() {
-    var cssPath = this.file("MMM-Starlight.css");
-    if (this.fileExists(cssPath)) {
-        return [cssPath];
-    } else {
-        console.error("CSS file not found: " + cssPath);
-        return [];
-    }
+    return [this.file("MMM-Starlight.css")];
 },
 
 logSlideDuration: function(zodiacSign, period, elapsedTime, signWaitTime, scrollSpeed) {
