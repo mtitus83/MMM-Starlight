@@ -47,6 +47,8 @@ logSlideDuration: function(zodiacSign, period, elapsedTime, signWaitTime, scroll
 },
 
 startRealTimeTimer: function(signWaitTime, pauseDuration) {
+    // Ensure pauseDuration is a valid number
+    pauseDuration = pauseDuration || 5000;  // Default to 5 seconds if undefined
     let counter = 0;
 
     // First, handle the pause before scrolling
@@ -65,13 +67,14 @@ startRealTimeTimer: function(signWaitTime, pauseDuration) {
                 timerElement.style.margin = "10px 0";
                 document.querySelector(".MMM-Starlight .starlight-text-wrapper").before(timerElement);
             } else {
-                timerDisplay.innerHTML = `Pause Timer: ${counter}s / ${pauseDuration / 1000}s`;
+                // Ensure pauseDuration is a valid number to avoid NaN
+                const totalPauseTime = pauseDuration / 1000 || 5;  // Default to 5 seconds
+                timerDisplay.innerHTML = `Pause Timer: ${counter}s / ${totalPauseTime}s`;
             }
             counter++;
         }
     }, 1000);
 },
-
 startScrollTimer: function(signWaitTime) {
     let counter = 0;
 
@@ -88,7 +91,6 @@ startScrollTimer: function(signWaitTime) {
         }
     }, 1000);
 },
-
     initializeModule: function() {
         this.log("Initializing module and sending config to node helper");
         this.sendSocketNotification("INIT", { config: this.config });
