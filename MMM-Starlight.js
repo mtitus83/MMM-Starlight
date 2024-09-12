@@ -53,12 +53,19 @@ startRealTimeTimer: function(signWaitTime) {
             clearInterval(timerInterval); // Stop timer after the slide duration completes
         } else {
             const timerDisplay = document.getElementById("scroll-timer");
-            if (timerDisplay) {
+            if (!timerDisplay) {
+                console.log("Timer display element not found, creating...");
+                let timerElement = document.createElement("div");
+                timerElement.id = "scroll-timer";
+                timerElement.style.textAlign = "center";
+                timerElement.style.margin = "10px 0";
+                document.querySelector(".MMM-Starlight .starlight-text-wrapper").before(timerElement);
+            } else {
                 timerDisplay.innerHTML = `Scroll Timer: ${counter}s / ${signWaitTime / 1000}s`;
             }
             counter++;
         }
-    }, 1000); // Update every second
+    }, 1000);
 },
 
     initializeModule: function() {
@@ -546,8 +553,8 @@ slideToNext: function() {
 
         // Log the time spent on the current slide
         const elapsedTime = Date.now() - this.slideStartTime;
-        logSlideDuration(currentSign, currentPeriod, elapsedTime / 1000, this.config.signWaitTime / 1000, this.config.scrollSpeed);
-
+       this.logSlideDuration(currentSign, currentPeriod, elapsedTime / 1000, this.config.signWaitTime / 1000, this.config.scrollSpeed);
+ 
         if (this.config.debug) {
             let timerElement = document.getElementById("scroll-timer");
             
