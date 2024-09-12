@@ -249,4 +249,4 @@ handleCacheUpdated: function(payload) {
 
         return content;
     }
-
+});
