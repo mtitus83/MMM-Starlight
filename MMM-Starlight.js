@@ -41,6 +41,26 @@ getStyles: function() {
         return [];
     }
 },
+
+function logSlideDuration(zodiacSign, period, elapsedTime, signWaitTime, scrollSpeed) {
+    console.log(`${zodiacSign} ${period} remained on screen for ${elapsedTime} out of ${signWaitTime} at speed of ${scrollSpeed}`);
+},
+
+function startRealTimeTimer(signWaitTime) {
+    let counter = 0;
+    const timerInterval = setInterval(() => {
+        if (counter >= signWaitTime / 1000) {
+            clearInterval(timerInterval); // Stop timer after the slide duration completes
+        } else {
+            const timerDisplay = document.getElementById("scroll-timer");
+            if (timerDisplay) {
+                timerDisplay.innerHTML = `Scroll Timer: ${counter}s / ${signWaitTime / 1000}s`;
+            }
+            counter++;
+        }
+    }, 1000); // Update every second
+},
+
     initializeModule: function() {
         this.log("Initializing module and sending config to node helper");
         this.sendSocketNotification("INIT", { config: this.config });
@@ -516,64 +536,102 @@ checkAndRotate: function() {
     }
 },
 
-    slideToNext: function() {
-        const imageSlideContainer = document.querySelector(".MMM-Starlight .starlight-image-slide-container");
-        const textSlideContainer = document.querySelector(".MMM-Starlight .starlight-text-slide-container");
-        const titleElement = document.querySelector(".MMM-Starlight .starlight-title");
+slideToNext: function() {
+    const imageSlideContainer = document.querySelector(".MMM-Starlight .starlight-image-slide-container");
+    const textSlideContainer = document.querySelector(".MMM-Starlight .starlight-text-slide-container");
+    const titleElement = document.querySelector(".MMM-Starlight .starlight-title");
 
-        if (imageSlideContainer && textSlideContainer && titleElement) {
-            const { currentSign, currentPeriod, nextSign, nextPeriod } = this.getNextPeriodAndSign();
+    if (imageSlideContainer && textSlideContainer && titleElement) {
+        const { currentSign, currentPeriod, nextSign, nextPeriod } = this.getNextPeriodAndSign();
 
-const currentText = textSlideContainer.querySelector(".starlight-text-content.current");
-            const nextText = textSlideContainer.querySelector(".starlight-text-content.next");
-            const currentImage = imageSlideContainer.querySelector(".starlight-image-wrapper.current");
-            const nextImage = imageSlideContainer.querySelector(".starlight-image-wrapper.next");
+        // Log the time spent on the current slide
+        const elapsedTime = Date.now() - this.slideStartTime;
+        logSlideDuration(currentSign, currentPeriod, elapsedTime / 1000, this.config.signWaitTime / 1000, this.config.scrollSpeed);
 
-            nextText.innerHTML = this.createTextElement(currentSign, "next", currentPeriod).innerHTML;
+        if (this.config.debug) {
+            let timerElement = document.getElementById("scroll-timer");
             
-            const isSignChange = currentPeriod === this.config.period[0];
+            if (!timerElement) {
+                timerElement = document.createElement("div");
+                timerElement.id = "scroll-timer";
+                timerElement.style.textAlign = "center";
+                timerElement.style.margin = "10px 0";
+                document.querySelector(".MMM-Starlight .starlight-text-wrapper").before(timerElement);
+            }
             
-            if (isSignChange) {
-                nextImage.innerHTML = this.createImageElement(currentSign, "next").innerHTML;
-            }
+            let counter = 0;
+            const signWaitTime = this.config.signWaitTime / 1000;
 
-            textSlideContainer.style.transition = "transform 1s ease-in-out";
-            textSlideContainer.style.transform = "translateX(calc(-50% - 40px))";
-
-            if (isSignChange) {
-                imageSlideContainer.style.transition = "transform 1s ease-in-out";
-                imageSlideContainer.style.transform = "translateX(calc(-50% - 40px))";
-            }
-
-            titleElement.classList.add('fading');
+            const timerInterval = setInterval(() => {
+                if (counter >= signWaitTime) {
+                    clearInterval(timerInterval);
+                } else {
+                    timerElement.innerHTML = `Scroll Timer: ${counter}s / ${signWaitTime}s`;
+                    counter++;
+                }
+            }, 1000);
 
             setTimeout(() => {
-                titleElement.classList.remove('fading');
-
-                titleElement.innerHTML = this.formatPeriodText(currentPeriod) + " Horoscope for " + currentSign.charAt(0).toUpperCase() + currentSign.slice(1);
-
-                textSlideContainer.style.transition = "none";
-                textSlideContainer.style.transform = "translateX(0)";
-
-                currentText.innerHTML = nextText.innerHTML;
-
-                if (isSignChange) {
-                    imageSlideContainer.style.transition = "none";
-                    imageSlideContainer.style.transform = "translateX(0)";
-                    currentImage.innerHTML = nextImage.innerHTML;
-                }
-
-                nextText.innerHTML = this.createTextElement(nextSign, "next", nextPeriod).innerHTML;
-                
-                if (isSignChange) {
-                    nextImage.innerHTML = this.createImageElement(nextSign, "next").innerHTML;
-                }
-
-                this.startScrolling();
-            }, 1000);
+                clearInterval(timerInterval);
+                timerElement.innerHTML = '';  // Clear the timer after the slide transition
+            }, 1000 + signWaitTime * 1000);
         }
-	    this.scheduleRotation();
-    },
+
+        // Transition code (already in your function)
+        const currentText = textSlideContainer.querySelector(".starlight-text-content.current");
+        const nextText = textSlideContainer.querySelector(".starlight-text-content.next");
+        const currentImage = imageSlideContainer.querySelector(".starlight-image-wrapper.current");
+        const nextImage = imageSlideContainer.querySelector(".starlight-image-wrapper.next");
+
+        nextText.innerHTML = this.createTextElement(currentSign, "next", currentPeriod).innerHTML;
+        
+        const isSignChange = currentPeriod === this.config.period[0];
+        
+        if (isSignChange) {
+            nextImage.innerHTML = this.createImageElement(currentSign, "next").innerHTML;
+        }
+
+        textSlideContainer.style.transition = "transform 1s ease-in-out";
+        textSlideContainer.style.transform = "translateX(calc(-50% - 40px))";
+
+        if (isSignChange) {
+            imageSlideContainer.style.transition = "transform 1s ease-in-out";
+            imageSlideContainer.style.transform = "translateX(calc(-50% - 40px))";
+        }
+
+        titleElement.classList.add('fading');
+
+        setTimeout(() => {
+            titleElement.classList.remove('fading');
+
+            titleElement.innerHTML = this.formatPeriodText(currentPeriod) + " Horoscope for " + currentSign.charAt(0).toUpperCase() + currentSign.slice(1);
+
+            textSlideContainer.style.transition = "none";
+            textSlideContainer.style.transform = "translateX(0)";
+
+            currentText.innerHTML = nextText.innerHTML;
+
+            if (isSignChange) {
+                imageSlideContainer.style.transition = "none";
+                imageSlideContainer.style.transform = "translateX(0)";
+                currentImage.innerHTML = nextImage.innerHTML;
+            }
+
+            nextText.innerHTML = this.createTextElement(nextSign, "next", nextPeriod).innerHTML;
+            
+            if (isSignChange) {
+                nextImage.innerHTML = this.createImageElement(nextSign, "next").innerHTML;
+            }
+
+            this.startScrolling();
+
+            // Reset the timer for the next slide
+            this.slideStartTime = Date.now();  // Reset timer for the next slide
+
+        }, 1000);
+    }
+    this.scheduleRotation();
+},
 
     getNextPeriodAndSign: function() {
         this.currentPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
