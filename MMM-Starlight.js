@@ -201,6 +201,10 @@ socketNotificationReceived: function(notification, payload) {
     },
 
     createDebugInfo: function(sign, period) {
+    if (!this.horoscopes[sign]) {
+        console.error(`Horoscope data for ${sign} is undefined.`);
+        return;  // Prevent further execution if data is missing
+    }
         var debugInfoElement = document.createElement("div");
         debugInfoElement.className = "starlight-debug-info";
         var horoscopeData = this.horoscopes[sign][period];
