@@ -204,12 +204,23 @@ fetchHoroscope: async function (period, zodiacSign) {
         // Log the fetched data
         console.log("[MMM-Starlight] Fetched horoscope data for", zodiacSign, ":", JSON.stringify(data, null, 2));
 
+        // Store the fetched horoscope in-memory
+        if (!this.inMemoryHoroscopes) {
+            this.inMemoryHoroscopes = {};
+        }
+        this.inMemoryHoroscopes[zodiacSign] = this.inMemoryHoroscopes[zodiacSign] || {};
+        this.inMemoryHoroscopes[zodiacSign][period] = data;
+
+        // Send the updated data to the frontend
+        this.sendSocketNotification("HOROSCOPE_DATA", { horoscopes: this.inMemoryHoroscopes });
+
         return data;
     } catch (error) {
         console.error("[MMM-Starlight] Error fetching horoscope data for " + zodiacSign + ": ", error);
         return null;
     }
 },
+
 checkSchedule() {
     // Log the next scheduled midnight update
     if (this.scheduledJobs.midnight) {
