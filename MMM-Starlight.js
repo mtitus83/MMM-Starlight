@@ -252,6 +252,22 @@ handleCacheUpdated: function(payload) {
         return buttonContainer;
     },
 
+createTitleElement: function(sign, period) {
+    var titleElement = document.createElement("div");
+    titleElement.className = "starlight-title";
+    titleElement.innerHTML = this.formatPeriodText(period) + 
+                             " Horoscope for " + sign.charAt(0).toUpperCase() + sign.slice(1);
+    return titleElement;
+},
+
+
+formatPeriodText: function(period) {
+    if (period === "tomorrow") {
+        return "Tomorrow's";
+    }
+    return period.charAt(0).toUpperCase() + period.slice(1);
+},
+
 createHoroscopeContent: function() {
     var currentSign = this.config.zodiacSign[this.currentSignIndex];
     var currentPeriod = this.config.period[this.currentPeriodIndex];
