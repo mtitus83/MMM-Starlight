@@ -13,8 +13,8 @@ Module.register("MMM-Starlight", {
         width: "400px",
         fontSize: "1em",
         debug: false,
-        showButton: false
-	isInitialized: false,
+        showButton: false,
+	isInitialized: false
     },
 
 
