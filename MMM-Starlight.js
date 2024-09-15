@@ -13,6 +13,7 @@ Module.register("MMM-Starlight", {
         fontSize: "1em",
         debug: false,
         showButton: false,
+        stopPosition: 0.75, // Percentage of the visible height to stop
         isInitialized: false,
         signWaitTime: 60000  // Total time to display each sign/period combination
     },
@@ -33,6 +34,73 @@ start: function() {
     this.sendSocketNotification("INIT", { config: this.config });
     this.loadAllHoroscopes();  // Add this line to fetch all horoscopes
 },
+
+  setupDebugCounters: function() {
+    const debugContainer = document.createElement("div");
+    debugContainer.id = "debugContainer";
+    debugContainer.style.position = "absolute";
+    debugContainer.style.bottom = "10px";
+    debugContainer.style.left = "10px";
+    debugContainer.style.zIndex = "1000";
+    debugContainer.style.color = "white";
+
+    const signWaitTimeCounter = document.createElement("div");
+    signWaitTimeCounter.id = "signWaitTimeCounter";
+    debugContainer.appendChild(signWaitTimeCounter);
+
+    const pauseDurationCounter = document.createElement("div");
+    pauseDurationCounter.id = "pauseDurationCounter";
+    debugContainer.appendChild(pauseDurationCounter);
+
+    document.body.appendChild(debugContainer);
+  },
+
+  startScrollingOrTransition: function() {
+    const horoscopeContainer = document.querySelector(".horoscope-container");
+    const horoscopeText = document.querySelector(".horoscope-text");
+
+    const visibleHeight = horoscopeContainer.clientHeight;
+    const textHeight = horoscopeText.scrollHeight;
+
+    if (this.config.debugMode) {
+      this.setupDebugCounters(); // Setup debug counters if in debug mode
+    }
+
+    if (textHeight <= visibleHeight) {
+      // Non-scrolling text: Handle the transition based on signWaitTime
+      let elapsed = 0;
+      const timerInterval = setInterval(() => {
+        if (this.config.debugMode) {
+          this.updateSignWaitTimeCounter(elapsed); // Update signWaitTime counter
+        }
+        elapsed += 1000; // Increment elapsed time by 1 second
+      }, 1000);
+
+      // Trigger slideToNext after signWaitTime
+      setTimeout(() => {
+        clearInterval(timerInterval); // Stop the timer
+        this.slideToNext(); // Slide for non-scrolling text
+      }, this.config.signWaitTime);
+
+    } else {
+      // Scrolling text: Trigger the scrolling logic for long text
+      this.startScrolling();
+    }
+  },
+
+  updateSignWaitTimeCounter: function(elapsed) {
+    if (this.config.debugMode) {
+      const remainingTime = Math.max(this.config.signWaitTime - elapsed, 0);
+      document.getElementById("signWaitTimeCounter").innerHTML = `Sign Wait Time: ${remainingTime / 1000}s remaining`;
+    }
+  },
+
+  updatePauseDurationCounter: function(elapsed) {
+    if (this.config.debugMode) {
+      const remainingPause = Math.max(this.config.pauseDuration - elapsed, 0);
+      document.getElementById("pauseDurationCounter").innerHTML = `Pause Duration: ${remainingPause / 1000}s remaining`;
+    }
+  },
 
 loadAllHoroscopes: function() {
     this.config.zodiacSign.forEach(sign => {
@@ -208,32 +276,19 @@ loadAllHoroscopes: function() {
         }, this.config.pauseDuration);
     },
 
-    slideToNext: function() {
-        const { currentSign, currentPeriod, nextSign, nextPeriod } = this.getNextPeriodAndSign();
+  slideToNext: function() {
+    const oldHoroscope = document.querySelector(".current-horoscope");
+    const newHoroscope = document.querySelector(".next-horoscope");
 
-        const titleElement = document.querySelector(".MMM-Starlight .starlight-title");
-        const textContent = document.querySelector(".MMM-Starlight .starlight-text-content");
-        const imageElement = document.querySelector(".MMM-Starlight .starlight-image-wrapper");
+    // Slide out the current horoscope and slide in the new one
+    oldHoroscope.classList.add("slide-out");
+    newHoroscope.classList.add("slide-in");
 
-        if (titleElement && textContent) {
-            titleElement.style.opacity = 0;
-            textContent.style.opacity = 0;
-            if (imageElement) imageElement.style.opacity = 0;
-
-            setTimeout(() => {
-                titleElement.innerHTML = this.formatPeriodText(currentPeriod) + " Horoscope for " + currentSign.charAt(0).toUpperCase() + currentSign.slice(1);
-                textContent.innerHTML = this.createTextElement(currentSign, "current", currentPeriod).innerHTML;
-                if (imageElement) imageElement.innerHTML = this.createImageElement(currentSign, "current").innerHTML;
-
-                titleElement.style.opacity = 1;
-                textContent.style.opacity = 1;
-                if (imageElement) imageElement.style.opacity = 1;
-
-                this.scrollManager.resetScroll();
-                this.scheduleRotation();
-            }, 500);
-        }
-    },
+    setTimeout(() => {
+      oldHoroscope.classList.remove("current-horoscope");
+      newHoroscope.classList.add("current-horoscope");
+    }, 1000); // Transition duration matches CSS
+  },
 
     getNextPeriodAndSign: function() {
         this.currentPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
@@ -422,30 +477,76 @@ class ScrollManager {
         this.fadeTimer = null;
     }
 
-startScrolling() {
-    clearTimeout(this.scrollTimer);
-    clearTimeout(this.slideTimer);
-    clearTimeout(this.fadeTimer);
+  startScrolling: function() {
+    const horoscopeContainer = document.querySelector(".horoscope-container");
+    const horoscopeText = document.querySelector(".horoscope-text");
 
-    const textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
-    const textContent = document.querySelector(".MMM-Starlight .starlight-text");
+    const visibleHeight = horoscopeContainer.clientHeight;
+    const textHeight = horoscopeText.scrollHeight;
+    const scrollDuration = this.calculateScrollDuration(textHeight, visibleHeight);
 
-    if (textWrapper && textContent) {
-        const wrapperHeight = textWrapper.offsetHeight;
-        const contentHeight = textContent.scrollHeight;
-        const startTime = Date.now();
+    const signWaitTime = this.config.signWaitTime;
+    const pauseDuration = this.config.pauseDuration;
+    const stopPosition = this.config.stopPosition * visibleHeight;
 
-        this.startRealTimeTimer(this.module.config.signWaitTime, this.module.config.pauseDuration);
+    let totalElapsedTime = 0;
 
-        setTimeout(() => {
-            if (contentHeight > wrapperHeight) {
-                this.scrollContent(textContent, wrapperHeight, contentHeight, startTime);
-            } else {
-                this.waitAndSlide(startTime);
-            }
-        }, this.module.config.pauseDuration);
+    if (this.config.debugMode) {
+      this.setupDebugCounters(); // Initialize debug counters if debug mode is active
     }
-}
+
+    function completeScrollCycle() {
+      const scrollStep = textHeight - stopPosition;
+      const scrollSpeed = scrollStep / scrollDuration;
+      let startTime = null;
+
+      function scroll(timestamp) {
+        if (!startTime) startTime = timestamp;
+        const scrollElapsed = timestamp - startTime;
+        const newScrollPos = Math.min(scrollElapsed * scrollSpeed, scrollStep);
+        horoscopeText.style.transform = `translateY(-${newScrollPos}px)`;
+
+        totalElapsedTime += scrollElapsed;
+
+        if (this.config.debugMode) {
+          this.updateSignWaitTimeCounter(totalElapsedTime); // Update signWaitTime counter in debug mode
+        }
+
+        if (scrollElapsed < scrollDuration) {
+          requestAnimationFrame(scroll);
+        } else {
+          // Ensure full pause at the bottom
+          setTimeout(() => {
+            horoscopeText.style.opacity = 0;
+
+            setTimeout(() => {
+              horoscopeText.style.transform = "translateY(0)";
+              horoscopeText.style.opacity = 1;
+
+              setTimeout(() => {
+                if (totalElapsedTime >= signWaitTime) {
+                  this.slideToNext(); // Trigger the slide to next after the final pause
+                } else {
+                  completeScrollCycle(); // Loop again if time remains
+                }
+              }, pauseDuration); // Ensure full pause even if it exceeds signWaitTime
+
+            }, 1000);
+          }, pauseDuration);
+        }
+      }
+
+      requestAnimationFrame(scroll);
+    }
+
+    completeScrollCycle();
+  },
+
+calculateScrollDuration: function(textHeight, visibleHeight) {
+    const baseDuration = 5000; // Base scroll time in ms
+    const ratio = textHeight / visibleHeight;
+    return baseDuration * ratio; // Duration increases with longer text
+  },
 
     scrollContent(textContent, wrapperHeight, contentHeight, startTime) {
         this.isScrolling = true;

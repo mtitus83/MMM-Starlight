@@ -223,3 +223,23 @@
     transform: rotate(360deg);
   }
 }
+
+.horoscope-container {
+  overflow: hidden;
+  position: relative;
+}
+
+.horoscope-text {
+  position: absolute;
+  transition: transform 1s ease-in-out; /* This ensures smooth scrolling */
+}
+
+.slide-in {
+  transform: translateX(0);
+  transition: transform 1s ease-in-out;
+}
+
+.slide-out {
+  transform: translateX(-100%);
+  transition: transform 1s ease-in-out;
+}
