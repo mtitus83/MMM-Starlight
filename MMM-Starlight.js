@@ -29,7 +29,6 @@ start: function() {
     this.isPreloading = true;
     this.debugClickCount = 0;
     this.apiCallCount = 0;
-    this.scrollManager = new ScrollManager(this);
 
     this.sendSocketNotification("INIT", { config: this.config });
     this.loadAllHoroscopes();  // Add this line to fetch all horoscopes
@@ -54,6 +53,72 @@ start: function() {
 
     document.body.appendChild(debugContainer);
   },
+
+  startScrolling: function() {
+    const horoscopeContainer = document.querySelector(".horoscope-container");
+    const horoscopeText = document.querySelector(".horoscope-text");
+
+    const visibleHeight = horoscopeContainer.clientHeight;
+    const textHeight = horoscopeText.scrollHeight;
+    const scrollDuration = this.calculateScrollDuration(textHeight, visibleHeight);
+
+    const signWaitTime = this.config.signWaitTime;
+    const pauseDuration = this.config.pauseDuration;
+    const stopPosition = this.config.stopPosition * visibleHeight;
+
+    let totalElapsedTime = 0;
+
+    if (this.config.debugMode) {
+      this.setupDebugCounters(); // Initialize debug counters if debug mode is active
+    }
+
+    function completeScrollCycle() {
+      const scrollStep = textHeight - stopPosition;
+      const scrollSpeed = scrollStep / scrollDuration;
+      let startTime = null;
+
+      function scroll(timestamp) {
+        if (!startTime) startTime = timestamp;
+        const scrollElapsed = timestamp - startTime;
+        const newScrollPos = Math.min(scrollElapsed * scrollSpeed, scrollStep);
+        horoscopeText.style.transform = `translateY(-${newScrollPos}px)`;
+
+        totalElapsedTime += scrollElapsed;
+
+        if (this.config.debugMode) {
+          this.updateSignWaitTimeCounter(totalElapsedTime); // Update signWaitTime counter in debug mode
+        }
+
+        if (scrollElapsed < scrollDuration) {
+          requestAnimationFrame(scroll);
+        } else {
+          // Ensure full pause at the bottom
+          setTimeout(() => {
+            horoscopeText.style.opacity = 0;
+
+            setTimeout(() => {
+              horoscopeText.style.transform = "translateY(0)";
+              horoscopeText.style.opacity = 1;
+
+              setTimeout(() => {
+                if (totalElapsedTime >= signWaitTime) {
+                  this.slideToNext(); // Trigger the slide to next after the final pause
+                } else {
+                  completeScrollCycle(); // Loop again if time remains
+                }
+              }, pauseDuration); // Ensure full pause even if it exceeds signWaitTime
+
+            }, 1000);
+          }, pauseDuration);
+        }
+      }
+
+      requestAnimationFrame(scroll);
+    }
+
+    completeScrollCycle();
+  },
+
 
   startScrollingOrTransition: function() {
     const horoscopeContainer = document.querySelector(".horoscope-container");
@@ -468,214 +533,3 @@ handleHoroscopeResult: function(payload) {
     }
 });
 
-class ScrollManager {
-    constructor(module) {
-        this.module = module;
-        this.isScrolling = false;
-        this.scrollTimer = null;
-        this.slideTimer = null;
-        this.fadeTimer = null;
-    }
-
-  startScrolling: function() {
-    const horoscopeContainer = document.querySelector(".horoscope-container");
-    const horoscopeText = document.querySelector(".horoscope-text");
-
-    const visibleHeight = horoscopeContainer.clientHeight;
-    const textHeight = horoscopeText.scrollHeight;
-    const scrollDuration = this.calculateScrollDuration(textHeight, visibleHeight);
-
-    const signWaitTime = this.config.signWaitTime;
-    const pauseDuration = this.config.pauseDuration;
-    const stopPosition = this.config.stopPosition * visibleHeight;
-
-    let totalElapsedTime = 0;
-
-    if (this.config.debugMode) {
-      this.setupDebugCounters(); // Initialize debug counters if debug mode is active
-    }
-
-    function completeScrollCycle() {
-      const scrollStep = textHeight - stopPosition;
-      const scrollSpeed = scrollStep / scrollDuration;
-      let startTime = null;
-
-      function scroll(timestamp) {
-        if (!startTime) startTime = timestamp;
-        const scrollElapsed = timestamp - startTime;
-        const newScrollPos = Math.min(scrollElapsed * scrollSpeed, scrollStep);
-        horoscopeText.style.transform = `translateY(-${newScrollPos}px)`;
-
-        totalElapsedTime += scrollElapsed;
-
-        if (this.config.debugMode) {
-          this.updateSignWaitTimeCounter(totalElapsedTime); // Update signWaitTime counter in debug mode
-        }
-
-        if (scrollElapsed < scrollDuration) {
-          requestAnimationFrame(scroll);
-        } else {
-          // Ensure full pause at the bottom
-          setTimeout(() => {
-            horoscopeText.style.opacity = 0;
-
-            setTimeout(() => {
-              horoscopeText.style.transform = "translateY(0)";
-              horoscopeText.style.opacity = 1;
-
-              setTimeout(() => {
-                if (totalElapsedTime >= signWaitTime) {
-                  this.slideToNext(); // Trigger the slide to next after the final pause
-                } else {
-                  completeScrollCycle(); // Loop again if time remains
-                }
-              }, pauseDuration); // Ensure full pause even if it exceeds signWaitTime
-
-            }, 1000);
-          }, pauseDuration);
-        }
-      }
-
-      requestAnimationFrame(scroll);
-    }
-
-    completeScrollCycle();
-  },
-
-calculateScrollDuration: function(textHeight, visibleHeight) {
-    const baseDuration = 5000; // Base scroll time in ms
-    const ratio = textHeight / visibleHeight;
-    return baseDuration * ratio; // Duration increases with longer text
-  },
-
-    scrollContent(textContent, wrapperHeight, contentHeight, startTime) {
-        this.isScrolling = true;
-
-        const scrollDistance = Math.min(contentHeight - wrapperHeight, wrapperHeight * 0.75);
-        const scrollDuration = (scrollDistance / this.module.config.scrollSpeed) * 1000;
-
-        this.updateTimerDisplay("Scroll", scrollDuration, Date.now());
-
-        textContent.style.transition = `transform ${scrollDuration}ms linear`;
-        textContent.style.transform = `translateY(-${scrollDistance}px)`;
-
-        this.scrollTimer = setTimeout(() => {
-            this.pauseAfterScroll(textContent, wrapperHeight, contentHeight, startTime, scrollDistance);
-        }, scrollDuration);
-    }
-
-    pauseAfterScroll(textContent, wrapperHeight, contentHeight, startTime, scrollDistance) {
-        const elapsedTime = Date.now() - startTime;
-        const remainingTime = Math.max(0, this.module.config.signWaitTime - elapsedTime);
-
-        this.updateTimerDisplay("Final Pause", this.module.config.pauseDuration, Date.now());
-
-        if (remainingTime > this.module.config.pauseDuration) {
-            this.fadeTimer = setTimeout(() => {
-                this.fadeOutIn(textContent, () => {
-                    this.resetScroll(textContent);
-                    this.scrollContent(textContent, wrapperHeight, contentHeight, startTime);
-                });
-            }, this.module.config.pauseDuration);
-        } else {
-            this.slideTimer = setTimeout(() => {
-                this.isScrolling = false;
-                this.module.slideToNext();
-            }, this.module.config.pauseDuration);
-        }
-    }
-
-    fadeOutIn(element, callback) {
-        element.style.transition = 'opacity 0.5s ease-in-out';
-        element.style.opacity = 0;
-
-        setTimeout(() => {
-            callback();
-            element.style.opacity = 1;
-        }, 500);
-    }
-
-    resetScroll(textContent) {
-        textContent.style.transition = "none";
-        textContent.style.transform = "translateY(0)";
-        // Force a reflow
-        textContent.offsetHeight;
-    }
-
-    waitAndSlide(startTime) {
-        this.updateTimerDisplay("Wait", this.module.config.signWaitTime, startTime);
-
-        this.slideTimer = setTimeout(() => {
-            this.isScrolling = false;
-            this.module.slideToNext();
-        }, this.module.config.signWaitTime);
-    }
-
-    updateTimerDisplay(phase, duration, start) {
-        if (this.module.config.debug) {
-            let timerElement = document.getElementById("scroll-timer");
-            if (!timerElement) {
-                timerElement = document.createElement("div");
-                timerElement.id = "scroll-timer";
-                timerElement.style.textAlign = "center";
-                timerElement.style.margin = "10px 0";
-                document.querySelector(".MMM-Starlight .starlight-text-wrapper").before(timerElement);
-            }
-            
-            const updateTimer = () => {
-                let elapsed = Math.floor((Date.now() - start) / 1000);
-                timerElement.innerHTML = `${phase} Timer: ${elapsed}s / ${Math.floor(duration / 1000)}s`;
-                if (elapsed < Math.floor(duration / 1000)) {
-                    requestAnimationFrame(updateTimer);
-                }
-            };
-            updateTimer();
-        }
-    }
-
-startRealTimeTimer(signWaitTime, pauseDuration) {
-    pauseDuration = pauseDuration || 5000;
-    let counter = 0;
-
-    const pauseInterval = setInterval(() => {
-        if (counter >= pauseDuration / 1000) {
-            clearInterval(pauseInterval);
-            this.startScrollTimer(signWaitTime);
-        } else {
-            if (this.module.loaded) {
-                const timerDisplay = document.getElementById("scroll-timer");
-                if (!timerDisplay) {
-                    let timerElement = document.createElement("div");
-                    timerElement.id = "scroll-timer";
-                    timerElement.style.textAlign = "center";
-                    timerElement.style.margin = "10px 0";
-                    const wrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
-                    if (wrapper) {
-                        wrapper.before(timerElement);
-                    }
-                } else {
-                    const totalPauseTime = pauseDuration / 1000 || 5;
-                    timerDisplay.innerHTML = `Pause Timer: ${counter}s / ${totalPauseTime}s`;
-                }
-            }
-            counter++;
-        }
-    }, 1000);
-}
-
-startScrollTimer(signWaitTime) {
-    let counter = 0;
-
-    const scrollInterval = setInterval(() => {
-        if (counter >= signWaitTime / 1000) {
-            clearInterval(scrollInterval);
-        } else {
-            const timerDisplay = document.getElementById("scroll-timer");
-            if (timerDisplay) {
-                timerDisplay.innerHTML = `Scroll Timer: ${counter}s / ${signWaitTime / 1000}s`;
-            }
-            counter++;
-        }
-    }, 1000);
-}
-}
