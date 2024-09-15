@@ -1,179 +1,45 @@
-// MMM-Starlight.js
-
 Module.register("MMM-Starlight", {
     defaults: {
         zodiacSign: ["taurus"],
         period: ["daily", "tomorrow", "weekly", "monthly"],
         showImage: true,
         imageWidth: "50px",
-        pauseDuration: 10000,
-        scrollSpeed: 7,
         maxTextHeight: "400px",
         width: "400px",
         fontSize: "1em",
         debug: false,
         showButton: false,
-        stopPosition: 0.75, // Percentage of the visible height to stop
-        isInitialized: false,
-        signWaitTime: 60000  // Total time to display each sign/period combination
+        signWaitTime: 60000,
+        scrollSpeed: 50,  // pixels per second
+        scrollPauseDuration: 2000  // pause at start and end of scroll
     },
 
-start: function() {
-    Log.info("Starting module: " + this.name);
-    this.horoscopes = {};
-    this.loadedHoroscopes = {};
-    this.cachedImages = {};
-    this.currentSignIndex = 0;
-    this.currentPeriodIndex = 0;
-    this.loaded = false;
-    this.isPreloading = true;
-    this.debugClickCount = 0;
-    this.apiCallCount = 0;
+    start: function() {
+        Log.info("Starting module: " + this.name);
+        this.horoscopes = {};
+        this.loadedHoroscopes = {};
+        this.cachedImages = {};
+        this.currentSignIndex = 0;
+        this.currentPeriodIndex = 0;
+        this.loaded = false;
+        this.isPreloading = true;
+        this.debugClickCount = 0;
+        this.apiCallCount = 0;
+        this.isScrolling = false;
+        this.lastUpdate = null;
+        this.nextUpdate = null;
 
-    this.sendSocketNotification("INIT", { config: this.config });
-    this.loadAllHoroscopes();  // Add this line to fetch all horoscopes
-},
+        this.sendSocketNotification("INIT", { config: this.config });
+        this.loadAllHoroscopes();
+    },
 
-  setupDebugCounters: function() {
-    const debugContainer = document.createElement("div");
-    debugContainer.id = "debugContainer";
-    debugContainer.style.position = "absolute";
-    debugContainer.style.bottom = "10px";
-    debugContainer.style.left = "10px";
-    debugContainer.style.zIndex = "1000";
-    debugContainer.style.color = "white";
-
-    const signWaitTimeCounter = document.createElement("div");
-    signWaitTimeCounter.id = "signWaitTimeCounter";
-    debugContainer.appendChild(signWaitTimeCounter);
-
-    const pauseDurationCounter = document.createElement("div");
-    pauseDurationCounter.id = "pauseDurationCounter";
-    debugContainer.appendChild(pauseDurationCounter);
-
-    document.body.appendChild(debugContainer);
-  },
-
-  startScrolling: function() {
-    const horoscopeContainer = document.querySelector(".horoscope-container");
-    const horoscopeText = document.querySelector(".horoscope-text");
-
-    const visibleHeight = horoscopeContainer.clientHeight;
-    const textHeight = horoscopeText.scrollHeight;
-    const scrollDuration = this.calculateScrollDuration(textHeight, visibleHeight);
-
-    const signWaitTime = this.config.signWaitTime;
-    const pauseDuration = this.config.pauseDuration;
-    const stopPosition = this.config.stopPosition * visibleHeight;
-
-    let totalElapsedTime = 0;
-
-    if (this.config.debugMode) {
-      this.setupDebugCounters(); // Initialize debug counters if debug mode is active
-    }
-
-    function completeScrollCycle() {
-      const scrollStep = textHeight - stopPosition;
-      const scrollSpeed = scrollStep / scrollDuration;
-      let startTime = null;
-
-      function scroll(timestamp) {
-        if (!startTime) startTime = timestamp;
-        const scrollElapsed = timestamp - startTime;
-        const newScrollPos = Math.min(scrollElapsed * scrollSpeed, scrollStep);
-        horoscopeText.style.transform = `translateY(-${newScrollPos}px)`;
-
-        totalElapsedTime += scrollElapsed;
-
-        if (this.config.debugMode) {
-          this.updateSignWaitTimeCounter(totalElapsedTime); // Update signWaitTime counter in debug mode
-        }
-
-        if (scrollElapsed < scrollDuration) {
-          requestAnimationFrame(scroll);
-        } else {
-          // Ensure full pause at the bottom
-          setTimeout(() => {
-            horoscopeText.style.opacity = 0;
-
-            setTimeout(() => {
-              horoscopeText.style.transform = "translateY(0)";
-              horoscopeText.style.opacity = 1;
-
-              setTimeout(() => {
-                if (totalElapsedTime >= signWaitTime) {
-                  this.slideToNext(); // Trigger the slide to next after the final pause
-                } else {
-                  completeScrollCycle(); // Loop again if time remains
-                }
-              }, pauseDuration); // Ensure full pause even if it exceeds signWaitTime
-
-            }, 1000);
-          }, pauseDuration);
-        }
-      }
-
-      requestAnimationFrame(scroll);
-    }
-
-    completeScrollCycle();
-  },
-
-
-  startScrollingOrTransition: function() {
-    const horoscopeContainer = document.querySelector(".horoscope-container");
-    const horoscopeText = document.querySelector(".horoscope-text");
-
-    const visibleHeight = horoscopeContainer.clientHeight;
-    const textHeight = horoscopeText.scrollHeight;
-
-    if (this.config.debugMode) {
-      this.setupDebugCounters(); // Setup debug counters if in debug mode
-    }
-
-    if (textHeight <= visibleHeight) {
-      // Non-scrolling text: Handle the transition based on signWaitTime
-      let elapsed = 0;
-      const timerInterval = setInterval(() => {
-        if (this.config.debugMode) {
-          this.updateSignWaitTimeCounter(elapsed); // Update signWaitTime counter
-        }
-        elapsed += 1000; // Increment elapsed time by 1 second
-      }, 1000);
-
-      // Trigger slideToNext after signWaitTime
-      setTimeout(() => {
-        clearInterval(timerInterval); // Stop the timer
-        this.slideToNext(); // Slide for non-scrolling text
-      }, this.config.signWaitTime);
-
-    } else {
-      // Scrolling text: Trigger the scrolling logic for long text
-      this.startScrolling();
-    }
-  },
-
-  updateSignWaitTimeCounter: function(elapsed) {
-    if (this.config.debugMode) {
-      const remainingTime = Math.max(this.config.signWaitTime - elapsed, 0);
-      document.getElementById("signWaitTimeCounter").innerHTML = `Sign Wait Time: ${remainingTime / 1000}s remaining`;
-    }
-  },
-
-  updatePauseDurationCounter: function(elapsed) {
-    if (this.config.debugMode) {
-      const remainingPause = Math.max(this.config.pauseDuration - elapsed, 0);
-      document.getElementById("pauseDurationCounter").innerHTML = `Pause Duration: ${remainingPause / 1000}s remaining`;
-    }
-  },
-
-loadAllHoroscopes: function() {
-    this.config.zodiacSign.forEach(sign => {
-        this.config.period.forEach(period => {
-            this.getHoroscope(sign, period);
+    loadAllHoroscopes: function() {
+        this.config.zodiacSign.forEach(sign => {
+            this.config.period.forEach(period => {
+                this.getHoroscope(sign, period);
+            });
         });
-    });
-},
+    },
 
     getStyles: function() {
         return [this.file("MMM-Starlight.css")];
@@ -190,12 +56,13 @@ loadAllHoroscopes: function() {
         }
 
         if (this.isPreloading) {
-            wrapper.innerHTML += "Loading horoscopes...";
+            wrapper.appendChild(this.createLoadingElement());
             return wrapper;
         }
 
         if (!this.loaded) {
-            wrapper.innerHTML += "Error loading horoscopes. Please check your configuration and logs.";
+            wrapper.classList.add("starlight-error");
+            wrapper.innerHTML = "Error loading horoscopes. Please check your configuration and logs.";
             return wrapper;
         }
 
@@ -203,45 +70,63 @@ loadAllHoroscopes: function() {
         return wrapper;
     },
 
-    createHoroscopeContent: function() {
-        var currentSign = this.config.zodiacSign[this.currentSignIndex];
-        var currentPeriod = this.config.period[this.currentPeriodIndex];
+    createLoadingElement: function() {
+        var loadingElement = document.createElement("div");
+        loadingElement.className = "starlight-loading";
+        loadingElement.innerHTML = "Reading your stars<span class='animated-dots'></span>";
+        return loadingElement;
+    },
 
-        var content = document.createElement("div");
+createHoroscopeContent: function() {
+    var currentSign = this.config.zodiacSign[this.currentSignIndex];
+    var currentPeriod = this.config.period[this.currentPeriodIndex];
 
-        if (this.config.debug) {
-            content.appendChild(this.createDebugInfo(currentSign, currentPeriod));
-        }
+    var content = document.createElement("div");
+    content.className = "starlight-centered-content";
 
-        content.appendChild(this.createTitleElement(currentSign, currentPeriod));
+    if (this.config.debug) {
+        content.appendChild(this.createDebugInfo(currentSign, currentPeriod));
+    }
 
+    content.appendChild(this.createTitleElement(currentSign, currentPeriod));
+
+    var slideContainer = document.createElement("div");
+    slideContainer.className = "starlight-slide-container";
+
+    var currentSlide = document.createElement("div");
+    currentSlide.className = "starlight-slide current-slide";
+
+    var nextSlide = document.createElement("div");
+    nextSlide.className = "starlight-slide next-slide";
+
+    if (this.config.showImage) {
+        currentSlide.appendChild(this.createImageElement(currentSign, currentPeriod));
+    }
+    currentSlide.appendChild(this.createTextElement(currentSign, currentPeriod));
+
+    slideContainer.appendChild(currentSlide);
+    slideContainer.appendChild(nextSlide);
+
+    content.appendChild(slideContainer);
+
+    if (this.config.debug) {
         var apiCallCountElement = document.createElement("div");
         apiCallCountElement.className = "starlight-api-call-count";
         apiCallCountElement.innerHTML = `API calls: ${this.apiCallCount}`;
         content.appendChild(apiCallCountElement);
+    }
 
-        if (this.config.showImage) {
-            content.appendChild(this.createImageElement(currentSign, "current"));
-        }
-
-        content.appendChild(this.createTextSlideContainer(currentSign, currentPeriod));
-
-        return content;
-    },
+    return content;
+},
 
     createDebugInfo: function(sign, period) {
-        if (!this.horoscopes[sign]) {
-            console.error(`Horoscope data for ${sign} is undefined.`);
-            return document.createElement("div");
-        }
         var debugInfoElement = document.createElement("div");
         debugInfoElement.className = "starlight-debug-info";
-        var horoscopeData = this.horoscopes[sign][period];
-        if (horoscopeData && horoscopeData.lastUpdate) {
-            debugInfoElement.innerHTML += `Last update: ${new Date(horoscopeData.lastUpdate).toLocaleString()}<br>`;
+        if (this.lastUpdate) {
+            debugInfoElement.innerHTML += `Last update: ${this.lastUpdate.toLocaleString()}<br>`;
         }
-        if (horoscopeData && horoscopeData.nextUpdate) {
-            debugInfoElement.innerHTML += `Next update: ${new Date(horoscopeData.nextUpdate).toLocaleString()}`;
+        if (this.nextUpdate) {
+            debugInfoElement.innerHTML += `Next update: ${this.nextUpdate.toLocaleString()}`;
         }
         return debugInfoElement;
     },
@@ -261,16 +146,24 @@ loadAllHoroscopes: function() {
         return period.charAt(0).toUpperCase() + period.slice(1);
     },
 
-    createImageElement: function(sign, className) {
+    createImageElement: function(sign, period) {
         var imageWrapper = document.createElement("div");
-        imageWrapper.className = "starlight-image-wrapper " + className;
+        imageWrapper.className = "starlight-image-wrapper";
         var image = document.createElement("img");
         
-        image.src = this.file(`assets/${sign.toLowerCase()}.png`);
+        if (period === "tomorrow") {
+            image.src = this.file("assets/crystal_ball.png");
+            image.alt = "Crystal ball for tomorrow's horoscope";
+        } else {
+            image.src = this.file(`assets/${sign.toLowerCase()}.png`);
+            image.alt = sign + " zodiac sign";
+        }
         
-        image.alt = sign + " zodiac sign";
         image.className = "starlight-zodiac-icon";
         image.style.width = this.config.imageWidth;
+        if (this.config.debug) {
+            image.classList.add("spinning-image");
+        }
         image.onerror = function() {
             console.error("Failed to load image for", sign);
             this.src = this.file("assets/error.png");
@@ -279,16 +172,9 @@ loadAllHoroscopes: function() {
         return imageWrapper;
     },
 
-    createTextSlideContainer: function(currentSign, currentPeriod) {
-        var textSlideContainer = document.createElement("div");
-        textSlideContainer.className = "starlight-text-slide-container";
-        textSlideContainer.appendChild(this.createTextElement(currentSign, "current", currentPeriod));
-        return textSlideContainer;
-    },
-
-    createTextElement: function(sign, className, period) {
+    createTextElement: function(sign, period) {
         var textContent = document.createElement("div");
-        textContent.className = "starlight-text-content " + className;
+        textContent.className = "starlight-text-content";
 
         var horoscopeWrapper = document.createElement("div");
         horoscopeWrapper.className = "starlight-text-wrapper";
@@ -305,21 +191,46 @@ loadAllHoroscopes: function() {
                 horoscopeTextElement.innerHTML += `<br>Standout days: ${horoscopeData.standout_days}`;
             }
             horoscopeWrapper.appendChild(horoscopeTextElement);
-        } else if (this.isPreloading) {
+        } else {
             var loadingElement = document.createElement("div");
-            loadingElement.className = "starlight-text";
+            loadingElement.className = "starlight-text starlight-fallback-text";
             loadingElement.innerHTML = "Loading " + period + " horoscope for " + sign + "...";
             horoscopeWrapper.appendChild(loadingElement);
-        } else {
-            var errorElement = document.createElement("div");
-            errorElement.className = "starlight-text";
-            errorElement.innerHTML = "Horoscope data not available. Please try resetting the cache.";
-            horoscopeWrapper.appendChild(errorElement);
-            this.getHoroscope(sign, period);
         }
         
         textContent.appendChild(horoscopeWrapper);
         return textContent;
+    },
+
+    startScrolling: function(wrapper, textElement) {
+        if (this.isScrolling) return;
+        this.isScrolling = true;
+
+        const scrollHeight = textElement.scrollHeight;
+        const clientHeight = wrapper.clientHeight;
+        const scrollDistance = scrollHeight - clientHeight;
+        const scrollDuration = (scrollDistance / this.config.scrollSpeed) * 1000;
+
+        let start = null;
+        const step = (timestamp) => {
+            if (!start) start = timestamp;
+            const progress = timestamp - start;
+            const percentage = Math.min(progress / scrollDuration, 1);
+            
+            wrapper.scrollTop = scrollDistance * percentage;
+            
+            if (percentage < 1) {
+                window.requestAnimationFrame(step);
+            } else {
+                setTimeout(() => {
+                    wrapper.scrollTop = 0;
+                    this.isScrolling = false;
+                    setTimeout(() => this.startScrolling(wrapper, textElement), this.config.scrollPauseDuration);
+                }, this.config.scrollPauseDuration);
+            }
+        };
+
+        setTimeout(() => window.requestAnimationFrame(step), this.config.scrollPauseDuration);
     },
 
     getHoroscope: function(sign, period) {
@@ -329,45 +240,13 @@ loadAllHoroscopes: function() {
         });
     },
 
-  slideToNext: function() {
-    const oldHoroscope = document.querySelector(".current-horoscope");
-    const newHoroscope = document.querySelector(".next-horoscope");
-
-    // Slide out the current horoscope and slide in the new one
-    oldHoroscope.classList.add("slide-out");
-    newHoroscope.classList.add("slide-in");
-
-    setTimeout(() => {
-      oldHoroscope.classList.remove("current-horoscope");
-      newHoroscope.classList.add("current-horoscope");
-    }, 1000); // Transition duration matches CSS
-  },
-
-    getNextPeriodAndSign: function() {
-        this.currentPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
-        if (this.currentPeriodIndex === 0) {
-            this.currentSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
-        }
-        return {
-            currentSign: this.config.zodiacSign[this.currentSignIndex],
-            currentPeriod: this.config.period[this.currentPeriodIndex],
-            nextSign: this.config.zodiacSign[(this.currentSignIndex + (this.currentPeriodIndex === this.config.period.length - 1 ? 1 : 0)) % this.config.zodiacSign.length],
-            nextPeriod: this.config.period[(this.currentPeriodIndex + 1) % this.config.period.length]
-        };
-    },
-
     socketNotificationReceived: function(notification, payload) {
-        Log.info(`${this.name} received notification: ${notification}`);
-        
         switch(notification) {
             case "HOROSCOPE_RESULT":
                 this.handleHoroscopeResult(payload);
                 break;
             case "CACHE_INITIALIZED":
                 this.handleCacheInitialized();
-                break;
-            case "CACHE_RESET_COMPLETE":
-                this.handleCacheResetComplete(payload);
                 break;
             case "CACHE_UPDATED":
                 this.handleCacheUpdated(payload);
@@ -394,36 +273,34 @@ loadAllHoroscopes: function() {
         this.updateDom();
     },
 
-handleHoroscopeResult: function(payload) {
-    if (payload.success) {
-        if (!this.horoscopes[payload.sign]) {
-            this.horoscopes[payload.sign] = {};
-        }
-        this.horoscopes[payload.sign][payload.period] = payload.data;
-        
-        if (!this.loadedHoroscopes[payload.sign]) {
-            this.loadedHoroscopes[payload.sign] = {};
-        }
-        this.loadedHoroscopes[payload.sign][payload.period] = true;
-        
-        if (this.areAllHoroscopesLoaded()) {
-            this.isPreloading = false;
-            this.loaded = true;
-            if (!this.rotationTimer) {
+    handleHoroscopeResult: function(payload) {
+        if (payload.success) {
+            if (!this.horoscopes[payload.sign]) {
+                this.horoscopes[payload.sign] = {};
+            }
+            this.horoscopes[payload.sign][payload.period] = payload.data;
+            
+            if (!this.loadedHoroscopes[payload.sign]) {
+                this.loadedHoroscopes[payload.sign] = {};
+            }
+            this.loadedHoroscopes[payload.sign][payload.period] = true;
+            
+            if (this.areAllHoroscopesLoaded()) {
+                this.isPreloading = false;
+                this.loaded = true;
                 this.scheduleRotation();
             }
+        } else {
+            Log.error(`Error in horoscope result:`, payload.message);
+            if (!this.horoscopes[payload.sign]) {
+                this.horoscopes[payload.sign] = {};
+            }
+            this.horoscopes[payload.sign][payload.period] = {
+                horoscope_data: `Unable to fetch ${payload.period} horoscope for ${payload.sign}. Error: ${payload.error || "Unknown error"}`
+            };
         }
-    } else {
-        Log.error(`Error in horoscope result:`, payload.message);
-        if (!this.horoscopes[payload.sign]) {
-            this.horoscopes[payload.sign] = {};
-        }
-        this.horoscopes[payload.sign][payload.period] = {
-            horoscope_data: `Unable to fetch ${payload.period} horoscope for ${payload.sign}. Error: ${payload.error || "Unknown error"}`
-        };
-    }
-    this.updateDom();  // Add this line to update the display after each result
-},
+        this.updateDom();
+    },
 
     areAllHoroscopesLoaded: function() {
         return this.config.zodiacSign.every(sign => 
@@ -448,36 +325,66 @@ handleHoroscopeResult: function(payload) {
         } else {
             this.horoscopes = payload;
         }
+        this.updateDom();
     },
 
     handleMidnightUpdateCompleted: function(payload) {
         if (payload.updatedCache) {
             this.horoscopes = payload.updatedCache;
         }
+        this.lastUpdate = new Date();
+        this.nextUpdate = new Date(this.lastUpdate.getTime() + 24 * 60 * 60 * 1000); // Next day
+        this.updateDom();
     },
 
     handleSixAMUpdateCompleted: function(payload) {
         if (payload.updatedCache) {
             this.horoscopes = payload.updatedCache;
         }
+        this.lastUpdate = new Date();
+        this.nextUpdate = new Date(this.lastUpdate.getTime() + 24 * 60 * 60 * 1000); // Next day
+        this.updateDom();
     },
 
-    handleCacheResetComplete: function(payload) {
-        if (payload.success) {
-            this.updateDom(0);
-            this.loadAllHoroscopes();
-        } else {
-            Log.error(`[${this.name}] Cache reset failed:`, payload.error);
-        }
+    scheduleRotation: function() {
+        setInterval(() => {
+            this.rotateHoroscope();
+        }, this.config.signWaitTime);
     },
 
-    loadAllHoroscopes: function() {
-        this.config.zodiacSign.forEach(sign => {
-            this.config.period.forEach(period => {
-                this.getHoroscope(sign, period);
-            });
-        });
-    },
+rotateHoroscope: function() {
+    this.currentPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
+    if (this.currentPeriodIndex === 0) {
+        this.currentSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
+    }
+
+    var currentSign = this.config.zodiacSign[this.currentSignIndex];
+    var currentPeriod = this.config.period[this.currentPeriodIndex];
+
+    var slideContainer = document.querySelector(".starlight-slide-container");
+    var currentSlide = slideContainer.querySelector(".current-slide");
+    var nextSlide = slideContainer.querySelector(".next-slide");
+
+    // Prepare next slide content
+    nextSlide.innerHTML = "";
+    if (this.config.showImage) {
+        nextSlide.appendChild(this.createImageElement(currentSign, currentPeriod));
+    }
+    nextSlide.appendChild(this.createTextElement(currentSign, currentPeriod));
+
+    // Trigger slide animation
+    currentSlide.classList.add("slide-out");
+    nextSlide.classList.add("slide-in");
+
+    // After animation, reset classes and update content
+    setTimeout(() => {
+        currentSlide.classList.remove("slide-out");
+        nextSlide.classList.remove("slide-in");
+        currentSlide.innerHTML = nextSlide.innerHTML;
+        nextSlide.innerHTML = "";
+        this.updateDom();
+    }, 1000); // Match this with your CSS transition duration
+},
 
     createDebugButtons: function() {
         var buttonContainer = document.createElement("div");
@@ -488,9 +395,6 @@ handleHoroscopeResult: function(payload) {
         triggerButton.innerHTML = "Simulate Midnight Update";
         triggerButton.addEventListener("click", () => {
             this.debugClickCount++;
-            triggerButton.innerHTML = `Midnight Update (${this.debugClickCount})`;
-            this.simulateMidnight
-	    this.debugClickCount++;
             triggerButton.innerHTML = `Midnight Update (${this.debugClickCount})`;
             this.simulateMidnightUpdate();
         });
@@ -520,4 +424,3 @@ handleHoroscopeResult: function(payload) {
         this.updateDom();
     }
 });
-
