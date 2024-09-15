@@ -385,7 +385,7 @@ handleGetHoroscope: function(payload) {
                 error: error.toString()
             });
         });
-},
+}
 
 class HoroscopeCache {
     constructor(nodeHelperContext, cacheFilePath) {
