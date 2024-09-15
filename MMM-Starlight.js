@@ -17,21 +17,30 @@ Module.register("MMM-Starlight", {
         signWaitTime: 60000  // Total time to display each sign/period combination
     },
 
-    start: function() {
-        Log.info("Starting module: " + this.name);
-        this.horoscopes = {};
-        this.loadedHoroscopes = {};
-        this.cachedImages = {};
-        this.currentSignIndex = 0;
-        this.currentPeriodIndex = 0;
-        this.loaded = false;
-        this.isPreloading = true;
-        this.debugClickCount = 0;
-        this.apiCallCount = 0;
-        this.scrollManager = new ScrollManager(this);
+start: function() {
+    Log.info("Starting module: " + this.name);
+    this.horoscopes = {};
+    this.loadedHoroscopes = {};
+    this.cachedImages = {};
+    this.currentSignIndex = 0;
+    this.currentPeriodIndex = 0;
+    this.loaded = false;
+    this.isPreloading = true;
+    this.debugClickCount = 0;
+    this.apiCallCount = 0;
+    this.scrollManager = new ScrollManager(this);
 
-        this.sendSocketNotification("INIT", { config: this.config });
-    },
+    this.sendSocketNotification("INIT", { config: this.config });
+    this.loadAllHoroscopes();  // Add this line to fetch all horoscopes
+},
+
+loadAllHoroscopes: function() {
+    this.config.zodiacSign.forEach(sign => {
+        this.config.period.forEach(period => {
+            this.getHoroscope(sign, period);
+        });
+    });
+},
 
     getStyles: function() {
         return [this.file("MMM-Starlight.css")];
@@ -277,35 +286,36 @@ Module.register("MMM-Starlight", {
         this.updateDom();
     },
 
-    handleHoroscopeResult: function(payload) {
-        if (payload.success) {
-            if (!this.horoscopes[payload.sign]) {
-                this.horoscopes[payload.sign] = {};
-            }
-            this.horoscopes[payload.sign][payload.period] = payload.data;
-            
-            if (!this.loadedHoroscopes[payload.sign]) {
-                this.loadedHoroscopes[payload.sign] = {};
-            }
-            this.loadedHoroscopes[payload.sign][payload.period] = true;
-            
-            if (this.areAllHoroscopesLoaded()) {
-                this.isPreloading = false;
-                this.loaded = true;
-                if (!this.rotationTimer) {
-                    this.scheduleRotation();
-                }
-            }
-        } else {
-            Log.error(`Error in horoscope result:`, payload.message);
-            if (!this.horoscopes[payload.sign]) {
-                this.horoscopes[payload.sign] = {};
-            }
-            this.horoscopes[payload.sign][payload.period] = {
-                horoscope_data: `Unable to fetch ${payload.period} horoscope for ${payload.sign}. Error: ${payload.error || "Unknown error"}`
-            };
+handleHoroscopeResult: function(payload) {
+    if (payload.success) {
+        if (!this.horoscopes[payload.sign]) {
+            this.horoscopes[payload.sign] = {};
         }
-    },
+        this.horoscopes[payload.sign][payload.period] = payload.data;
+        
+        if (!this.loadedHoroscopes[payload.sign]) {
+            this.loadedHoroscopes[payload.sign] = {};
+        }
+        this.loadedHoroscopes[payload.sign][payload.period] = true;
+        
+        if (this.areAllHoroscopesLoaded()) {
+            this.isPreloading = false;
+            this.loaded = true;
+            if (!this.rotationTimer) {
+                this.scheduleRotation();
+            }
+        }
+    } else {
+        Log.error(`Error in horoscope result:`, payload.message);
+        if (!this.horoscopes[payload.sign]) {
+            this.horoscopes[payload.sign] = {};
+        }
+        this.horoscopes[payload.sign][payload.period] = {
+            horoscope_data: `Unable to fetch ${payload.period} horoscope for ${payload.sign}. Error: ${payload.error || "Unknown error"}`
+        };
+    }
+    this.updateDom();  // Add this line to update the display after each result
+},
 
     areAllHoroscopesLoaded: function() {
         return this.config.zodiacSign.every(sign => 
@@ -412,30 +422,30 @@ class ScrollManager {
         this.fadeTimer = null;
     }
 
-    startScrolling() {
-        clearTimeout(this.scrollTimer);
-        clearTimeout(this.slideTimer);
-        clearTimeout(this.fadeTimer);
+startScrolling() {
+    clearTimeout(this.scrollTimer);
+    clearTimeout(this.slideTimer);
+    clearTimeout(this.fadeTimer);
 
-        const textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
-        const textContent = document.querySelector(".MMM-Starlight .starlight-text");
+    const textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
+    const textContent = document.querySelector(".MMM-Starlight .starlight-text");
 
-        if (textWrapper && textContent) {
-            const wrapperHeight = textWrapper.offsetHeight;
-            const contentHeight = textContent.scrollHeight;
-            const startTime = Date.now();
+    if (textWrapper && textContent) {
+        const wrapperHeight = textWrapper.offsetHeight;
+        const contentHeight = textContent.scrollHeight;
+        const startTime = Date.now();
 
-            this.updateTimerDisplay("Initial Pause", this.module.config.pauseDuration, startTime);
+        this.startRealTimeTimer(this.module.config.signWaitTime, this.module.config.pauseDuration);
 
-            setTimeout(() => {
-                if (contentHeight > wrapperHeight) {
-                    this.scrollContent(textContent, wrapperHeight, contentHeight, startTime);
-                } else {
-                    this.waitAndSlide(startTime);
-                }
-            }, this.module.config.pauseDuration);
-        }
+        setTimeout(() => {
+            if (contentHeight > wrapperHeight) {
+                this.scrollContent(textContent, wrapperHeight, contentHeight, startTime);
+            } else {
+                this.waitAndSlide(startTime);
+            }
+        }, this.module.config.pauseDuration);
     }
+}
 
     scrollContent(textContent, wrapperHeight, contentHeight, startTime) {
         this.isScrolling = true;
@@ -521,4 +531,50 @@ class ScrollManager {
             updateTimer();
         }
     }
+
+startRealTimeTimer(signWaitTime, pauseDuration) {
+    pauseDuration = pauseDuration || 5000;
+    let counter = 0;
+
+    const pauseInterval = setInterval(() => {
+        if (counter >= pauseDuration / 1000) {
+            clearInterval(pauseInterval);
+            this.startScrollTimer(signWaitTime);
+        } else {
+            if (this.module.loaded) {
+                const timerDisplay = document.getElementById("scroll-timer");
+                if (!timerDisplay) {
+                    let timerElement = document.createElement("div");
+                    timerElement.id = "scroll-timer";
+                    timerElement.style.textAlign = "center";
+                    timerElement.style.margin = "10px 0";
+                    const wrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
+                    if (wrapper) {
+                        wrapper.before(timerElement);
+                    }
+                } else {
+                    const totalPauseTime = pauseDuration / 1000 || 5;
+                    timerDisplay.innerHTML = `Pause Timer: ${counter}s / ${totalPauseTime}s`;
+                }
+            }
+            counter++;
+        }
+    }, 1000);
+}
+
+startScrollTimer(signWaitTime) {
+    let counter = 0;
+
+    const scrollInterval = setInterval(() => {
+        if (counter >= signWaitTime / 1000) {
+            clearInterval(scrollInterval);
+        } else {
+            const timerDisplay = document.getElementById("scroll-timer");
+            if (timerDisplay) {
+                timerDisplay.innerHTML = `Scroll Timer: ${counter}s / ${signWaitTime / 1000}s`;
+            }
+            counter++;
+        }
+    }, 1000);
+}
 }
