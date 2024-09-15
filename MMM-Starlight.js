@@ -329,18 +329,6 @@ loadAllHoroscopes: function() {
         });
     },
 
-    scheduleRotation: function() {
-        if (this.config.zodiacSign.length === 1 && this.config.period.length === 1) {
-            return;
-        } 
-
-        clearTimeout(this.rotationTimer);
-        var self = this;
-        this.rotationTimer = setTimeout(function() {
-            self.scrollManager.startScrolling();
-        }, this.config.pauseDuration);
-    },
-
   slideToNext: function() {
     const oldHoroscope = document.querySelector(".current-horoscope");
     const newHoroscope = document.querySelector(".next-horoscope");
