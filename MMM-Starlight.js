@@ -437,9 +437,6 @@ createTextElement: function(sign, className, period) {
             var apiCountElement = document.querySelector('.MMM-Starlight .api-call-count');
             if (apiCountElement) {
                 apiCountElement.textContent = `API Calls: ${this.apiCallCount}`;
-            } else {
-                // If the element doesn't exist, create it
-                this.updateDom();
             }
         }
     },
@@ -784,34 +781,57 @@ slideToNext: function() {
         };
     },
 
-startScrolling: function() {
-    var self = this;
-    clearTimeout(this.scrollTimer);
-    clearTimeout(this.slideTimer);
+    startScrolling: function() {
+        var self = this;
+        clearTimeout(this.scrollTimer);
+        clearTimeout(this.slideTimer);
 
-    var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
-    var textContent = document.querySelector(".MMM-Starlight .starlight-text");
+        var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
+        var textContent = document.querySelector(".MMM-Starlight .starlight-text");
 
-    function updateTimerDisplay(phase, duration, start) {
-        if (self.config.debug) {
-            let timerElement = document.getElementById("scroll-timer");
-            if (!timerElement) {
-                timerElement = document.createElement("div");
-                timerElement.id = "scroll-timer";
-                timerElement.style.textAlign = "center";
-                timerElement.style.margin = "10px 0";
-                document.querySelector(".MMM-Starlight .starlight-text-wrapper").before(timerElement);
+        function updateTimerDisplay(phase, duration, start) {
+            if (self.config.debug) {
+                let timerElement = document.getElementById("scroll-timer");
+                if (!timerElement) {
+                    timerElement = document.createElement("div");
+                    timerElement.id = "scroll-timer";
+                    timerElement.style.display = "flex";
+                    timerElement.style.justifyContent = "space-between";
+                    timerElement.style.alignItems = "center";
+                    timerElement.style.width = "100%";
+                    timerElement.style.margin = "10px 0";
+                    document.querySelector(".MMM-Starlight .starlight-text-wrapper").before(timerElement);
+                }
+                
+                // Ensure the API call count element exists
+                let apiCallCountElement = timerElement.querySelector('.api-call-count');
+                if (!apiCallCountElement) {
+                    apiCallCountElement = document.createElement("span");
+                    apiCallCountElement.className = "api-call-count";
+                    timerElement.appendChild(apiCallCountElement);
+                }
+                
+                function updateTimer() {
+                    let elapsed = Math.floor((Date.now() - start) / 1000);
+                    let timerText = `${phase} Timer: ${elapsed}s / ${Math.floor(duration / 1000)}s`;
+                    
+                    // Update the timer text without affecting the API call count
+                    let timerTextElement = timerElement.querySelector('.timer-text');
+                    if (!timerTextElement) {
+                        timerTextElement = document.createElement("span");
+                        timerTextElement.className = "timer-text";
+                        timerElement.insertBefore(timerTextElement, apiCallCountElement);
+                    }
+                    timerTextElement.textContent = timerText;
+                    
+                    // Always update the API call count
+                    apiCallCountElement.textContent = `API Calls: ${self.apiCallCount}`;
+                    
+                    requestAnimationFrame(updateTimer);
+                }
+                updateTimer();
             }
-            
-            function updateTimer() {
-                let elapsed = Math.floor((Date.now() - start) / 1000);
-                timerElement.innerHTML = `${phase} Timer: ${elapsed}s / ${Math.floor(duration / 1000)}s`;
-                requestAnimationFrame(updateTimer);
-            }
-            updateTimer();
         }
-    }
-
     if (textWrapper && textContent) {
         var wrapperHeight = textWrapper.offsetHeight;
         var contentHeight = textContent.scrollHeight;
