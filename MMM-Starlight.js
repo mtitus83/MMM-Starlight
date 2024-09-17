@@ -25,6 +25,7 @@ Module.register("MMM-Starlight", {
         this.loaded = false;
         this.isPreloading = true;
         this.debugClickCount = 0;
+        this.apiCallCount = 0;  // Initialize API call counter
     // Display the first slide and start the timer
     const signWaitTime = this.config.signWaitTime;
     const pauseDuration = this.config.pauseDuration || 5000;  // Ensure pauseDuration has a value
@@ -52,52 +53,71 @@ logSlideDuration: function(zodiacSign, period, elapsedTime, signWaitTime, scroll
     console.log(`${zodiacSign} ${period} remained on screen for ${elapsedTime} out of ${signWaitTime} at speed of ${scrollSpeed}`);
 },
 
-startRealTimeTimer: function(signWaitTime, pauseDuration) {
-    // Ensure pauseDuration is a valid number
-    pauseDuration = pauseDuration || 5000;  // Default to 5 seconds if undefined
-    let counter = 0;
+    startRealTimeTimer: function(signWaitTime, pauseDuration) {
+        pauseDuration = pauseDuration || 5000;
+        let counter = 0;
 
-    // First, handle the pause before scrolling
-    const pauseInterval = setInterval(() => {
-        if (counter >= pauseDuration / 1000) {
-            clearInterval(pauseInterval); // Stop the pause timer once it's over
-
-            // Start the scroll timer after the pause
-            this.startScrollTimer(signWaitTime);
-        } else {
+        const updateTimerDisplay = () => {
             const timerDisplay = document.getElementById("scroll-timer");
             if (!timerDisplay) {
                 let timerElement = document.createElement("div");
                 timerElement.id = "scroll-timer";
-                timerElement.style.textAlign = "center";
+                timerElement.style.display = "flex";
+                timerElement.style.justifyContent = "space-between";
+                timerElement.style.alignItems = "center";
+                timerElement.style.width = "100%";
                 timerElement.style.margin = "10px 0";
                 document.querySelector(".MMM-Starlight .starlight-text-wrapper").before(timerElement);
-            } else {
-                // Ensure pauseDuration is a valid number to avoid NaN
-                const totalPauseTime = pauseDuration / 1000 || 5;  // Default to 5 seconds
-                timerDisplay.innerHTML = `Pause Timer: ${counter}s / ${totalPauseTime}s`;
             }
-            counter++;
-        }
-    }, 1000);
-},
-startScrollTimer: function(signWaitTime) {
-    let counter = 0;
+            
+            const totalPauseTime = pauseDuration / 1000 || 5;
+            timerDisplay.innerHTML = `
+                <span>Pause Timer: ${counter}s / ${totalPauseTime}s</span>
+                <span class="api-call-count">API Calls: ${this.apiCallCount}</span>
+            `;
+        };
 
-    // Scroll timer starts after the pause is completed
-    const scrollInterval = setInterval(() => {
-        if (counter >= signWaitTime / 1000) {
-            clearInterval(scrollInterval); // Stop timer after the slide duration completes
-        } else {
+        const pauseInterval = setInterval(() => {
+            if (counter >= pauseDuration / 1000) {
+                clearInterval(pauseInterval);
+                this.startScrollTimer(signWaitTime);
+            } else {
+                updateTimerDisplay();
+                counter++;
+            }
+        }, 1000);
+
+        // Initial update
+        updateTimerDisplay();
+    },
+
+    startScrollTimer: function(signWaitTime) {
+        let counter = 0;
+
+        const updateTimerDisplay = () => {
             const timerDisplay = document.getElementById("scroll-timer");
             if (timerDisplay) {
-                timerDisplay.innerHTML = `Scroll Timer: ${counter}s / ${signWaitTime / 1000}s`;
+                timerDisplay.innerHTML = `
+                    <span>Scroll Timer: ${counter}s / ${signWaitTime / 1000}s</span>
+                    <span class="api-call-count">API Calls: ${this.apiCallCount}</span>
+                `;
             }
-            counter++;
-        }
-    }, 1000);
-},
-    initializeModule: function() {
+        };
+
+        const scrollInterval = setInterval(() => {
+            if (counter >= signWaitTime / 1000) {
+                clearInterval(scrollInterval);
+            } else {
+                updateTimerDisplay();
+                counter++;
+            }
+        }, 1000);
+
+        // Initial update
+        updateTimerDisplay();
+    },
+
+	initializeModule: function() {
         this.log("Initializing module and sending config to node helper");
         this.sendSocketNotification("INIT", { config: this.config });
     },
@@ -378,10 +398,21 @@ createTextElement: function(sign, className, period) {
 
     getHoroscope: function(sign, period) {
         this.log(`Requesting horoscope for ${sign}, period: ${period}`);
+        this.apiCallCount++;  // Increment the API call counter
+        this.updateApiCallDisplay();  // Update the display
         this.sendSocketNotification("GET_HOROSCOPE", {
             sign: sign,
             period: period
         });
+    },
+
+	updateApiCallDisplay: function() {
+        if (this.config.debug) {
+            const apiCountElements = document.querySelectorAll('.api-call-count');
+            apiCountElements.forEach(element => {
+                element.textContent = `API Calls: ${this.apiCallCount}`;
+            });
+        }
     },
 
     getImage: function(sign) {
