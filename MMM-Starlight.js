@@ -26,6 +26,7 @@ Module.register("MMM-Starlight", {
         this.isPreloading = true;
         this.debugClickCount = 0;
         this.apiCallCount = 0;  // Initialize API call counter
+        this.timerDisplay = null;
     // Display the first slide and start the timer
     const signWaitTime = this.config.signWaitTime;
     const pauseDuration = this.config.pauseDuration || 5000;  // Ensure pauseDuration has a value
@@ -58,23 +59,12 @@ logSlideDuration: function(zodiacSign, period, elapsedTime, signWaitTime, scroll
         let counter = 0;
 
         const updateTimerDisplay = () => {
-            const timerDisplay = document.getElementById("scroll-timer");
-            if (!timerDisplay) {
-                let timerElement = document.createElement("div");
-                timerElement.id = "scroll-timer";
-                timerElement.style.display = "flex";
-                timerElement.style.justifyContent = "space-between";
-                timerElement.style.alignItems = "center";
-                timerElement.style.width = "100%";
-                timerElement.style.margin = "10px 0";
-                document.querySelector(".MMM-Starlight .starlight-text-wrapper").before(timerElement);
+            if (this.timerDisplay) {
+                this.timerDisplay.innerHTML = `
+                    <span>Pause Timer: ${counter}s / ${pauseDuration / 1000}s</span>
+                    <span class="api-call-count">API Calls: ${this.apiCallCount}</span>
+                `;
             }
-            
-            const totalPauseTime = pauseDuration / 1000 || 5;
-            timerDisplay.innerHTML = `
-                <span>Pause Timer: ${counter}s / ${totalPauseTime}s</span>
-                <span class="api-call-count">API Calls: ${this.apiCallCount}</span>
-            `;
         };
 
         const pauseInterval = setInterval(() => {
@@ -90,14 +80,13 @@ logSlideDuration: function(zodiacSign, period, elapsedTime, signWaitTime, scroll
         // Initial update
         updateTimerDisplay();
     },
-
+	
     startScrollTimer: function(signWaitTime) {
         let counter = 0;
 
         const updateTimerDisplay = () => {
-            const timerDisplay = document.getElementById("scroll-timer");
-            if (timerDisplay) {
-                timerDisplay.innerHTML = `
+            if (this.timerDisplay) {
+                this.timerDisplay.innerHTML = `
                     <span>Scroll Timer: ${counter}s / ${signWaitTime / 1000}s</span>
                     <span class="api-call-count">API Calls: ${this.apiCallCount}</span>
                 `;
@@ -117,33 +106,60 @@ logSlideDuration: function(zodiacSign, period, elapsedTime, signWaitTime, scroll
         updateTimerDisplay();
     },
 
+    getHoroscope: function(sign, period) {
+        this.log(`Requesting horoscope for ${sign}, period: ${period}`);
+        this.apiCallCount++;  // Increment the API call counter
+        this.updateApiCallDisplay();  // Update the display
+        this.sendSocketNotification("GET_HOROSCOPE", {
+            sign: sign,
+            period: period
+        });
+    },
+
 	initializeModule: function() {
         this.log("Initializing module and sending config to node helper");
         this.sendSocketNotification("INIT", { config: this.config });
     },
-    getDom: function() {
-        var wrapper = document.createElement("div");
-        wrapper.className = "MMM-Starlight";
-        wrapper.style.width = this.config.width;
-        wrapper.style.fontSize = this.config.fontSize;
+getDom: function() {
+    var wrapper = document.createElement("div");
+    wrapper.className = "MMM-Starlight";
+    wrapper.style.width = this.config.width;
+    wrapper.style.fontSize = this.config.fontSize;
 
-        if (this.config.debug && this.config.showButton) {
-            wrapper.appendChild(this.createDebugButtons());
-        }
+    if (this.config.debug && this.config.showButton) {
+        wrapper.appendChild(this.createDebugButtons());
+    }
 
-        if (this.isPreloading) {
-            wrapper.innerHTML += "Loading horoscopes...";
-            return wrapper;
-        }
+    if (this.config.debug) {
+        this.timerDisplay = document.createElement("div");
+        this.timerDisplay.id = "scroll-timer";
+        this.timerDisplay.style.display = "flex";
+        this.timerDisplay.style.justifyContent = "space-between";
+        this.timerDisplay.style.alignItems = "center";
+        this.timerDisplay.style.width = "100%";
+        this.timerDisplay.style.margin = "10px 0";
+        wrapper.appendChild(this.timerDisplay);
+    }
 
-        if (!this.loaded) {
-            wrapper.innerHTML += "Error loading horoscopes. Please check your configuration and logs.";
-            return wrapper;
-        }
-
-        wrapper.appendChild(this.createHoroscopeContent());
+    if (this.isPreloading) {
+        var loadingElem = document.createElement("div");
+        loadingElem.innerHTML = "Loading horoscopes...";
+        wrapper.appendChild(loadingElem);
         return wrapper;
-    },
+    }
+
+    if (!this.loaded) {
+        var errorElem = document.createElement("div");
+        errorElem.innerHTML = "Error loading horoscopes. Please check your configuration and logs.";
+        wrapper.appendChild(errorElem);
+        return wrapper;
+    }
+
+    var content = this.createHoroscopeContent();
+    wrapper.appendChild(content);
+
+    return wrapper;
+},
 
 notificationReceived: function(notification, payload, sender) {
     if (notification === "CLOCK_MINUTE") {
@@ -237,43 +253,43 @@ handleCacheUpdated: function(payload) {
         return buttonContainer;
     },
 
-    createHoroscopeContent: function() {
-        var currentSign = this.config.zodiacSign[this.currentSignIndex];
-        var currentPeriod = this.config.period[this.currentPeriodIndex];
+createHoroscopeContent: function() {
+    var currentSign = this.config.zodiacSign[this.currentSignIndex];
+    var currentPeriod = this.config.period[this.currentPeriodIndex];
 
-        var content = document.createElement("div");
+    var content = document.createElement("div");
 
-        if (this.config.debug) {
-            content.appendChild(this.createDebugInfo(currentSign, currentPeriod));
-        }
+    if (this.config.debug) {
+        content.appendChild(this.createDebugInfo(currentSign, currentPeriod));
+    }
 
-        content.appendChild(this.createTitleElement(currentSign, currentPeriod));
+    content.appendChild(this.createTitleElement(currentSign, currentPeriod));
 
-        if (this.config.showImage) {
-            content.appendChild(this.createImageSlideContainer(currentSign));
-        }
+    if (this.config.showImage) {
+        content.appendChild(this.createImageSlideContainer(currentSign));
+    }
 
-        content.appendChild(this.createTextSlideContainer(currentSign, currentPeriod));
+    content.appendChild(this.createTextSlideContainer(currentSign, currentPeriod));
 
-        return content;
-    },
+    return content;
+},
 
-    createDebugInfo: function(sign, period) {
+createDebugInfo: function(sign, period) {
     if (!this.horoscopes[sign]) {
         console.error(`Horoscope data for ${sign} is undefined.`);
-        return;  // Prevent further execution if data is missing
+        return document.createElement("div");  // Return an empty div to avoid errors
     }
-        var debugInfoElement = document.createElement("div");
-        debugInfoElement.className = "starlight-debug-info";
-        var horoscopeData = this.horoscopes[sign][period];
-        if (horoscopeData.lastUpdate) {
-            debugInfoElement.innerHTML += `Last update: ${new Date(horoscopeData.lastUpdate).toLocaleString()}<br>`;
-        }
-        if (horoscopeData.nextUpdate) {
-            debugInfoElement.innerHTML += `Next update: ${new Date(horoscopeData.nextUpdate).toLocaleString()}`;
-        }
-        return debugInfoElement;
-    },
+    var debugInfoElement = document.createElement("div");
+    debugInfoElement.className = "starlight-debug-info";
+    var horoscopeData = this.horoscopes[sign][period];
+    if (horoscopeData.lastUpdate) {
+        debugInfoElement.innerHTML += `Last update: ${new Date(horoscopeData.lastUpdate).toLocaleString()}<br>`;
+    }
+    if (horoscopeData.nextUpdate) {
+        debugInfoElement.innerHTML += `Next update: ${new Date(horoscopeData.nextUpdate).toLocaleString()}`;
+    }
+    return debugInfoElement;
+},
 
     createTitleElement: function(sign, period) {
         var titleElement = document.createElement("div");
@@ -406,12 +422,12 @@ createTextElement: function(sign, className, period) {
         });
     },
 
-	updateApiCallDisplay: function() {
-        if (this.config.debug) {
-            const apiCountElements = document.querySelectorAll('.api-call-count');
-            apiCountElements.forEach(element => {
-                element.textContent = `API Calls: ${this.apiCallCount}`;
-            });
+    updateApiCallDisplay: function() {
+        if (this.config.debug && this.timerDisplay) {
+            const apiCountElement = this.timerDisplay.querySelector('.api-call-count');
+            if (apiCountElement) {
+                apiCountElement.textContent = `API Calls: ${this.apiCallCount}`;
+            }
         }
     },
 
