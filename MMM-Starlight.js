@@ -60,10 +60,15 @@ logSlideDuration: function(zodiacSign, period, elapsedTime, signWaitTime, scroll
 
         const updateTimerDisplay = () => {
             if (this.timerDisplay) {
-                this.timerDisplay.innerHTML = `
-                    <span>Pause Timer: ${counter}s / ${pauseDuration / 1000}s</span>
-                    <span class="api-call-count">API Calls: ${this.apiCallCount}</span>
-                `;
+                const timerTextElement = this.timerDisplay.querySelector('.timer-text');
+                const apiCallCountElement = this.timerDisplay.querySelector('.api-call-count');
+                
+                if (timerTextElement) {
+                    timerTextElement.textContent = `Pause Timer: ${counter}s / ${pauseDuration / 1000}s`;
+                }
+                if (apiCallCountElement) {
+                    apiCallCountElement.textContent = `API Calls: ${this.apiCallCount}`;
+                }
             }
         };
 
@@ -80,16 +85,21 @@ logSlideDuration: function(zodiacSign, period, elapsedTime, signWaitTime, scroll
         // Initial update
         updateTimerDisplay();
     },
-	
+
     startScrollTimer: function(signWaitTime) {
         let counter = 0;
 
         const updateTimerDisplay = () => {
             if (this.timerDisplay) {
-                this.timerDisplay.innerHTML = `
-                    <span>Scroll Timer: ${counter}s / ${signWaitTime / 1000}s</span>
-                    <span class="api-call-count">API Calls: ${this.apiCallCount}</span>
-                `;
+                const timerTextElement = this.timerDisplay.querySelector('.timer-text');
+                const apiCallCountElement = this.timerDisplay.querySelector('.api-call-count');
+                
+                if (timerTextElement) {
+                    timerTextElement.textContent = `Scroll Timer: ${counter}s / ${signWaitTime / 1000}s`;
+                }
+                if (apiCallCountElement) {
+                    apiCallCountElement.textContent = `API Calls: ${this.apiCallCount}`;
+                }
             }
         };
 
@@ -140,16 +150,17 @@ logSlideDuration: function(zodiacSign, period, elapsedTime, signWaitTime, scroll
             this.timerDisplay.style.width = "100%";
             this.timerDisplay.style.margin = "10px 0";
             
-            // Create a separate element for the API call count
+            var timerTextElement = document.createElement("span");
+            timerTextElement.className = "timer-text";
+            this.timerDisplay.appendChild(timerTextElement);
+            
             var apiCallCountElement = document.createElement("span");
             apiCallCountElement.className = "api-call-count";
             apiCallCountElement.textContent = `API Calls: ${this.apiCallCount}`;
-            
             this.timerDisplay.appendChild(apiCallCountElement);
+            
             wrapper.appendChild(this.timerDisplay);
         }
-	wrapper.appendChild(this.timerDisplay);
-    }
 
     if (this.isPreloading) {
         var loadingElem = document.createElement("div");
@@ -790,49 +801,28 @@ slideToNext: function() {
         var textContent = document.querySelector(".MMM-Starlight .starlight-text");
 
         function updateTimerDisplay(phase, duration, start) {
-            if (self.config.debug) {
-                let timerElement = document.getElementById("scroll-timer");
-                if (!timerElement) {
-                    timerElement = document.createElement("div");
-                    timerElement.id = "scroll-timer";
-                    timerElement.style.display = "flex";
-                    timerElement.style.justifyContent = "space-between";
-                    timerElement.style.alignItems = "center";
-                    timerElement.style.width = "100%";
-                    timerElement.style.margin = "10px 0";
-                    document.querySelector(".MMM-Starlight .starlight-text-wrapper").before(timerElement);
-                }
-                
-                // Ensure the API call count element exists
-                let apiCallCountElement = timerElement.querySelector('.api-call-count');
-                if (!apiCallCountElement) {
-                    apiCallCountElement = document.createElement("span");
-                    apiCallCountElement.className = "api-call-count";
-                    timerElement.appendChild(apiCallCountElement);
-                }
+            if (self.config.debug && self.timerDisplay) {
+                const timerTextElement = self.timerDisplay.querySelector('.timer-text');
+                const apiCallCountElement = self.timerDisplay.querySelector('.api-call-count');
                 
                 function updateTimer() {
                     let elapsed = Math.floor((Date.now() - start) / 1000);
                     let timerText = `${phase} Timer: ${elapsed}s / ${Math.floor(duration / 1000)}s`;
                     
-                    // Update the timer text without affecting the API call count
-                    let timerTextElement = timerElement.querySelector('.timer-text');
-                    if (!timerTextElement) {
-                        timerTextElement = document.createElement("span");
-                        timerTextElement.className = "timer-text";
-                        timerElement.insertBefore(timerTextElement, apiCallCountElement);
+                    if (timerTextElement) {
+                        timerTextElement.textContent = timerText;
                     }
-                    timerTextElement.textContent = timerText;
                     
-                    // Always update the API call count
-                    apiCallCountElement.textContent = `API Calls: ${self.apiCallCount}`;
+                    if (apiCallCountElement) {
+                        apiCallCountElement.textContent = `API Calls: ${self.apiCallCount}`;
+                    }
                     
                     requestAnimationFrame(updateTimer);
                 }
                 updateTimer();
             }
         }
-    if (textWrapper && textContent) {
+	    if (textWrapper && textContent) {
         var wrapperHeight = textWrapper.offsetHeight;
         var contentHeight = textContent.scrollHeight;
         var startTime = Date.now();
