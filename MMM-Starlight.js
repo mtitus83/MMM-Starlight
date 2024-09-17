@@ -120,25 +120,35 @@ logSlideDuration: function(zodiacSign, period, elapsedTime, signWaitTime, scroll
         this.log("Initializing module and sending config to node helper");
         this.sendSocketNotification("INIT", { config: this.config });
     },
-getDom: function() {
-    var wrapper = document.createElement("div");
-    wrapper.className = "MMM-Starlight";
-    wrapper.style.width = this.config.width;
-    wrapper.style.fontSize = this.config.fontSize;
 
-    if (this.config.debug && this.config.showButton) {
-        wrapper.appendChild(this.createDebugButtons());
-    }
+    getDom: function() {
+        var wrapper = document.createElement("div");
+        wrapper.className = "MMM-Starlight";
+        wrapper.style.width = this.config.width;
+        wrapper.style.fontSize = this.config.fontSize;
 
-    if (this.config.debug) {
-        this.timerDisplay = document.createElement("div");
-        this.timerDisplay.id = "scroll-timer";
-        this.timerDisplay.style.display = "flex";
-        this.timerDisplay.style.justifyContent = "space-between";
-        this.timerDisplay.style.alignItems = "center";
-        this.timerDisplay.style.width = "100%";
-        this.timerDisplay.style.margin = "10px 0";
-        wrapper.appendChild(this.timerDisplay);
+        if (this.config.debug && this.config.showButton) {
+            wrapper.appendChild(this.createDebugButtons());
+        }
+
+        if (this.config.debug) {
+            this.timerDisplay = document.createElement("div");
+            this.timerDisplay.id = "scroll-timer";
+            this.timerDisplay.style.display = "flex";
+            this.timerDisplay.style.justifyContent = "space-between";
+            this.timerDisplay.style.alignItems = "center";
+            this.timerDisplay.style.width = "100%";
+            this.timerDisplay.style.margin = "10px 0";
+            
+            // Create a separate element for the API call count
+            var apiCallCountElement = document.createElement("span");
+            apiCallCountElement.className = "api-call-count";
+            apiCallCountElement.textContent = `API Calls: ${this.apiCallCount}`;
+            
+            this.timerDisplay.appendChild(apiCallCountElement);
+            wrapper.appendChild(this.timerDisplay);
+        }
+	wrapper.appendChild(this.timerDisplay);
     }
 
     if (this.isPreloading) {
@@ -423,10 +433,13 @@ createTextElement: function(sign, className, period) {
     },
 
     updateApiCallDisplay: function() {
-        if (this.config.debug && this.timerDisplay) {
-            const apiCountElement = this.timerDisplay.querySelector('.api-call-count');
+        if (this.config.debug) {
+            var apiCountElement = document.querySelector('.MMM-Starlight .api-call-count');
             if (apiCountElement) {
                 apiCountElement.textContent = `API Calls: ${this.apiCallCount}`;
+            } else {
+                // If the element doesn't exist, create it
+                this.updateDom();
             }
         }
     },
