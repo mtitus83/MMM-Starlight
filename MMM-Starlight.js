@@ -792,87 +792,74 @@ slideToNext: function() {
         };
     },
 
-    startScrolling: function() {
-        var self = this;
-        clearTimeout(this.scrollTimer);
-        clearTimeout(this.slideTimer);
+startScrolling: function() {
+    var self = this;
+    clearTimeout(this.pauseTimer);
+    clearTimeout(this.waitTimer);
 
-        var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
-        var textContent = document.querySelector(".MMM-Starlight .starlight-text");
+    var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
+    var textContent = document.querySelector(".MMM-Starlight .starlight-text");
 
-        function updateTimerDisplay(phase, duration, start) {
-            if (self.config.debug && self.timerDisplay) {
-                const timerTextElement = self.timerDisplay.querySelector('.timer-text');
-                const apiCallCountElement = self.timerDisplay.querySelector('.api-call-count');
+    function updateTimerDisplay(phase, duration, start) {
+        if (self.config.debug && self.timerDisplay) {
+            const timerTextElement = self.timerDisplay.querySelector('.timer-text');
+            const apiCallCountElement = self.timerDisplay.querySelector('.api-call-count');
+            
+            function updateTimer() {
+                let elapsed = Math.floor((Date.now() - start) / 1000);
+                let timerText = `${phase}: ${elapsed}s / ${Math.floor(duration / 1000)}s`;
                 
-                function updateTimer() {
-                    let elapsed = Math.floor((Date.now() - start) / 1000);
-                    let timerText = `${phase} Timer: ${elapsed}s / ${Math.floor(duration / 1000)}s`;
-                    
-                    if (timerTextElement) {
-                        timerTextElement.textContent = timerText;
-                    }
-                    
-                    if (apiCallCountElement) {
-                        apiCallCountElement.textContent = `API Calls: ${self.apiCallCount}`;
-                    }
-                    
+                if (timerTextElement) {
+                    timerTextElement.textContent = timerText;
+                }
+                
+                if (apiCallCountElement) {
+                    apiCallCountElement.textContent = `API Calls: ${self.apiCallCount}`;
+                }
+                
+                if (elapsed < duration / 1000) {
                     requestAnimationFrame(updateTimer);
                 }
-                updateTimer();
             }
+            updateTimer();
         }
-	    if (textWrapper && textContent) {
-        var wrapperHeight = textWrapper.offsetHeight;
-        var contentHeight = textContent.scrollHeight;
-        var startTime = Date.now();
+    }
 
-        // Initial pause
-        updateTimerDisplay("Pause", this.config.pauseDuration, startTime);
+    // Initial pause
+    updateTimerDisplay("Pause", this.config.pauseDuration, Date.now());
 
-        setTimeout(() => {
+    this.pauseTimer = setTimeout(() => {
+        if (textWrapper && textContent) {
+            var wrapperHeight = textWrapper.offsetHeight;
+            var contentHeight = textContent.scrollHeight;
+            var startTime = Date.now();
+
+            updateTimerDisplay("Wait", this.config.signWaitTime, startTime);
+
             if (contentHeight > wrapperHeight) {
                 self.isScrolling = true;
 
-                var scrollDistance = contentHeight - (wrapperHeight * 0.75); 
-                var verticalDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
+                var scrollDistance = contentHeight - wrapperHeight;
+                var scrollDuration = this.config.signWaitTime; // Use entire signWaitTime for scrolling
 
-                // Scroll timer
-                updateTimerDisplay("Scroll", verticalDuration, Date.now());
-
-                textContent.style.transition = `transform ${verticalDuration}ms linear`;
+                textContent.style.transition = `transform ${scrollDuration}ms linear`;
                 textContent.style.transform = `translateY(-${scrollDistance}px)`;
-
-                self.scrollTimer = setTimeout(() => {
-                    var elapsedTime = Date.now() - startTime;
-                    var remainingTime = Math.max(0, self.config.signWaitTime - elapsedTime);
-
-                    // Final pause timer
-                    updateTimerDisplay("Pause", this.config.pauseDuration, Date.now());
-
-                    self.slideTimer = setTimeout(() => {
-                        self.isScrolling = false;
-                        self.slideToNext();
-                    }, remainingTime + self.config.pauseDuration);
-                }, verticalDuration);
-            } else {
-                // For non-scrolling content, show the full signWaitTime
-                updateTimerDisplay("Wait", self.config.signWaitTime, Date.now());
-
-                self.slideTimer = setTimeout(() => {
-                    self.isScrolling = false;
-                    self.slideToNext();
-                }, self.config.signWaitTime);
             }
-        }, this.config.pauseDuration);
-    } else {
-        updateTimerDisplay("Pause", this.config.pauseDuration, Date.now());
-        self.slideTimer = setTimeout(() => {
-            self.slideToNext();
-        }, this.config.pauseDuration);
-    }
-},
-    simulateMidnightUpdate: function() {
+
+            this.waitTimer = setTimeout(() => {
+                self.isScrolling = false;
+                self.slideToNext();
+            }, this.config.signWaitTime);
+        } else {
+            updateTimerDisplay("Wait", this.config.signWaitTime, Date.now());
+            this.waitTimer = setTimeout(() => {
+                self.slideToNext();
+            }, this.config.signWaitTime);
+        }
+    }, this.config.pauseDuration);
+}
+
+simulateMidnightUpdate: function() {
         Log.info(`${this.name}: Simulating midnight update`);
         const simulationDate = moment().add(1, 'day').startOf('day');
         this.sendSocketNotification("SIMULATE_MIDNIGHT_UPDATE", { date: simulationDate.format('YYYY-MM-DD') });
