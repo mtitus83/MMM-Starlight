@@ -92,14 +92,13 @@ startDisplayTimer: function(signWaitTime) {
     clearTimeout(this.pauseTimer);
     clearTimeout(this.waitTimer);
 
-    // Start with the pause duration
-    this.updateTimerDisplay("Pause", this.config.pauseDuration, Date.now());
+    const startPauseTime = Date.now();
+    this.updateTimerDisplay("Pause", this.config.pauseDuration, startPauseTime);
 
     this.pauseTimer = setTimeout(() => {
-        this.slideStartTime = Date.now(); // Reset start time for the main wait period
-        this.updateTimerDisplay("Wait", signWaitTime, this.slideStartTime);
+        const startWaitTime = Date.now();
+        this.updateTimerDisplay("Wait", signWaitTime, startWaitTime);
 
-        // Set up the main wait timer
         this.waitTimer = setTimeout(() => {
             this.slideToNext();
         }, signWaitTime);
@@ -738,14 +737,18 @@ slideToNext: function() {
                 nextImage.innerHTML = this.createImageElement(nextSign, "next").innerHTML;
             }
 
-            // Start the display timer here
-            this.startDisplayTimer(signWaitTime);
+            // Reset styles for scrolling
+            const textWrapper = currentText.querySelector(".starlight-text-wrapper");
+            if (textWrapper) {
+                textWrapper.style.transition = "none";
+                textWrapper.style.transform = "translateY(0)";
+            }
+
+            // Start the display timer and scrolling here
+            this.startScrolling();
 
             // Reset the timer for the next slide
             this.slideStartTime = Date.now();
-
-            // Update the timer display
-            this.updateTimerDisplay("Wait", signWaitTime, this.slideStartTime);
         }, 1000);
     }
 },
@@ -771,58 +774,66 @@ startScrolling: function() {
     var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
     var textContent = document.querySelector(".MMM-Starlight .starlight-text");
 
-    // Initial pause
-    this.updateTimerDisplay("Pause", this.config.pauseDuration, Date.now());
+    const startPauseTime = Date.now();
+    this.updateTimerDisplay("Pause", this.config.pauseDuration, startPauseTime);
 
     this.pauseTimer = setTimeout(() => {
+        const startWaitTime = Date.now();
+        this.updateTimerDisplay("Wait", this.config.signWaitTime, startWaitTime);
+
         if (textWrapper && textContent) {
             var wrapperHeight = textWrapper.offsetHeight;
             var contentHeight = textContent.scrollHeight;
-            var startTime = Date.now();
-
-            this.updateTimerDisplay("Wait", this.config.signWaitTime, startTime);
 
             if (contentHeight > wrapperHeight) {
                 self.isScrolling = true;
 
                 var scrollDistance = contentHeight - wrapperHeight;
-                var scrollDuration = this.config.signWaitTime; // Use entire signWaitTime for scrolling
+                var scrollDuration = this.config.signWaitTime;
 
                 textContent.style.transition = `transform ${scrollDuration}ms linear`;
                 textContent.style.transform = `translateY(-${scrollDistance}px)`;
             }
-
-            this.waitTimer = setTimeout(() => {
-                self.isScrolling = false;
-                self.slideToNext();
-            }, this.config.signWaitTime);
-        } else {
-            this.updateTimerDisplay("Wait", this.config.signWaitTime, Date.now());
-            this.waitTimer = setTimeout(() => {
-                self.slideToNext();
-            }, this.config.signWaitTime);
         }
+
+        this.waitTimer = setTimeout(() => {
+            self.isScrolling = false;
+            self.slideToNext();
+        }, this.config.signWaitTime);
     }, this.config.pauseDuration);
 },
 
 updateTimerDisplay: function(phase, duration, start) {
     if (this.config.debug) {
-        let timerElement = document.getElementById("starlight-timer");
-        if (!timerElement) {
-            timerElement = document.createElement("div");
-            timerElement.id = "starlight-timer";
-            timerElement.style.textAlign = "center";
-            timerElement.style.margin = "10px 0";
+        if (!this.timerDisplay) {
+            this.timerDisplay = document.createElement("div");
+            this.timerDisplay.id = "starlight-timer";
+            this.timerDisplay.style.display = "flex";
+            this.timerDisplay.style.justifyContent = "space-between";
+            this.timerDisplay.style.alignItems = "center";
+            this.timerDisplay.style.width = "100%";
+            this.timerDisplay.style.margin = "10px 0";
+            
+            const timerTextElement = document.createElement("span");
+            timerTextElement.className = "timer-text";
+            this.timerDisplay.appendChild(timerTextElement);
+            
+            const apiCallCountElement = document.createElement("span");
+            apiCallCountElement.className = "api-call-count";
+            apiCallCountElement.textContent = `API Calls: ${this.apiCallCount}`;
+            this.timerDisplay.appendChild(apiCallCountElement);
+            
             const wrapper = document.querySelector(".MMM-Starlight");
             if (wrapper) {
-                wrapper.insertBefore(timerElement, wrapper.firstChild);
+                wrapper.insertBefore(this.timerDisplay, wrapper.firstChild);
             }
         }
         
+        const timerTextElement = this.timerDisplay.querySelector('.timer-text');
         const updateTimer = () => {
             const elapsed = Math.floor((Date.now() - start) / 1000);
             const remaining = Math.max(0, Math.floor(duration / 1000) - elapsed);
-            timerElement.innerHTML = `${phase}: ${elapsed}s / ${Math.floor(duration / 1000)}s`;
+            timerTextElement.innerHTML = `${phase}: ${elapsed}s / ${Math.floor(duration / 1000)}s`;
             
             if (remaining > 0) {
                 requestAnimationFrame(updateTimer);
