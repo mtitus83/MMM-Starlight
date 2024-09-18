@@ -675,99 +675,79 @@ checkAndRotate: function() {
     }
 },
 
-slideToNext: function() {
-    clearTimeout(this.pauseTimer);
-    clearTimeout(this.waitTimer);
-    clearTimeout(this.scrollTimer);
+    slideToNext: function() {
+        clearTimeout(this.scrollTimer);
+        clearTimeout(this.slideTimer);
 
-    const signWaitTime = this.config.signWaitTime;
-    
-    const imageSlideContainer = document.querySelector(".MMM-Starlight .starlight-image-slide-container");
-    const textSlideContainer = document.querySelector(".MMM-Starlight .starlight-text-slide-container");
-    const titleElement = document.querySelector(".MMM-Starlight .starlight-title");
+        const signWaitTime = this.config.signWaitTime;
+        this.startRealTimeTimer(signWaitTime);
 
-    if (imageSlideContainer && textSlideContainer && titleElement) {
-        const { currentSign, currentPeriod, nextSign, nextPeriod } = this.getNextPeriodAndSign();
+        const imageSlideContainer = document.querySelector(".MMM-Starlight .starlight-image-slide-container");
+        const textSlideContainer = document.querySelector(".MMM-Starlight .starlight-text-slide-container");
+        const titleElement = document.querySelector(".MMM-Starlight .starlight-title");
 
-        // Log the time spent on the current slide
-        const elapsedTime = Date.now() - this.slideStartTime;
-        this.logSlideDuration(currentSign, currentPeriod, elapsedTime / 1000, signWaitTime / 1000, this.config.scrollSpeed);
+        if (imageSlideContainer && textSlideContainer && titleElement) {
+            const { currentSign, currentPeriod, nextSign, nextPeriod } = this.getNextPeriodAndSign();
 
-        const currentText = textSlideContainer.querySelector(".starlight-text-content.current");
-        const nextText = textSlideContainer.querySelector(".starlight-text-content.next");
-        const currentImage = imageSlideContainer.querySelector(".starlight-image-wrapper.current");
-        const nextImage = imageSlideContainer.querySelector(".starlight-image-wrapper.next");
+            // Log the time spent on the current slide
+            const elapsedTime = Date.now() - this.slideStartTime;
+            this.logSlideDuration(currentSign, currentPeriod, elapsedTime / 1000, this.config.signWaitTime / 1000, this.config.scrollSpeed);
 
-        nextText.innerHTML = this.createTextElement(currentSign, "next", currentPeriod).innerHTML;
-        
-        const isSignChange = currentPeriod === this.config.period[0];
-        
-        if (isSignChange) {
-            nextImage.innerHTML = this.createImageElement(currentSign, "next").innerHTML;
-        }
+            const currentText = textSlideContainer.querySelector(".starlight-text-content.current");
+            const nextText = textSlideContainer.querySelector(".starlight-text-content.next");
+            const currentImage = imageSlideContainer.querySelector(".starlight-image-wrapper.current");
+            const nextImage = imageSlideContainer.querySelector(".starlight-image-wrapper.next");
 
-        // Apply fade out
-        titleElement.style.opacity = 0;
-        currentText.style.opacity = 0;
-        if (isSignChange) currentImage.style.opacity = 0;
+            // Prepare the next content
+            nextText.innerHTML = this.createTextElement(currentSign, "next", currentPeriod).innerHTML;
+            
+            const isSignChange = currentPeriod === this.config.period[0];
+            
+            if (isSignChange) {
+                nextImage.innerHTML = this.createImageElement(currentSign, "next").innerHTML;
+            }
 
-        setTimeout(() => {
             // Slide transition
             textSlideContainer.style.transition = "transform 1s ease-in-out";
-            textSlideContainer.style.transform = "translateX(calc(-50% - 40px))";
+            textSlideContainer.style.transform = "translateX(-50%)";
 
             if (isSignChange) {
                 imageSlideContainer.style.transition = "transform 1s ease-in-out";
-                imageSlideContainer.style.transform = "translateX(calc(-50% - 40px))";
+                imageSlideContainer.style.transform = "translateX(-50%)";
             }
 
-            setTimeout(() => {
-                // Update content
-                titleElement.innerHTML = this.formatPeriodText(currentPeriod) + " Horoscope for " + currentSign.charAt(0).toUpperCase() + currentSign.slice(1);
-                currentText.innerHTML = nextText.innerHTML;
-                if (isSignChange) {
-                    currentImage.innerHTML = nextImage.innerHTML;
-                }
+            titleElement.style.transition = "opacity 0.5s ease-in-out";
+            titleElement.style.opacity = "0";
 
-                // Reset positions
+            setTimeout(() => {
+                titleElement.innerHTML = this.formatPeriodText(currentPeriod) + " Horoscope for " + currentSign.charAt(0).toUpperCase() + currentSign.slice(1);
+                titleElement.style.opacity = "1";
+
                 textSlideContainer.style.transition = "none";
                 textSlideContainer.style.transform = "translateX(0)";
+
+                currentText.innerHTML = nextText.innerHTML;
+
                 if (isSignChange) {
                     imageSlideContainer.style.transition = "none";
                     imageSlideContainer.style.transform = "translateX(0)";
+                    currentImage.innerHTML = nextImage.innerHTML;
                 }
 
-                // Prepare next content
                 nextText.innerHTML = this.createTextElement(nextSign, "next", nextPeriod).innerHTML;
+                
                 if (isSignChange) {
                     nextImage.innerHTML = this.createImageElement(nextSign, "next").innerHTML;
                 }
 
-                // Apply fade in
-                titleElement.style.transition = "opacity 1s ease-in-out";
-                currentText.style.transition = "opacity 1s ease-in-out";
-                if (isSignChange) currentImage.style.transition = "opacity 1s ease-in-out";
-
-                titleElement.style.opacity = 1;
-                currentText.style.opacity = 1;
-                if (isSignChange) currentImage.style.opacity = 1;
-
-                // Reset styles for scrolling
-                const textWrapper = currentText.querySelector(".starlight-text-wrapper");
-                if (textWrapper) {
-                    textWrapper.style.transition = "none";
-                    textWrapper.style.transform = "translateY(0)";
-                }
-
-                // Start the display timer and scrolling here
                 this.startScrolling();
 
                 // Reset the timer for the next slide
                 this.slideStartTime = Date.now();
-            }, 1000); // Wait for slide transition to complete
-        }, 500); // Short delay before starting the transition
-    }
-},
+            }, 1000);
+        }
+    },
+
 
 	getNextPeriodAndSign: function() {
         this.currentPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
@@ -840,47 +820,36 @@ slideToNext: function() {
         }
     },
 
-	    loopScrolling: function(textContent, scrollDistance, startTime) {
+    loopScrolling: function(textContent, scrollDistance, startTime) {
         var self = this;
-
-        // Fade out
-        textContent.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
-        textContent.style.opacity = '0';
-
-        setTimeout(() => {
-            // Reset position
-            textContent.style.transition = 'none';
-            textContent.style.transform = 'translateY(0)';
-
-            // Fade in
+        
+        // Reset position without fading
+        textContent.style.transition = 'none';
+        textContent.style.transform = 'translateY(0)';
+        
+        // Force a reflow to ensure the transform is applied instantly
+        textContent.offsetHeight;
+        
+        // Start scrolling again
+        var scrollDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
+        this.updateTimerDisplay("Scrolling", scrollDuration, Date.now());
+        textContent.style.transition = `transform ${scrollDuration}ms linear`;
+        textContent.style.transform = `translateY(-${scrollDistance}px)`;
+        
+        self.scrollTimer = setTimeout(() => {
+            // Pause at the bottom
+            this.updateTimerDisplay("Bottom Pause", this.config.pauseDuration, Date.now());
+            
             setTimeout(() => {
-                textContent.style.transition = 'opacity 0.5s ease-in';
-                textContent.style.opacity = '1';
-
-                // Start scrolling again
-                setTimeout(() => {
-                    var scrollDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
-                    this.updateTimerDisplay("Scrolling", scrollDuration, Date.now());
-                    textContent.style.transition = `transform ${scrollDuration}ms linear`;
-                    textContent.style.transform = `translateY(-${scrollDistance}px)`;
-
-                    self.scrollTimer = setTimeout(() => {
-                        // Pause at the bottom
-                        this.updateTimerDisplay("Bottom Pause", this.config.pauseDuration, Date.now());
-
-                        setTimeout(() => {
-                            if (Date.now() - startTime < self.config.signWaitTime) {
-                                // If signWaitTime hasn't elapsed, loop again
-                                self.loopScrolling(textContent, scrollDistance, startTime);
-                            } else {
-                                // Move to the next slide
-                                self.slideToNext();
-                            }
-                        }, this.config.pauseDuration);
-                    }, scrollDuration);
-                }, 500); // Start scrolling after fade-in
-            }, 50); // Small delay to ensure the transform is applied before fading in
-        }, 500); // Wait for fade-out
+                if (Date.now() - startTime < self.config.signWaitTime) {
+                    // If signWaitTime hasn't elapsed, loop again
+                    self.loopScrolling(textContent, scrollDistance, startTime);
+                } else {
+                    // Move to the next slide
+                    self.slideToNext();
+                }
+            }, this.config.pauseDuration);
+        }, scrollDuration);
     },
 
     updateTimerDisplay: function(phase, duration, start) {
