@@ -782,97 +782,132 @@ slideToNext: function() {
         };
     },
 
-startScrolling: function() {
-    var self = this;
-    clearTimeout(this.pauseTimer);
-    clearTimeout(this.waitTimer);
-    clearTimeout(this.scrollTimer);
 
-    var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
-    var textContent = document.querySelector(".MMM-Starlight .starlight-text");
+    startScrolling: function() {
+        var self = this;
+        clearTimeout(this.scrollTimer);
+        clearTimeout(this.slideTimer);
 
-    const startPauseTime = Date.now();
-    this.updateTimerDisplay("Pause", this.config.pauseDuration, startPauseTime);
-
-    this.pauseTimer = setTimeout(() => {
-        const startWaitTime = Date.now();
-        this.updateTimerDisplay("Wait", this.config.signWaitTime, startWaitTime);
+        var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
+        var textContent = document.querySelector(".MMM-Starlight .starlight-text");
 
         if (textWrapper && textContent) {
             var wrapperHeight = textWrapper.offsetHeight;
             var contentHeight = textContent.scrollHeight;
+            var scrollDistance = contentHeight - wrapperHeight * 0.75; // Scroll to show 3/4 of the content
+            var startTime = Date.now();
 
-            if (contentHeight > wrapperHeight) {
-                self.isScrolling = true;
+            // Initial pause
+            this.updateTimerDisplay("Initial Pause", this.config.pauseDuration, startTime);
 
-                var scrollDistance = contentHeight - wrapperHeight;
-                var scrollDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
+            setTimeout(() => {
+                if (contentHeight > wrapperHeight) {
+                    self.isScrolling = true;
+                    var scrollDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
 
-                textContent.style.transition = `transform ${scrollDuration}ms linear`;
-                textContent.style.transform = `translateY(-${scrollDistance}px)`;
+                    // Start scrolling
+                    this.updateTimerDisplay("Scrolling", scrollDuration, Date.now());
+                    textContent.style.transition = `transform ${scrollDuration}ms linear`;
+                    textContent.style.transform = `translateY(-${scrollDistance}px)`;
 
-                self.scrollTimer = setTimeout(() => {
-                    var elapsedTime = Date.now() - startWaitTime;
-                    var remainingTime = Math.max(0, self.config.signWaitTime - elapsedTime);
-
-                    self.waitTimer = setTimeout(() => {
-                        self.isScrolling = false;
+                    self.scrollTimer = setTimeout(() => {
+                        // Pause at the bottom
+                        this.updateTimerDisplay("Bottom Pause", this.config.pauseDuration, Date.now());
+                        
+                        setTimeout(() => {
+                            if (Date.now() - startTime < self.config.signWaitTime) {
+                                // If signWaitTime hasn't elapsed, loop the scrolling
+                                self.loopScrolling(textContent, scrollDistance, startTime);
+                            } else {
+                                // Move to the next slide
+                                self.slideToNext();
+                            }
+                        }, this.config.pauseDuration);
+                    }, scrollDuration);
+                } else {
+                    // For non-scrolling content, wait for signWaitTime
+                    this.updateTimerDisplay("Wait", self.config.signWaitTime, Date.now());
+                    self.slideTimer = setTimeout(() => {
                         self.slideToNext();
-                    }, remainingTime);
-                }, scrollDuration);
-            } else {
-                self.waitTimer = setTimeout(() => {
-                    self.isScrolling = false;
-                    self.slideToNext();
-                }, self.config.signWaitTime);
-            }
+                    }, self.config.signWaitTime);
+                }
+            }, this.config.pauseDuration);
         } else {
-            self.waitTimer = setTimeout(() => {
+            this.updateTimerDisplay("Error", 0, Date.now());
+            self.slideTimer = setTimeout(() => {
                 self.slideToNext();
-            }, self.config.signWaitTime);
+            }, this.config.pauseDuration);
         }
-    }, this.config.pauseDuration);
-},
+    },
 
-updateTimerDisplay: function(phase, duration, start) {
-    if (this.config.debug) {
-        if (!this.timerDisplay) {
-            this.timerDisplay = document.createElement("div");
-            this.timerDisplay.id = "starlight-timer";
-            this.timerDisplay.style.display = "flex";
-            this.timerDisplay.style.justifyContent = "space-between";
-            this.timerDisplay.style.alignItems = "center";
-            this.timerDisplay.style.width = "100%";
-            this.timerDisplay.style.margin = "10px 0";
+	    loopScrolling: function(textContent, scrollDistance, startTime) {
+        var self = this;
+
+        // Fade out
+        textContent.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
+        textContent.style.opacity = '0';
+
+        setTimeout(() => {
+            // Reset position
+            textContent.style.transition = 'none';
+            textContent.style.transform = 'translateY(0)';
+
+            // Fade in
+            setTimeout(() => {
+                textContent.style.transition = 'opacity 0.5s ease-in';
+                textContent.style.opacity = '1';
+
+                // Start scrolling again
+                setTimeout(() => {
+                    var scrollDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
+                    this.updateTimerDisplay("Scrolling", scrollDuration, Date.now());
+                    textContent.style.transition = `transform ${scrollDuration}ms linear`;
+                    textContent.style.transform = `translateY(-${scrollDistance}px)`;
+
+                    self.scrollTimer = setTimeout(() => {
+                        // Pause at the bottom
+                        this.updateTimerDisplay("Bottom Pause", this.config.pauseDuration, Date.now());
+
+                        setTimeout(() => {
+                            if (Date.now() - startTime < self.config.signWaitTime) {
+                                // If signWaitTime hasn't elapsed, loop again
+                                self.loopScrolling(textContent, scrollDistance, startTime);
+                            } else {
+                                // Move to the next slide
+                                self.slideToNext();
+                            }
+                        }, this.config.pauseDuration);
+                    }, scrollDuration);
+                }, 500); // Start scrolling after fade-in
+            }, 50); // Small delay to ensure the transform is applied before fading in
+        }, 500); // Wait for fade-out
+    },
+
+    updateTimerDisplay: function(phase, duration, start) {
+        if (this.config.debug && this.timerDisplay) {
+            const timerTextElement = this.timerDisplay.querySelector('.timer-text');
+            const apiCallCountElement = this.timerDisplay.querySelector('.api-call-count');
             
-            const timerTextElement = document.createElement("span");
-            timerTextElement.className = "timer-text";
-            this.timerDisplay.appendChild(timerTextElement);
-            
-            const apiCallCountElement = document.createElement("span");
-            apiCallCountElement.className = "api-call-count";
-            apiCallCountElement.textContent = `API Calls: ${this.apiCallCount}`;
-            this.timerDisplay.appendChild(apiCallCountElement);
-            
-            const wrapper = document.querySelector(".MMM-Starlight");
-            if (wrapper) {
-                wrapper.insertBefore(this.timerDisplay, wrapper.firstChild);
-            }
+            const updateTimer = () => {
+                let elapsed = Math.floor((Date.now() - start) / 1000);
+                let remaining = Math.max(0, Math.floor(duration / 1000) - elapsed);
+                let timerText = `${phase}: ${remaining}s remaining`;
+                
+                if (timerTextElement) {
+                    timerTextElement.textContent = timerText;
+                }
+                
+                if (apiCallCountElement) {
+                    apiCallCountElement.textContent = `API Calls: ${this.apiCallCount}`;
+                }
+                
+                if (remaining > 0) {
+                    requestAnimationFrame(updateTimer);
+                }
+            };
+            updateTimer();
         }
-        
-        const timerTextElement = this.timerDisplay.querySelector('.timer-text');
-        const updateTimer = () => {
-            const elapsed = Math.floor((Date.now() - start) / 1000);
-            const remaining = Math.max(0, Math.floor(duration / 1000) - elapsed);
-            timerTextElement.innerHTML = `${phase}: ${elapsed}s / ${Math.floor(duration / 1000)}s`;
-            
-            if (remaining > 0) {
-                requestAnimationFrame(updateTimer);
-            }
-        };
-        updateTimer();
-    }
-},
+    },
 
 simulateMidnightUpdate: function() {
         Log.info(`${this.name}: Simulating midnight update`);
