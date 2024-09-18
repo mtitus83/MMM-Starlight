@@ -823,33 +823,47 @@ checkAndRotate: function() {
     loopScrolling: function(textContent, scrollDistance, startTime) {
         var self = this;
         
-        // Reset position without fading
-        textContent.style.transition = 'none';
-        textContent.style.transform = 'translateY(0)';
+        // Fade out
+        textContent.style.transition = 'opacity 0.5s ease-out';
+        textContent.style.opacity = '0';
         
-        // Force a reflow to ensure the transform is applied instantly
-        textContent.offsetHeight;
-        
-        // Start scrolling again
-        var scrollDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
-        this.updateTimerDisplay("Scrolling", scrollDuration, Date.now());
-        textContent.style.transition = `transform ${scrollDuration}ms linear`;
-        textContent.style.transform = `translateY(-${scrollDistance}px)`;
-        
-        self.scrollTimer = setTimeout(() => {
-            // Pause at the bottom
-            this.updateTimerDisplay("Bottom Pause", this.config.pauseDuration, Date.now());
+        setTimeout(() => {
+            // Reset position
+            textContent.style.transition = 'none';
+            textContent.style.transform = 'translateY(0)';
             
+            // Force a reflow to ensure the transform is applied instantly
+            textContent.offsetHeight;
+            
+            // Fade in
             setTimeout(() => {
-                if (Date.now() - startTime < self.config.signWaitTime) {
-                    // If signWaitTime hasn't elapsed, loop again
-                    self.loopScrolling(textContent, scrollDistance, startTime);
-                } else {
-                    // Move to the next slide
-                    self.slideToNext();
-                }
-            }, this.config.pauseDuration);
-        }, scrollDuration);
+                textContent.style.transition = 'opacity 0.5s ease-in';
+                textContent.style.opacity = '1';
+                
+                // Start scrolling again
+                setTimeout(() => {
+                    var scrollDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
+                    this.updateTimerDisplay("Scrolling", scrollDuration, Date.now());
+                    textContent.style.transition = `transform ${scrollDuration}ms linear`;
+                    textContent.style.transform = `translateY(-${scrollDistance}px)`;
+                    
+                    self.scrollTimer = setTimeout(() => {
+                        // Pause at the bottom
+                        this.updateTimerDisplay("Bottom Pause", this.config.pauseDuration, Date.now());
+                        
+                        setTimeout(() => {
+                            if (Date.now() - startTime < self.config.signWaitTime) {
+                                // If signWaitTime hasn't elapsed, loop again
+                                self.loopScrolling(textContent, scrollDistance, startTime);
+                            } else {
+                                // Move to the next slide
+                                self.slideToNext();
+                            }
+                        }, this.config.pauseDuration);
+                    }, scrollDuration);
+                }, 500); // Start scrolling after fade-in
+            }, 50); // Small delay to ensure the transform is applied before fading in
+        }, 500); // Wait for fade-out
     },
 
     updateTimerDisplay: function(phase, duration, start) {
