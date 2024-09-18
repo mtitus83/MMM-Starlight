@@ -840,7 +840,8 @@ checkAndRotate: function() {
                 textContent.style.transition = 'opacity 0.5s ease-in';
                 textContent.style.opacity = '1';
                 
-                // Start scrolling again
+                // Additional pause after fading in
+                this.updateTimerDisplay("Top Pause", this.config.pauseDuration, Date.now());
                 setTimeout(() => {
                     var scrollDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
                     this.updateTimerDisplay("Scrolling", scrollDuration, Date.now());
@@ -861,7 +862,7 @@ checkAndRotate: function() {
                             }
                         }, this.config.pauseDuration);
                     }, scrollDuration);
-                }, 500); // Start scrolling after fade-in
+                }, this.config.pauseDuration); // Additional pause before starting to scroll
             }, 50); // Small delay to ensure the transform is applied before fading in
         }, 500); // Wait for fade-out
     },
