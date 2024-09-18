@@ -8,6 +8,7 @@ Module.register("MMM-Starlight", {
         imageWidth: "50px",
         pauseDuration: 10000,
         scrollSpeed: 7,
+	signWaitTime: 20000,
         maxTextHeight: "400px",
         width: "400px",
         fontSize: "1em",
@@ -27,11 +28,6 @@ Module.register("MMM-Starlight", {
         this.debugClickCount = 0;
         this.apiCallCount = 0;  // Initialize API call counter
         this.timerDisplay = null;
-    // Display the first slide and start the timer
-    const signWaitTime = this.config.signWaitTime;
-    const pauseDuration = this.config.pauseDuration || 5000;  // Ensure pauseDuration has a value
-    this.startRealTimeTimer(signWaitTime, pauseDuration);  // Start the timer for the first slide
-
 
         this.initializeModule();
     },
@@ -201,6 +197,13 @@ socketNotificationReceived: function(notification, payload) {
     this.log(`Received socket notification: ${notification}`);
     
     switch(notification) {
+        case "MODULE_DOM_CREATED":
+            this.log("Module DOM created, initializing timer");
+            const signWaitTime = this.config.signWaitTime || 20000; // Provide a default value
+            const pauseDuration = this.config.pauseDuration || 5000;
+            this.startRealTimeTimer(signWaitTime, pauseDuration);
+            break;
+
         case "HOROSCOPE_RESULT":
             this.log(`Received horoscope result for ${payload.sign}, period: ${payload.period}`);
             this.handleHoroscopeResult(payload);
