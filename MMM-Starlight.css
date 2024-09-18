@@ -223,3 +223,30 @@
     transform: rotate(360deg);
   }
 }
+
+
+.MMM-Starlight .starlight-title,
+.MMM-Starlight .starlight-text-content,
+.MMM-Starlight .starlight-image-wrapper {
+    transition: opacity 1s ease-in-out, transform 1s ease-in-out;
+}
+
+.MMM-Starlight .starlight-text-wrapper {
+    transition: transform linear;
+}
+
+/* Update this existing rule */
+.MMM-Starlight .starlight-text.scrolling {
+    transition: transform linear;
+}
+
+/* Ensure smooth sliding for containers */
+.MMM-Starlight .starlight-image-slide-container,
+.MMM-Starlight .starlight-text-slide-container {
+    transition: transform 1s ease-in-out;
+}
+
+/* Add a class for fading elements */
+.MMM-Starlight .fading {
+    opacity: 0;
+}

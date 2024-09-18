@@ -678,6 +678,7 @@ checkAndRotate: function() {
 slideToNext: function() {
     clearTimeout(this.pauseTimer);
     clearTimeout(this.waitTimer);
+    clearTimeout(this.scrollTimer);
 
     const signWaitTime = this.config.signWaitTime;
     
@@ -690,7 +691,7 @@ slideToNext: function() {
 
         // Log the time spent on the current slide
         const elapsedTime = Date.now() - this.slideStartTime;
-        this.logSlideDuration(currentSign, currentPeriod, elapsedTime / 1000, signWaitTime / 1000);
+        this.logSlideDuration(currentSign, currentPeriod, elapsedTime / 1000, signWaitTime / 1000, this.config.scrollSpeed);
 
         const currentText = textSlideContainer.querySelector(".starlight-text-content.current");
         const nextText = textSlideContainer.querySelector(".starlight-text-content.next");
@@ -705,51 +706,66 @@ slideToNext: function() {
             nextImage.innerHTML = this.createImageElement(currentSign, "next").innerHTML;
         }
 
-        textSlideContainer.style.transition = "transform 1s ease-in-out";
-        textSlideContainer.style.transform = "translateX(calc(-50% - 40px))";
-
-        if (isSignChange) {
-            imageSlideContainer.style.transition = "transform 1s ease-in-out";
-            imageSlideContainer.style.transform = "translateX(calc(-50% - 40px))";
-        }
-
-        titleElement.classList.add('fading');
+        // Apply fade out
+        titleElement.style.opacity = 0;
+        currentText.style.opacity = 0;
+        if (isSignChange) currentImage.style.opacity = 0;
 
         setTimeout(() => {
-            titleElement.classList.remove('fading');
-
-            titleElement.innerHTML = this.formatPeriodText(currentPeriod) + " Horoscope for " + currentSign.charAt(0).toUpperCase() + currentSign.slice(1);
-
-            textSlideContainer.style.transition = "none";
-            textSlideContainer.style.transform = "translateX(0)";
-
-            currentText.innerHTML = nextText.innerHTML;
+            // Slide transition
+            textSlideContainer.style.transition = "transform 1s ease-in-out";
+            textSlideContainer.style.transform = "translateX(calc(-50% - 40px))";
 
             if (isSignChange) {
-                imageSlideContainer.style.transition = "none";
-                imageSlideContainer.style.transform = "translateX(0)";
-                currentImage.innerHTML = nextImage.innerHTML;
+                imageSlideContainer.style.transition = "transform 1s ease-in-out";
+                imageSlideContainer.style.transform = "translateX(calc(-50% - 40px))";
             }
 
-            nextText.innerHTML = this.createTextElement(nextSign, "next", nextPeriod).innerHTML;
-            
-            if (isSignChange) {
-                nextImage.innerHTML = this.createImageElement(nextSign, "next").innerHTML;
-            }
+            setTimeout(() => {
+                // Update content
+                titleElement.innerHTML = this.formatPeriodText(currentPeriod) + " Horoscope for " + currentSign.charAt(0).toUpperCase() + currentSign.slice(1);
+                currentText.innerHTML = nextText.innerHTML;
+                if (isSignChange) {
+                    currentImage.innerHTML = nextImage.innerHTML;
+                }
 
-            // Reset styles for scrolling
-            const textWrapper = currentText.querySelector(".starlight-text-wrapper");
-            if (textWrapper) {
-                textWrapper.style.transition = "none";
-                textWrapper.style.transform = "translateY(0)";
-            }
+                // Reset positions
+                textSlideContainer.style.transition = "none";
+                textSlideContainer.style.transform = "translateX(0)";
+                if (isSignChange) {
+                    imageSlideContainer.style.transition = "none";
+                    imageSlideContainer.style.transform = "translateX(0)";
+                }
 
-            // Start the display timer and scrolling here
-            this.startScrolling();
+                // Prepare next content
+                nextText.innerHTML = this.createTextElement(nextSign, "next", nextPeriod).innerHTML;
+                if (isSignChange) {
+                    nextImage.innerHTML = this.createImageElement(nextSign, "next").innerHTML;
+                }
 
-            // Reset the timer for the next slide
-            this.slideStartTime = Date.now();
-        }, 1000);
+                // Apply fade in
+                titleElement.style.transition = "opacity 1s ease-in-out";
+                currentText.style.transition = "opacity 1s ease-in-out";
+                if (isSignChange) currentImage.style.transition = "opacity 1s ease-in-out";
+
+                titleElement.style.opacity = 1;
+                currentText.style.opacity = 1;
+                if (isSignChange) currentImage.style.opacity = 1;
+
+                // Reset styles for scrolling
+                const textWrapper = currentText.querySelector(".starlight-text-wrapper");
+                if (textWrapper) {
+                    textWrapper.style.transition = "none";
+                    textWrapper.style.transform = "translateY(0)";
+                }
+
+                // Start the display timer and scrolling here
+                this.startScrolling();
+
+                // Reset the timer for the next slide
+                this.slideStartTime = Date.now();
+            }, 1000); // Wait for slide transition to complete
+        }, 500); // Short delay before starting the transition
     }
 },
 
@@ -770,6 +786,7 @@ startScrolling: function() {
     var self = this;
     clearTimeout(this.pauseTimer);
     clearTimeout(this.waitTimer);
+    clearTimeout(this.scrollTimer);
 
     var textWrapper = document.querySelector(".MMM-Starlight .starlight-text-wrapper");
     var textContent = document.querySelector(".MMM-Starlight .starlight-text");
@@ -789,17 +806,31 @@ startScrolling: function() {
                 self.isScrolling = true;
 
                 var scrollDistance = contentHeight - wrapperHeight;
-                var scrollDuration = this.config.signWaitTime;
+                var scrollDuration = (scrollDistance / self.config.scrollSpeed) * 1000;
 
                 textContent.style.transition = `transform ${scrollDuration}ms linear`;
                 textContent.style.transform = `translateY(-${scrollDistance}px)`;
-            }
-        }
 
-        this.waitTimer = setTimeout(() => {
-            self.isScrolling = false;
-            self.slideToNext();
-        }, this.config.signWaitTime);
+                self.scrollTimer = setTimeout(() => {
+                    var elapsedTime = Date.now() - startWaitTime;
+                    var remainingTime = Math.max(0, self.config.signWaitTime - elapsedTime);
+
+                    self.waitTimer = setTimeout(() => {
+                        self.isScrolling = false;
+                        self.slideToNext();
+                    }, remainingTime);
+                }, scrollDuration);
+            } else {
+                self.waitTimer = setTimeout(() => {
+                    self.isScrolling = false;
+                    self.slideToNext();
+                }, self.config.signWaitTime);
+            }
+        } else {
+            self.waitTimer = setTimeout(() => {
+                self.slideToNext();
+            }, self.config.signWaitTime);
+        }
     }, this.config.pauseDuration);
 },
 
