@@ -54,37 +54,31 @@ logSlideDuration: function(zodiacSign, period, elapsedTime, signWaitTime, scroll
     console.log(`${zodiacSign} ${period} remained on screen for ${elapsedTime} out of ${signWaitTime} at speed of ${scrollSpeed}`);
 },
 
-    startRealTimeTimer: function(signWaitTime, pauseDuration) {
-        pauseDuration = pauseDuration || 5000;
-        let counter = 0;
-
+startRealTimeTimer: function(signWaitTime) {
+    if (this.config.debug) {
+        let timerElement = document.getElementById("timer-display");
+        
+        if (!timerElement) {
+            timerElement = document.createElement("div");
+            timerElement.id = "timer-display";
+            timerElement.style.textAlign = "center";
+            timerElement.style.margin = "10px 0";
+            document.querySelector(".MMM-Starlight .starlight-text-wrapper").before(timerElement);
+        }
+        
+        const startTime = Date.now();
         const updateTimerDisplay = () => {
-            if (this.timerDisplay) {
-                const timerTextElement = this.timerDisplay.querySelector('.timer-text');
-                const apiCallCountElement = this.timerDisplay.querySelector('.api-call-count');
-                
-                if (timerTextElement) {
-                    timerTextElement.textContent = `Pause Timer: ${counter}s / ${pauseDuration / 1000}s`;
-                }
-                if (apiCallCountElement) {
-                    apiCallCountElement.textContent = `API Calls: ${this.apiCallCount}`;
-                }
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const remaining = Math.max(0, Math.floor(signWaitTime / 1000) - elapsed);
+            timerElement.innerHTML = `Wait Timer: ${elapsed}s / ${signWaitTime / 1000}s`;
+            
+            if (remaining > 0) {
+                requestAnimationFrame(updateTimerDisplay);
             }
         };
-
-        const pauseInterval = setInterval(() => {
-            if (counter >= pauseDuration / 1000) {
-                clearInterval(pauseInterval);
-                this.startScrollTimer(signWaitTime);
-            } else {
-                updateTimerDisplay();
-                counter++;
-            }
-        }, 1000);
-
-        // Initial update
         updateTimerDisplay();
-    },
+    }
+},
 
     startScrollTimer: function(signWaitTime) {
         let counter = 0;
@@ -680,8 +674,8 @@ checkAndRotate: function() {
 },
 
 slideToNext: function() {
-    clearTimeout(this.scrollTimer);
-    clearTimeout(this.slideTimer);
+    clearTimeout(this.pauseTimer);
+    clearTimeout(this.waitTimer);
 
     const signWaitTime = this.config.signWaitTime;
     this.startRealTimeTimer(signWaitTime);
@@ -695,35 +689,30 @@ slideToNext: function() {
 
         // Log the time spent on the current slide
         const elapsedTime = Date.now() - this.slideStartTime;
-        this.logSlideDuration(currentSign, currentPeriod, elapsedTime / 1000, this.config.signWaitTime / 1000, this.config.scrollSpeed);
+        this.logSlideDuration(currentSign, currentPeriod, elapsedTime / 1000, this.config.signWaitTime / 1000);
  
         if (this.config.debug) {
-            let timerElement = document.getElementById("scroll-timer");
+            let timerElement = document.getElementById("timer-display");
             
             if (!timerElement) {
                 timerElement = document.createElement("div");
-                timerElement.id = "scroll-timer";
+                timerElement.id = "timer-display";
                 timerElement.style.textAlign = "center";
                 timerElement.style.margin = "10px 0";
                 document.querySelector(".MMM-Starlight .starlight-text-wrapper").before(timerElement);
             }
             
-            let counter = 0;
-            const signWaitTime = this.config.signWaitTime / 1000;
-
-            const timerInterval = setInterval(() => {
-                if (counter >= signWaitTime) {
-                    clearInterval(timerInterval);
-                } else {
-                    timerElement.innerHTML = `Scroll Timer: ${counter}s / ${signWaitTime}s`;
-                    counter++;
+            // Update timer display
+            const updateTimerDisplay = () => {
+                const elapsed = Math.floor((Date.now() - this.slideStartTime) / 1000);
+                const remaining = Math.max(0, Math.floor(signWaitTime / 1000) - elapsed);
+                timerElement.innerHTML = `Wait Timer: ${elapsed}s / ${signWaitTime / 1000}s`;
+                
+                if (remaining > 0) {
+                    requestAnimationFrame(updateTimerDisplay);
                 }
-            }, 1000);
-
-            setTimeout(() => {
-                clearInterval(timerInterval);
-                timerElement.innerHTML = '';  // Clear the timer after the slide transition
-            }, 1000 + signWaitTime * 1000);
+            };
+            updateTimerDisplay();
         }
 
         const currentText = textSlideContainer.querySelector(".starlight-text-content.current");
@@ -771,7 +760,13 @@ slideToNext: function() {
                 nextImage.innerHTML = this.createImageElement(nextSign, "next").innerHTML;
             }
 
-            this.startScrolling();
+            // Start the pause timer
+            this.pauseTimer = setTimeout(() => {
+                // After pause, start the wait timer
+                this.waitTimer = setTimeout(() => {
+                    this.slideToNext();
+                }, this.config.signWaitTime);
+            }, this.config.pauseDuration);
 
             // Reset the timer for the next slide
             this.slideStartTime = Date.now();
