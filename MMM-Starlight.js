@@ -832,7 +832,7 @@ startScrolling: function() {
             }, this.config.signWaitTime);
         }
     }, this.config.pauseDuration);
-}
+},
 
 simulateMidnightUpdate: function() {
         Log.info(`${this.name}: Simulating midnight update`);
