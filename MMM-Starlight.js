@@ -679,70 +679,70 @@ checkAndRotate: function() {
 },
 
 
-    slideToNext: function() {
-        clearTimeout(this.scrollTimer);
-        clearTimeout(this.slideTimer);
+slideToNext: function() {
+    clearTimeout(this.scrollTimer);
+    clearTimeout(this.slideTimer);
 
-        const signWaitTime = this.config.signWaitTime;
-        this.startRealTimeTimer(signWaitTime);
+    const signWaitTime = this.config.signWaitTime;
+    this.startRealTimeTimer(signWaitTime);
 
-        const imageSlideContainer = document.querySelector(".MMM-Starlight .starlight-image-slide-container");
-        const textSlideContainer = document.querySelector(".MMM-Starlight .starlight-text-slide-container");
-        const titleElement = document.querySelector(".MMM-Starlight .starlight-title");
+    const imageSlideContainer = document.querySelector(".MMM-Starlight .starlight-image-slide-container");
+    const textSlideContainer = document.querySelector(".MMM-Starlight .starlight-text-slide-container");
+    const titleElement = document.querySelector(".MMM-Starlight .starlight-title");
 
-        if (imageSlideContainer && textSlideContainer && titleElement) {
-            const { currentSign, currentPeriod, nextSign, nextPeriod } = this.getNextPeriodAndSign();
+    if (imageSlideContainer && textSlideContainer && titleElement) {
+        const { currentSign, currentPeriod, nextSign, nextPeriod } = this.getNextPeriodAndSign();
 
-            // Log the time spent on the current slide
-            const elapsedTime = Date.now() - this.slideStartTime;
-            this.logSlideDuration(currentSign, currentPeriod, elapsedTime / 1000, this.config.signWaitTime / 1000, this.config.scrollSpeed);
+        // Log the time spent on the current slide
+        const elapsedTime = Date.now() - this.slideStartTime;
+        this.logSlideDuration(currentSign, currentPeriod, elapsedTime / 1000, this.config.signWaitTime / 1000, this.config.scrollSpeed);
 
-            // Prepare next content
-            const nextText = textSlideContainer.querySelector(".starlight-text-content:last-child");
-            nextText.innerHTML = this.createTextElement(nextSign, "next", nextPeriod).innerHTML;
+        // Prepare next content
+        const nextText = textSlideContainer.querySelector(".starlight-text-content:last-child");
+        nextText.innerHTML = this.createTextElement(nextSign, "next", nextPeriod).innerHTML;
 
-            if (this.currentPeriodIndex === 0) {
-                const nextImage = imageSlideContainer.querySelector(".starlight-image-wrapper:last-child");
-                nextImage.innerHTML = this.createImageElement(nextSign, "next").innerHTML;
-            }
-
-            // Slide
-            textSlideContainer.style.transform = 'translateX(calc(-50% - 38px))';
-            imageSlideContainer.style.transform = 'translateX(calc(-50% - 38px))';
-
-            // Update title with a quick fade
-            titleElement.style.opacity = '0';
-            setTimeout(() => {
-                titleElement.innerHTML = this.formatPeriodText(currentPeriod) + " Horoscope for " + currentSign.charAt(0).toUpperCase() + currentSign.slice(1);
-                titleElement.style.opacity = '1';
-            }, 500);
-
-            setTimeout(() => {
-                // Reset positions
-                textSlideContainer.style.transition = 'none';
-                imageSlideContainer.style.transition = 'none';
-                textSlideContainer.style.transform = 'translateX(0)';
-                imageSlideContainer.style.transform = 'translateX(0)';
-
-                // Move the last child to the first position
-                textSlideContainer.insertBefore(textSlideContainer.lastElementChild, textSlideContainer.firstElementChild);
-                imageSlideContainer.insertBefore(imageSlideContainer.lastElementChild, imageSlideContainer.firstElementChild);
-
-                // Force reflow
-                void textSlideContainer.offsetWidth;
-                void imageSlideContainer.offsetWidth;
-
-                // Restore transition
-                textSlideContainer.style.transition = '';
-                imageSlideContainer.style.transition = '';
-
-                this.startScrolling();
-
-                // Reset the timer for the next slide
-                this.slideStartTime = Date.now();
-            }, 1000); // This should match the transition duration in CSS
+        if (this.currentPeriodIndex === 0) {
+            const nextImage = imageSlideContainer.querySelector(".starlight-image-wrapper:last-child");
+            nextImage.innerHTML = this.createImageElement(nextSign, "next").innerHTML;
         }
-    },
+
+        // Slide
+        textSlideContainer.style.transform = 'translateX(calc(-50% - 38px))';
+        imageSlideContainer.style.transform = 'translateX(calc(-50% - 38px))';
+
+        // Update title with a quick fade
+        titleElement.style.opacity = '0';
+        setTimeout(() => {
+            titleElement.innerHTML = this.formatPeriodText(nextPeriod) + " Horoscope for " + nextSign.charAt(0).toUpperCase() + nextSign.slice(1);
+            titleElement.style.opacity = '1';
+        }, 500);
+
+        setTimeout(() => {
+            // Reset positions
+            textSlideContainer.style.transition = 'none';
+            imageSlideContainer.style.transition = 'none';
+            textSlideContainer.style.transform = 'translateX(0)';
+            imageSlideContainer.style.transform = 'translateX(0)';
+
+            // Move the last child to the first position
+            textSlideContainer.insertBefore(textSlideContainer.lastElementChild, textSlideContainer.firstElementChild);
+            imageSlideContainer.insertBefore(imageSlideContainer.lastElementChild, imageSlideContainer.firstElementChild);
+
+            // Force reflow
+            void textSlideContainer.offsetWidth;
+            void imageSlideContainer.offsetWidth;
+
+            // Restore transition
+            textSlideContainer.style.transition = '';
+            imageSlideContainer.style.transition = '';
+
+            this.startScrolling();
+
+            // Reset the timer for the next slide
+            this.slideStartTime = Date.now();
+        }, 1000); // This should match the transition duration in CSS
+    }
+},
 
     getNextPeriodAndSign: function() {
         let currentSign = this.currentSign;
