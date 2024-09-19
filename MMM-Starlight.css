@@ -18,26 +18,20 @@
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: center;
-  transition: opacity 1s ease-in-out;
-}
-
-.MMM-Starlight .starlight-title.fading {
-  opacity: 0;
-  transition: opacity 1s ease-in-out;
+  transition: opacity 0.5s ease-in-out;
 }
 
 .MMM-Starlight .starlight-image-slide-container,
 .MMM-Starlight .starlight-text-slide-container {
   display: flex;
-  width: calc(200% + 80px);
+  width: 200%;
   transition: transform 1s ease-in-out;
 }
 
 .MMM-Starlight .starlight-image-wrapper,
 .MMM-Starlight .starlight-text-content {
-  width: calc(50% - 40px);
+  width: 50%;
   flex-shrink: 0;
-  margin-right: 80px;
 }
 
 .MMM-Starlight .starlight-image-wrapper {
@@ -55,7 +49,7 @@
 }
 
 .MMM-Starlight .starlight-text-wrapper {
-  justify-content: flex-start; /* Align content to the top */
+  justify-content: flex-start;
   overflow: hidden;
   position: relative;
   width: 100%;
@@ -63,6 +57,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
+  max-height: 400px; /* Adjust this value as needed */
 }
 
 .MMM-Starlight .starlight-text {
@@ -71,8 +66,7 @@
   position: relative;
   line-height: 1.4;
   color: white;
-  margin-top: 0; /* Ensure the text starts at the top */
-  transform: none; /* Reset any scrolling transforms */
+  margin-top: 0;
 }
 
 .MMM-Starlight.starlight-error {
@@ -137,14 +131,8 @@
   margin: 5px;
 }
 
-.MMM-Starlight .starlight-text-wrapper,
-.MMM-Starlight .starlight-image-wrapper {
-  transition: opacity 1s ease-in-out;
-}
-
-.MMM-Starlight .starlight-text-wrapper.fading,
-.MMM-Starlight .starlight-image-wrapper.fading {
-  opacity: 0;
+.MMM-Starlight .sliding {
+  transform: translateX(-50%);
 }
 
 .MMM-Starlight .starlight-fallback-text {
@@ -161,7 +149,7 @@
   justify-content: center;
   text-align: center;
   position: relative;
-  padding-bottom: 30px; /* Add padding to accommodate the reading text */
+  padding-bottom: 30px;
 }
 
 .MMM-Starlight .starlight-centered-content .starlight-image {
@@ -222,31 +210,4 @@
   to {
     transform: rotate(360deg);
   }
-}
-
-
-.MMM-Starlight .starlight-title,
-.MMM-Starlight .starlight-text-content,
-.MMM-Starlight .starlight-image-wrapper {
-    transition: opacity 1s ease-in-out, transform 1s ease-in-out;
-}
-
-.MMM-Starlight .starlight-text-wrapper {
-    transition: transform linear;
-}
-
-/* Update this existing rule */
-.MMM-Starlight .starlight-text.scrolling {
-    transition: transform linear;
-}
-
-/* Ensure smooth sliding for containers */
-.MMM-Starlight .starlight-image-slide-container,
-.MMM-Starlight .starlight-text-slide-container {
-    transition: transform 1s ease-in-out;
-}
-
-/* Add a class for fading elements */
-.MMM-Starlight .fading {
-    opacity: 0;
 }
