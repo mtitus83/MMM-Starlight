@@ -701,10 +701,9 @@ slideToNext: function() {
         const nextText = textSlideContainer.querySelector(".starlight-text-content:last-child");
         nextText.innerHTML = this.createTextElement(nextSign, "next", nextPeriod).innerHTML;
 
-        if (this.currentPeriodIndex === 0) {
-            const nextImage = imageSlideContainer.querySelector(".starlight-image-wrapper:last-child");
-            nextImage.innerHTML = this.createImageElement(nextSign, "next").innerHTML;
-        }
+        // Always update the next image
+        const nextImage = imageSlideContainer.querySelector(".starlight-image-wrapper:last-child");
+        nextImage.innerHTML = this.createImageElement(nextSign, "next").innerHTML;
 
         // Slide
         textSlideContainer.style.transform = 'translateX(calc(-50% - 38px))';
