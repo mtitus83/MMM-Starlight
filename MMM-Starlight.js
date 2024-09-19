@@ -703,8 +703,8 @@ slideToNext: function() {
         }
 
         // Slide
-        textSlideContainer.classList.add('sliding');
-        imageSlideContainer.classList.add('sliding');
+        textSlideContainer.style.transform = 'translateX(calc(-50% - 38px))';
+        imageSlideContainer.style.transform = 'translateX(calc(-50% - 38px))';
 
         // Update title with a quick fade
         titleElement.style.opacity = '0';
@@ -715,8 +715,6 @@ slideToNext: function() {
 
         setTimeout(() => {
             // Reset positions
-            textSlideContainer.classList.remove('sliding');
-            imageSlideContainer.classList.remove('sliding');
             textSlideContainer.style.transition = 'none';
             imageSlideContainer.style.transition = 'none';
             textSlideContainer.style.transform = 'translateX(0)';
@@ -741,7 +739,6 @@ slideToNext: function() {
         }, 1000); // This should match the transition duration in CSS
     }
 },
-
 
 	getNextPeriodAndSign: function() {
         this.currentPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;

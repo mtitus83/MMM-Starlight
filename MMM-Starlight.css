@@ -24,14 +24,15 @@
 .MMM-Starlight .starlight-image-slide-container,
 .MMM-Starlight .starlight-text-slide-container {
   display: flex;
-  width: 200%;
+  width: calc(200% + 76px);
   transition: transform 1s ease-in-out;
 }
 
 .MMM-Starlight .starlight-image-wrapper,
 .MMM-Starlight .starlight-text-content {
-  width: 50%;
+  width: calc(50% - 38px);
   flex-shrink: 0;
+  margin-right: 76px;
 }
 
 .MMM-Starlight .starlight-image-wrapper {
@@ -57,7 +58,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  max-height: 400px; /* Adjust this value as needed */
+  max-height: 400px;
 }
 
 .MMM-Starlight .starlight-text {
@@ -132,7 +133,7 @@
 }
 
 .MMM-Starlight .sliding {
-  transform: translateX(-50%);
+  transform: translateX(calc(-50% - 38px));
 }
 
 .MMM-Starlight .starlight-fallback-text {
