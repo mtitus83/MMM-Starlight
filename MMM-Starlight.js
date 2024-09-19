@@ -701,13 +701,17 @@ slideToNext: function() {
         const nextText = textSlideContainer.querySelector(".starlight-text-content:last-child");
         nextText.innerHTML = this.createTextElement(nextSign, "next", nextPeriod).innerHTML;
 
-        // Always update the next image
-        const nextImage = imageSlideContainer.querySelector(".starlight-image-wrapper:last-child");
-        nextImage.innerHTML = this.createImageElement(nextSign, "next").innerHTML;
+        const isNewSign = currentSign !== nextSign;
 
-        // Slide
+        // Only update and slide the image if it's a new sign
+        if (isNewSign) {
+            const nextImage = imageSlideContainer.querySelector(".starlight-image-wrapper:last-child");
+            nextImage.innerHTML = this.createImageElement(nextSign, "next").innerHTML;
+            imageSlideContainer.style.transform = 'translateX(calc(-50% - 38px))';
+        }
+
+        // Always slide the text
         textSlideContainer.style.transform = 'translateX(calc(-50% - 38px))';
-        imageSlideContainer.style.transform = 'translateX(calc(-50% - 38px))';
 
         // Update title with a quick fade
         titleElement.style.opacity = '0';
@@ -719,13 +723,16 @@ slideToNext: function() {
         setTimeout(() => {
             // Reset positions
             textSlideContainer.style.transition = 'none';
-            imageSlideContainer.style.transition = 'none';
             textSlideContainer.style.transform = 'translateX(0)';
-            imageSlideContainer.style.transform = 'translateX(0)';
 
-            // Move the last child to the first position
+            if (isNewSign) {
+                imageSlideContainer.style.transition = 'none';
+                imageSlideContainer.style.transform = 'translateX(0)';
+                imageSlideContainer.insertBefore(imageSlideContainer.lastElementChild, imageSlideContainer.firstElementChild);
+            }
+
+            // Move the last child to the first position for text
             textSlideContainer.insertBefore(textSlideContainer.lastElementChild, textSlideContainer.firstElementChild);
-            imageSlideContainer.insertBefore(imageSlideContainer.lastElementChild, imageSlideContainer.firstElementChild);
 
             // Force reflow
             void textSlideContainer.offsetWidth;
