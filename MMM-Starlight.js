@@ -16,6 +16,7 @@ Module.register("MMM-Starlight", {
         showButton: false
     },
 
+
     start: function() {
         Log.info("Starting module: " + this.name);
         this.horoscopes = {};
@@ -23,10 +24,12 @@ Module.register("MMM-Starlight", {
         this.cachedImages = {};
         this.currentSignIndex = 0;
         this.currentPeriodIndex = 0;
+        this.currentSign = this.config.zodiacSign[0];  // Initialize currentSign
+        this.currentPeriod = this.config.period[0];    // Initialize currentPeriod
         this.loaded = false;
         this.isPreloading = true;
         this.debugClickCount = 0;
-        this.apiCallCount = 0;  // Initialize API call counter
+        this.apiCallCount = 0;
         this.timerDisplay = null;
 
         this.initializeModule();
@@ -742,8 +745,8 @@ checkAndRotate: function() {
     },
 
     getNextPeriodAndSign: function() {
-        let currentSign = this.config.zodiacSign[this.currentSignIndex];
-        let currentPeriod = this.config.period[this.currentPeriodIndex];
+        let currentSign = this.currentSign;
+        let currentPeriod = this.currentPeriod;
         
         // Move to the next period
         this.currentPeriodIndex = (this.currentPeriodIndex + 1) % this.config.period.length;
@@ -753,14 +756,14 @@ checkAndRotate: function() {
             this.currentSignIndex = (this.currentSignIndex + 1) % this.config.zodiacSign.length;
         }
         
-        let nextSign = this.config.zodiacSign[this.currentSignIndex];
-        let nextPeriod = this.config.period[this.currentPeriodIndex];
+        this.currentSign = this.config.zodiacSign[this.currentSignIndex];
+        this.currentPeriod = this.config.period[this.currentPeriodIndex];
         
         return {
             currentSign: currentSign,
             currentPeriod: currentPeriod,
-            nextSign: nextSign,
-            nextPeriod: nextPeriod
+            nextSign: this.currentSign,
+            nextPeriod: this.currentPeriod
         };
     },
 
