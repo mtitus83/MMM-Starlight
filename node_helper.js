@@ -50,6 +50,8 @@ module.exports = NodeHelper.create({
         this.scheduledJobs = {};
         this.lastMidnightUpdate = null;
         this.last6AMUpdate = null;
+        this.requestQueue = [];
+        this.isProcessingQueue = false;
     },
 
 socketNotificationReceived: function(notification, payload) {
@@ -101,6 +103,23 @@ socketNotificationReceived: function(notification, payload) {
         case "RESET_CACHE":
             this.resetCache();
             break;
+    }
+},
+
+
+_handleGetHoroscope: function(payload) {
+    const { sign, period } = payload;
+    const cachedData = this.cache.get(sign, period);
+
+    if (cachedData && !this.shouldUpdate(cachedData, period)) {
+        this.sendSocketNotification("HOROSCOPE_RESULT", {
+            success: true,
+            data: cachedData,
+            sign,
+            period
+        });
+    } else {
+        this.addToQueue(sign, period);
     }
 },
 
@@ -191,6 +210,23 @@ fetchTomorrowsHoroscopeData: async function() {
     }
 },
 
+addToQueue: function(sign, period) {
+    this.requestQueue.push({ sign, period });
+    this.processQueue();
+},
+
+processQueue: async function() {
+    if (this.isProcessingQueue) return;
+    this.isProcessingQueue = true;
+
+    while (this.requestQueue.length > 0) {
+        const { sign, period } = this.requestQueue.shift();
+        await this.fetchAndUpdateCache(sign, period);
+    }
+
+    this.isProcessingQueue = false;
+},
+
 checkSchedule() {
     if (this.scheduledJobs.midnight) {
         console.log(`[${this.name}] Next midnight update scheduled for: ${this.scheduledJobs.midnight.nextInvocation()}`);
@@ -249,52 +285,31 @@ fetchHoroscope: async function (period, zodiacSign) {
         }
     },
 
-    initializeCache: async function() {
-        console.log(`${this.name}: Initializing cache for all configured zodiac signs and periods`);
-        try {
-            await this.cache.loadFromFile();
-            const currentDate = moment();
-            let cacheReport = "Cache status at initialization:";
-            const isInitialBuild = this.isInitialCacheBuild();
+initializeCache: async function() {
+    console.log(`${this.name}: Initializing cache for all configured zodiac signs and periods`);
+    try {
+        await this.cache.loadFromFile();
+        const currentDate = moment();
+        const isInitialBuild = this.isInitialCacheBuild();
 
-            for (const sign of this.config.zodiacSign) {
-                cacheReport += `\n${sign}:`;
-                for (const period of this.config.period) {
-                    const cachedData = this.cache.get(sign, period);
-                    let needsFetch = false;
-
-                    if (isInitialBuild) {
-                        // On initial build, fetch all periods including daily
-                        needsFetch = true;
-                    } else if (period !== 'daily') {
-                        // For non-daily periods on subsequent runs, check if update is needed
-                        needsFetch = !cachedData || !cachedData.nextUpdate || currentDate.isAfter(moment(cachedData.nextUpdate));
-                    }
-
-                    cacheReport += ` ${period} (${needsFetch ? "needs fetch" : "cached"})`;
-                    
-                    if (needsFetch) {
-                        this.log(`Fetching new data for ${sign}, period: ${period}`);
-                        await this.fetchAndUpdateCache(sign, period);
-                    } else {
-                        this.log(`Using cached data for ${sign}, period: ${period}`);
-                    }
+        for (const sign of this.config.zodiacSign) {
+            for (const period of this.config.period) {
+                const cachedData = this.cache.get(sign, period);
+                if (isInitialBuild || this.shouldUpdate(cachedData, period)) {
+                    await this.fetchAndUpdateCache(sign, period);
+                } else {
+                    console.log(`[CACHE HIT] Using cached data for ${sign}, period: ${period}`);
                 }
             }
-
-            this.log(cacheReport);
-            this.scheduleUpdates();
-            console.log(`${this.name}: Cache initialization completed`);
-            this.sendSocketNotification("CACHE_INITIALIZED");
-        } catch (error) {
-            console.error(`${this.name}: Error initializing cache:`, error);
-            this.sendSocketNotification("HOROSCOPE_RESULT", {
-                success: false,
-                message: "Error initializing cache",
-                error: error.toString()
-            });
         }
-    },
+
+        this.scheduleUpdates();
+        console.log(`${this.name}: Cache initialization completed`);
+        this.sendSocketNotification("CACHE_INITIALIZED");
+    } catch (error) {
+        console.error(`${this.name}: Error initializing cache:`, error);
+    }
+},
 
 isInitialCacheBuild() {
     // Check if the cache is empty or if it's the first time running
@@ -576,53 +591,13 @@ perform6AMUpdate: async function() {
     },
 
 handleGetHoroscope: function(payload) {
-    this.log(`Received request to get horoscope with payload: ${JSON.stringify(payload)}`);
-
-    if (!payload || Object.keys(payload).length === 0) {
-        this.log("Received empty payload in handleGetHoroscope, using default values");
-        payload = {
-            sign: this.config.zodiacSign[0],  // Use the first configured sign
-            period: "daily"  // Default to daily horoscope
-        };
+    if (this.debounceTimer) {
+        clearTimeout(this.debounceTimer);
     }
 
-    if (!payload.sign || !payload.period) {
-        this.log(`Invalid payload received: missing sign or period. Using default values. Payload: ${JSON.stringify(payload)}`);
-        payload.sign = payload.sign || this.config.zodiacSign[0];
-        payload.period = payload.period || "daily";
-    }
-
-    // Proceed with getting the horoscope using the payload (now with default values if it was empty)
-    this.getCachedHoroscope(payload.sign, payload.period)
-        .then(data => {
-            if (data) {
-                this.log(`Successfully retrieved horoscope for ${payload.sign}, period: ${payload.period}`);
-                this.sendSocketNotification("HOROSCOPE_RESULT", { 
-                    success: true,
-                    data: data,
-                    sign: payload.sign,
-                    period: payload.period
-                });
-            } else {
-                this.log(`No data found for ${payload.sign}, period: ${payload.period}`);
-                this.sendSocketNotification("HOROSCOPE_RESULT", { 
-                    success: false,
-                    message: "No data available",
-                    sign: payload.sign,
-                    period: payload.period
-                });
-            }
-        })
-        .catch(error => {
-            this.log(`Error in getHoroscope for ${payload.sign}, period: ${payload.period}: ${error}`);
-            this.sendSocketNotification("HOROSCOPE_RESULT", { 
-                success: false, 
-                message: "An error occurred while fetching the horoscope.",
-                sign: payload.sign,
-                period: payload.period,
-                error: error.toString()
-            });
-        });
+    this.debounceTimer = setTimeout(() => {
+        this._handleGetHoroscope(payload);
+    }, 300); // 300ms debounce time
 },
 
     async getCachedHoroscope(sign, period) {
@@ -637,61 +612,64 @@ handleGetHoroscope: function(payload) {
         return this.fetchAndUpdateCache(sign, period);
     },
 
-    shouldUpdate(cachedData, period) {
-        if (!cachedData || !cachedData.lastUpdate || !cachedData.nextUpdate) return true;
+shouldUpdate: function(cachedData, period) {
+    if (!cachedData || !cachedData.lastUpdate) return true;
 
-        const now = moment();
-        const nextUpdate = moment(cachedData.nextUpdate);
+    const now = moment();
+    const lastUpdate = moment(cachedData.lastUpdate);
 
-        // If current time is past the next update time, we should update
-        return now.isAfter(nextUpdate);
-    },
+    switch(period) {
+        case "daily":
+            return !now.isSame(lastUpdate, 'day');
+        case "tomorrow":
+            return now.isSame(lastUpdate, 'day') && now.hour() >= 6;
+        case "weekly":
+            return now.diff(lastUpdate, 'weeks') >= 1;
+        case "monthly":
+            return now.diff(lastUpdate, 'months') >= 1;
+        default:
+            return false;
+    }
+},
 
-async fetchAndUpdateCache(sign, period) {
+fetchAndUpdateCache: async function(sign, period) {
+    const cachedData = this.cache.get(sign, period);
+    if (!this.shouldUpdate(cachedData, period)) {
+        return cachedData;
+    }
+
     try {
-        console.log(`[${this.name}] Fetching new data for ${sign}, period: ${period}`);
         const data = await this.fetchFromAPI(sign, period);
-        
         if (data) {
             const now = moment();
-            let nextUpdate;
-            switch(period) {
-                case "daily":
-                    nextUpdate = now.clone().add(1, 'day').startOf('day');
-                    break;
-                case "tomorrow":
-                    nextUpdate = now.clone().add(1, 'day').set({hour: 6, minute: 0, second: 0, millisecond: 0});
-                    break;
-                case "weekly":
-                    nextUpdate = now.clone().add(1, 'week').startOf('isoWeek');
-                    break;
-                case "monthly":
-                    nextUpdate = now.clone().add(1, 'month').startOf('month');
-                    break;
-            }
-            
             const updatedData = {
                 ...data,
                 lastUpdate: now.toISOString(),
-                nextUpdate: nextUpdate.toISOString()
+                nextUpdate: this.getNextUpdateTime(period, now)
             };
-
             this.cache.set(sign, period, updatedData);
-            
             await this.cache.saveToFile();
-            console.log(`[${this.name}] Updated ${period} horoscope for ${sign}`);
-            
-            // Send notification to frontend about the update
             this.sendSocketNotification("CACHE_UPDATED", { sign, period, data: updatedData });
-            
             return updatedData;
-        } else {
-            console.log(`[${this.name}] No new data fetched for ${sign}, period: ${period}`);
-            return null;
         }
     } catch (error) {
-        console.error(`[${this.name}] Error fetching ${period} horoscope for ${sign}:`, error);
-        return null;
+        console.error(`Error fetching ${period} horoscope for ${sign}:`, error);
+    }
+    return null;
+},
+
+getNextUpdateTime: function(period, now) {
+    switch(period) {
+        case "daily":
+            return now.clone().add(1, 'day').startOf('day');
+        case "tomorrow":
+            return now.clone().add(1, 'day').set({hour: 6, minute: 0, second: 0, millisecond: 0});
+        case "weekly":
+            return now.clone().add(1, 'week').startOf('isoWeek');
+        case "monthly":
+            return now.clone().add(1, 'month').startOf('month');
+        default:
+            return now.clone().add(1, 'day');
     }
 },
 
