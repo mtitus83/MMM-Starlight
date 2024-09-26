@@ -241,8 +241,12 @@ handleInit: function(payload) {
     if (payload && payload.config) {
         this.config = payload.config;
         this.log(`Configuration received: ${JSON.stringify(this.config)}`);
-        this.initializeCache().catch(error => {
+        this.initializeCache().then(() => {
+            this.log("Cache initialization completed");
+            this.sendSocketNotification("CACHE_INITIALIZED", this.cache.memoryCache);
+        }).catch(error => {
             this.log(`Error initializing cache: ${error.message}`);
+            this.sendSocketNotification("CACHE_INITIALIZATION_FAILED", { error: error.toString() });
         });
         this.scheduleMidnightUpdate();
     } else {
@@ -251,30 +255,32 @@ handleInit: function(payload) {
 },
 
 initializeCache: async function() {
-    console.log(`[MMM-Starlight] Initializing cache for all configured zodiac signs and periods`);
+    console.log(`${this.name}: Starting cache initialization`);
     try {
         await this.cache.loadFromFile();
+        console.log(`${this.name}: Cache loaded from file`);
         const currentDate = moment();
         const isInitialBuild = this.isInitialCacheBuild();
 
         for (const sign of this.config.zodiacSign) {
             for (const period of this.config.period) {
                 const cachedData = this.cache.get(sign, period);
+                console.log(`${this.name}: Checking ${sign} - ${period}`);
                 if (isInitialBuild || this.shouldUpdate(cachedData, period)) {
-                    console.log(`[MMM-Starlight] Fetching initial data for ${sign}, period: ${period}`);
+                    console.log(`${this.name}: Fetching new data for ${sign} - ${period}`);
                     await this.fetchAndUpdateCache(sign, period);
                 } else {
-                    console.log(`[MMM-Starlight] Using cached data for ${sign}, period: ${period}`);
+                    console.log(`${this.name}: Using cached data for ${sign} - ${period}`);
                 }
             }
         }
 
-        console.log(`[MMM-Starlight] Cache after initialization:`, JSON.stringify(this.cache.memoryCache, null, 2));
         this.scheduleUpdates();
-        console.log(`[MMM-Starlight] Cache initialization completed`);
-        this.sendSocketNotification("CACHE_INITIALIZED");
+        console.log(`${this.name}: Cache initialization completed`);
+        this.sendSocketNotification("CACHE_INITIALIZED", this.cache.memoryCache);
     } catch (error) {
-        console.error(`[MMM-Starlight] Error initializing cache:`, error);
+        console.error(`${this.name}: Error initializing cache:`, error);
+        this.sendSocketNotification("CACHE_INITIALIZATION_FAILED", { error: error.toString() });
     }
 },
 

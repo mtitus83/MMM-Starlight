@@ -125,36 +125,36 @@ getHoroscope: function(sign, period) {
         this.sendSocketNotification("INIT", { config: this.config });
     },
 
-    getDom: function() {
-        var wrapper = document.createElement("div");
-        wrapper.className = "MMM-Starlight";
-        wrapper.style.width = this.config.width;
-        wrapper.style.fontSize = this.config.fontSize;
+getDom: function() {
+    var wrapper = document.createElement("div");
+    wrapper.className = "MMM-Starlight";
+    wrapper.style.width = this.config.width;
+    wrapper.style.fontSize = this.config.fontSize;
 
-        if (this.config.debug && this.config.showButton) {
-            wrapper.appendChild(this.createDebugButtons());
-        }
+    if (this.config.debug && this.config.showButton) {
+        wrapper.appendChild(this.createDebugButtons());
+    }
 
-        if (this.config.debug) {
-            this.timerDisplay = document.createElement("div");
-            this.timerDisplay.id = "scroll-timer";
-            this.timerDisplay.style.display = "flex";
-            this.timerDisplay.style.justifyContent = "space-between";
-            this.timerDisplay.style.alignItems = "center";
-            this.timerDisplay.style.width = "100%";
-            this.timerDisplay.style.margin = "10px 0";
-            
-            var timerTextElement = document.createElement("span");
-            timerTextElement.className = "timer-text";
-            this.timerDisplay.appendChild(timerTextElement);
-            
-            var apiCallCountElement = document.createElement("span");
-            apiCallCountElement.className = "api-call-count";
-            apiCallCountElement.textContent = `API Calls: ${this.apiCallCount}`;
-            this.timerDisplay.appendChild(apiCallCountElement);
-            
-            wrapper.appendChild(this.timerDisplay);
-        }
+    if (this.config.debug) {
+        this.timerDisplay = document.createElement("div");
+        this.timerDisplay.id = "scroll-timer";
+        this.timerDisplay.style.display = "flex";
+        this.timerDisplay.style.justifyContent = "space-between";
+        this.timerDisplay.style.alignItems = "center";
+        this.timerDisplay.style.width = "100%";
+        this.timerDisplay.style.margin = "10px 0";
+        
+        var timerTextElement = document.createElement("span");
+        timerTextElement.className = "timer-text";
+        this.timerDisplay.appendChild(timerTextElement);
+        
+        var apiCallCountElement = document.createElement("span");
+        apiCallCountElement.className = "api-call-count";
+        apiCallCountElement.textContent = `API Calls: ${this.apiCallCount}`;
+        this.timerDisplay.appendChild(apiCallCountElement);
+        
+        wrapper.appendChild(this.timerDisplay);
+    }
 
     if (this.isPreloading) {
         var loadingElem = document.createElement("div");
@@ -232,6 +232,19 @@ socketNotificationReceived: function(notification, payload) {
             this.handleSixAMUpdateCompleted(payload);
             this.updateDom();
             break;
+
+        case "MIDNIGHT_UPDATE_SIMULATED":
+            this.log("Midnight update simulation completed");
+            this.handleMidnightUpdateSimulated(payload);
+            break;
+        
+        case "PERFORM_MIDNIGHT_UPDATE":
+            this.log("Received confirmation of midnight update performance");
+            this.updateDom();
+            break;
+
+        default:
+            this.log(`Unhandled notification: ${notification}`);
     }
 },
 
