@@ -108,15 +108,17 @@ startDisplayTimer: function(signWaitTime) {
     }, this.config.pauseDuration);
 },
 
-    getHoroscope: function(sign, period) {
-        this.log(`Requesting horoscope for ${sign}, period: ${period}`);
-        this.apiCallCount++;  // Increment the API call counter
-        this.updateApiCallDisplay();  // Update the display
+getHoroscope: function(sign, period) {
+    if (this.getHoroscopeTimer) {
+        clearTimeout(this.getHoroscopeTimer);
+    }
+    this.getHoroscopeTimer = setTimeout(() => {
         this.sendSocketNotification("GET_HOROSCOPE", {
             sign: sign,
             period: period
         });
-    },
+    }, 500);  // 500ms debounce
+},
 
 	initializeModule: function() {
         this.log("Initializing module and sending config to node helper");

@@ -6,7 +6,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const moment = require('moment');
 let isPerformingMidnightUpdate = false;
-
+var isInitialized = false;  // Add this line here
 
 let schedule;
 try {
@@ -64,7 +64,12 @@ socketNotificationReceived: function(notification, payload) {
     
     switch(notification) {
         case "INIT":
-            this.handleInit(payload);
+            if (!isInitialized) {
+                this.handleInit(payload);
+                isInitialized = true;
+            } else {
+                this.log("Module already initialized, skipping re-initialization");
+            }
             break;
         case "GET_HOROSCOPE":
             this.handleGetHoroscope(payload);
@@ -79,59 +84,41 @@ socketNotificationReceived: function(notification, payload) {
         case "RESET_CACHE":
             this.resetCache();
             break;
+        default:
+            this.log(`Unhandled notification: ${notification}`);
     }
 },
 
 
 _handleGetHoroscope: function(payload) {
     const { sign, period } = payload;
-    console.log(`[MMM-Starlight] Handling GET_HOROSCOPE for ${sign}, period: ${period}`);
     const cachedData = this.cache.get(sign, period);
 
-    if (cachedData) {
-        console.log(`[MMM-Starlight] Cached data found for ${sign}, period: ${period}:`, JSON.stringify(cachedData));
-        if (!this.shouldUpdate(cachedData, period)) {
-            console.log(`[MMM-Starlight] Using cached data for ${sign}, period: ${period}`);
-            this.sendSocketNotification("HOROSCOPE_RESULT", {
-                success: true,
-                data: cachedData,
-                sign,
-                period
-            });
-            return;
-        }
+    if (cachedData && !this.shouldUpdate(cachedData, period)) {
+        this.sendSocketNotification("HOROSCOPE_RESULT", {
+            success: true,
+            data: cachedData,
+            sign,
+            period
+        });
     } else {
-        console.log(`[MMM-Starlight] No cached data found for ${sign}, period: ${period}`);
-    }
-
-    console.log(`[MMM-Starlight] Fetching new data for ${sign}, period: ${period}`);
-    this.fetchAndUpdateCache(sign, period).then(newData => {
-        if (newData) {
-            console.log(`[MMM-Starlight] New data fetched for ${sign}, period: ${period}:`, JSON.stringify(newData));
+        this.fetchAndUpdateCache(sign, period).then(newData => {
             this.sendSocketNotification("HOROSCOPE_RESULT", {
                 success: true,
                 data: newData,
                 sign,
                 period
             });
-        } else {
-            console.log(`[MMM-Starlight] No new data fetched for ${sign}, period: ${period}`);
+        }).catch(error => {
+            console.error(`Error fetching data for ${sign}, period: ${period}:`, error);
             this.sendSocketNotification("HOROSCOPE_RESULT", {
                 success: false,
-                message: "No data available",
+                error: error.toString(),
                 sign,
                 period
             });
-        }
-    }).catch(error => {
-        console.error(`[MMM-Starlight] Error fetching data for ${sign}, period: ${period}:`, error);
-        this.sendSocketNotification("HOROSCOPE_RESULT", {
-            success: false,
-            error: error.toString(),
-            sign,
-            period
         });
-    });
+    }
 },
 
 performMidnightUpdate: async function() {
@@ -593,15 +580,25 @@ handleGetHoroscope: function(payload) {
     },
 
 shouldUpdate: function(cachedData, period) {
-    if (!cachedData || !cachedData.lastUpdate || !cachedData.nextUpdate) return true;
+    if (!cachedData || !cachedData.lastUpdate) return true;
 
     const now = moment();
-    const nextUpdate = moment(cachedData.nextUpdate);
+    const lastUpdate = moment(cachedData.lastUpdate);
 
-    console.log(`[MMM-Starlight] Checking if update is needed for ${period}. Next update: ${nextUpdate.format()}, Now: ${now.format()}`);
-    return now.isAfter(nextUpdate);
+    switch(period) {
+        case "daily":
+            return !now.isSame(lastUpdate, 'day');
+        case "tomorrow":
+            return now.isAfter(lastUpdate, 'day');
+        case "weekly":
+            return now.diff(lastUpdate, 'weeks') >= 1;
+        case "monthly":
+            return now.diff(lastUpdate, 'months') >= 1;
+        default:
+            return false;
+    }
 },
-	
+
 fetchAndUpdateCache: async function(sign, period) {
     try {
         console.log(`[MMM-Starlight] Attempting to fetch and update cache for ${sign}, period: ${period}`);
