@@ -52,31 +52,10 @@ module.exports = NodeHelper.create({
         this.last6AMUpdate = null;
         this.requestQueue = [];
         this.isProcessingQueue = false;
+	this.initializeCache().catch(error => {
+       		 this.log(`Error initializing cache: ${error.message}`);
+	});
     },
-
-socketNotificationReceived: function(notification, payload) {
-    this.log(`Received socket notification: ${notification}`);
-    
-    switch(notification) {
-        case "INIT":
-            this.handleInit(payload);
-            break;
-        case "GET_HOROSCOPE":
-            this.handleGetHoroscope(payload);
-            break;
-        case "SIMULATE_MIDNIGHT_UPDATE":
-            this.log("Received request to simulate midnight update");
-            this.simulateMidnightUpdate(payload);
-            break;
-        case "RESET_CACHE":
-            this.resetCache();
-            break;
-        case "PERFORM_MIDNIGHT_UPDATE":
-            this.log("Received request to perform midnight update");
-            this.performMidnightUpdate();
-            break;
-    }
-},
 
 
     log: function(message) {
@@ -109,9 +88,11 @@ socketNotificationReceived: function(notification, payload) {
 
 _handleGetHoroscope: function(payload) {
     const { sign, period } = payload;
+    console.log(`[MMM-Starlight] Handling GET_HOROSCOPE for ${sign}, period: ${period}`);
     const cachedData = this.cache.get(sign, period);
 
     if (cachedData && !this.shouldUpdate(cachedData, period)) {
+        console.log(`[MMM-Starlight] Using cached data for ${sign}, period: ${period}`);
         this.sendSocketNotification("HOROSCOPE_RESULT", {
             success: true,
             data: cachedData,
@@ -119,7 +100,23 @@ _handleGetHoroscope: function(payload) {
             period
         });
     } else {
-        this.addToQueue(sign, period);
+        console.log(`[MMM-Starlight] Fetching new data for ${sign}, period: ${period}`);
+        this.fetchAndUpdateCache(sign, period).then(newData => {
+            this.sendSocketNotification("HOROSCOPE_RESULT", {
+                success: true,
+                data: newData,
+                sign,
+                period
+            });
+        }).catch(error => {
+            console.error(`[MMM-Starlight] Error fetching data for ${sign}, period: ${period}:`, error);
+            this.sendSocketNotification("HOROSCOPE_RESULT", {
+                success: false,
+                error: error.toString(),
+                sign,
+                period
+            });
+        });
     }
 },
 
@@ -219,12 +216,16 @@ processQueue: async function() {
     if (this.isProcessingQueue) return;
     this.isProcessingQueue = true;
 
+    console.log(`[MMM-Starlight] Processing queue. Items: ${this.requestQueue.length}`);
+
     while (this.requestQueue.length > 0) {
         const { sign, period } = this.requestQueue.shift();
+        console.log(`[MMM-Starlight] Fetching from queue: ${sign}, ${period}`);
         await this.fetchAndUpdateCache(sign, period);
     }
 
     this.isProcessingQueue = false;
+    console.log(`[MMM-Starlight] Queue processing complete.`);
 },
 
 checkSchedule() {
@@ -233,43 +234,6 @@ checkSchedule() {
     } else {
         console.log(`[${this.name}] No midnight update job scheduled`);
     }
-},
-
-
-
-fetchHoroscope: async function (period, zodiacSign) {
-  try {
-    let requestUrl;
-    switch (period) {
-      case "daily":
-        requestUrl = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign=${zodiacSign}&day=today`;
-        break;
-      case "tomorrow":
-        requestUrl = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign=${zodiacSign}&day=tomorrow`;
-        break;
-      case "weekly":
-        requestUrl = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/weekly?sign=${zodiacSign}`;
-        break;
-      case "monthly":
-        requestUrl = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/monthly?sign=${zodiacSign}`;
-        break;
-      default:
-        throw new Error(`Invalid period: ${period}`);
-    }
-
-    console.log("[MMM-Starlight] Requesting URL:", requestUrl);
-
-    const response = await axios.get(requestUrl);
-    const data = response.data;
-
-    // Log the fetched data
-    console.log("[MMM-Starlight] Fetched horoscope data for", zodiacSign, ":", JSON.stringify(data, null, 2));
-
-    return data;
-  } catch (error) {
-    console.error("[MMM-Starlight] Error fetching horoscope data for " + zodiacSign + ": ", error);
-    return null;
-  }
 },
 
     handleInit: function(payload) {
@@ -593,8 +557,8 @@ perform6AMUpdate: async function() {
 handleGetHoroscope: function(payload) {
     if (this.debounceTimer) {
         clearTimeout(this.debounceTimer);
-    }
-
+    }   
+            
     this.debounceTimer = setTimeout(() => {
         this._handleGetHoroscope(payload);
     }, 300); // 300ms debounce time
@@ -765,11 +729,7 @@ fetchFromAPI: async function(sign, period) {
 resetCache: async function () {
   try {
     console.log("[MMM-Starlight] Resetting cache...");
-
-    // Clear the in-memory cache
     this.cache.memoryCache = {}; 
-        
-    // Re-fetch fresh data for all zodiac signs 
     const zodiacSigns = this.config.zodiacSign;
     const periods = this.config.period;
 
@@ -778,12 +738,10 @@ resetCache: async function () {
       this.cache.memoryCache[sign] = {};
 
       for (const period of periods) {
-        const data = await this.fetchHoroscope(period, sign);
+        const data = await this.fetchFromAPI(sign, period);
         if (data) {
           this.cache.memoryCache[sign][period] = data;
           console.log(`[MMM-Starlight] Fetched and stored ${period} data for ${sign}.`);
-          
-          // Notify frontend of each update
           this.sendSocketNotification("CACHE_UPDATED", { success: true, sign, period });
         } else {
           console.error(`[MMM-Starlight] Failed to fetch ${period} data for ${sign}.`);
@@ -791,18 +749,14 @@ resetCache: async function () {
       }
     }
 
-    // After all data is fetched and stored, save the cache to file
     await this.cache.saveToFile();
-
-    // Notify frontend that the entire cache reset is complete
     this.sendSocketNotification("CACHE_RESET_COMPLETE", { success: true });
     console.log("[MMM-Starlight] Cache reset and saved successfully.");
-
   } catch (error) {
     console.error("[MMM-Starlight] Error during cache reset:", error);
     this.sendSocketNotification("CACHE_RESET_COMPLETE", { success: false, error: error.toString() });
   }
-}
+},
 
 });
 
