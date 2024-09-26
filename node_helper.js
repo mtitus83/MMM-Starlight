@@ -52,9 +52,6 @@ module.exports = NodeHelper.create({
         this.last6AMUpdate = null;
         this.requestQueue = [];
         this.isProcessingQueue = false;
-	this.initializeCache().catch(error => {
-       		 this.log(`Error initializing cache: ${error.message}`);
-	});
     },
 
 
@@ -236,18 +233,18 @@ checkSchedule() {
     }
 },
 
-    handleInit: function(payload) {
-        if (payload && payload.config) {
-            this.config = payload.config;
-            this.log(`Configuration received: ${JSON.stringify(this.config)}`);
-            this.initializeCache().catch(error => {
-                this.log(`Error initializing cache: ${error.message}`);
-            });
-            this.scheduleMidnightUpdate();  // Schedule the midnight update when initializing
-        } else {
-            this.log("ERROR: INIT notification received without config payload");
-        }
-    },
+handleInit: function(payload) {
+    if (payload && payload.config) {
+        this.config = payload.config;
+        this.log(`Configuration received: ${JSON.stringify(this.config)}`);
+        this.initializeCache().catch(error => {
+            this.log(`Error initializing cache: ${error.message}`);
+        });
+        this.scheduleMidnightUpdate();
+    } else {
+        this.log("ERROR: INIT notification received without config payload");
+    }
+},
 
 initializeCache: async function() {
     console.log(`${this.name}: Initializing cache for all configured zodiac signs and periods`);
@@ -577,49 +574,37 @@ handleGetHoroscope: function(payload) {
     },
 
 shouldUpdate: function(cachedData, period) {
-    if (!cachedData || !cachedData.lastUpdate) return true;
+    if (!cachedData || !cachedData.lastUpdate || !cachedData.nextUpdate) return true;
 
     const now = moment();
-    const lastUpdate = moment(cachedData.lastUpdate);
+    const nextUpdate = moment(cachedData.nextUpdate);
 
-    switch(period) {
-        case "daily":
-            return !now.isSame(lastUpdate, 'day');
-        case "tomorrow":
-            return now.isSame(lastUpdate, 'day') && now.hour() >= 6;
-        case "weekly":
-            return now.diff(lastUpdate, 'weeks') >= 1;
-        case "monthly":
-            return now.diff(lastUpdate, 'months') >= 1;
-        default:
-            return false;
-    }
+    console.log(`[MMM-Starlight] Checking if update is needed for ${period}. Next update: ${nextUpdate.format()}, Now: ${now.format()}`);
+    return now.isAfter(nextUpdate);
 },
-
+	
 fetchAndUpdateCache: async function(sign, period) {
-    const cachedData = this.cache.get(sign, period);
-    if (!this.shouldUpdate(cachedData, period)) {
-        return cachedData;
-    }
-
     try {
+        console.log(`[MMM-Starlight] Attempting to fetch and update cache for ${sign}, period: ${period}`);
         const data = await this.fetchFromAPI(sign, period);
         if (data) {
             const now = moment();
             const updatedData = {
                 ...data,
                 lastUpdate: now.toISOString(),
-                nextUpdate: this.getNextUpdateTime(period, now)
+                nextUpdate: this.getNextUpdateTime(period, now).toISOString()
             };
             this.cache.set(sign, period, updatedData);
             await this.cache.saveToFile();
-            this.sendSocketNotification("CACHE_UPDATED", { sign, period, data: updatedData });
+            console.log(`[MMM-Starlight] Cache updated for ${sign}, period: ${period}`);
             return updatedData;
         }
+        console.log(`[MMM-Starlight] No data returned from API for ${sign}, period: ${period}`);
+        return null;
     } catch (error) {
-        console.error(`Error fetching ${period} horoscope for ${sign}:`, error);
+        console.error(`[MMM-Starlight] Error in fetchAndUpdateCache for ${sign}, period: ${period}:`, error);
+        return null;
     }
-    return null;
 },
 
 getNextUpdateTime: function(period, now) {
