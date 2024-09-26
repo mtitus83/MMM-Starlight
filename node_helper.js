@@ -88,33 +88,50 @@ _handleGetHoroscope: function(payload) {
     console.log(`[MMM-Starlight] Handling GET_HOROSCOPE for ${sign}, period: ${period}`);
     const cachedData = this.cache.get(sign, period);
 
-    if (cachedData && !this.shouldUpdate(cachedData, period)) {
-        console.log(`[MMM-Starlight] Using cached data for ${sign}, period: ${period}`);
-        this.sendSocketNotification("HOROSCOPE_RESULT", {
-            success: true,
-            data: cachedData,
-            sign,
-            period
-        });
+    if (cachedData) {
+        console.log(`[MMM-Starlight] Cached data found for ${sign}, period: ${period}:`, JSON.stringify(cachedData));
+        if (!this.shouldUpdate(cachedData, period)) {
+            console.log(`[MMM-Starlight] Using cached data for ${sign}, period: ${period}`);
+            this.sendSocketNotification("HOROSCOPE_RESULT", {
+                success: true,
+                data: cachedData,
+                sign,
+                period
+            });
+            return;
+        }
     } else {
-        console.log(`[MMM-Starlight] Fetching new data for ${sign}, period: ${period}`);
-        this.fetchAndUpdateCache(sign, period).then(newData => {
+        console.log(`[MMM-Starlight] No cached data found for ${sign}, period: ${period}`);
+    }
+
+    console.log(`[MMM-Starlight] Fetching new data for ${sign}, period: ${period}`);
+    this.fetchAndUpdateCache(sign, period).then(newData => {
+        if (newData) {
+            console.log(`[MMM-Starlight] New data fetched for ${sign}, period: ${period}:`, JSON.stringify(newData));
             this.sendSocketNotification("HOROSCOPE_RESULT", {
                 success: true,
                 data: newData,
                 sign,
                 period
             });
-        }).catch(error => {
-            console.error(`[MMM-Starlight] Error fetching data for ${sign}, period: ${period}:`, error);
+        } else {
+            console.log(`[MMM-Starlight] No new data fetched for ${sign}, period: ${period}`);
             this.sendSocketNotification("HOROSCOPE_RESULT", {
                 success: false,
-                error: error.toString(),
+                message: "No data available",
                 sign,
                 period
             });
+        }
+    }).catch(error => {
+        console.error(`[MMM-Starlight] Error fetching data for ${sign}, period: ${period}:`, error);
+        this.sendSocketNotification("HOROSCOPE_RESULT", {
+            success: false,
+            error: error.toString(),
+            sign,
+            period
         });
-    }
+    });
 },
 
 performMidnightUpdate: async function() {
@@ -247,7 +264,7 @@ handleInit: function(payload) {
 },
 
 initializeCache: async function() {
-    console.log(`${this.name}: Initializing cache for all configured zodiac signs and periods`);
+    console.log(`[MMM-Starlight] Initializing cache for all configured zodiac signs and periods`);
     try {
         await this.cache.loadFromFile();
         const currentDate = moment();
@@ -257,18 +274,20 @@ initializeCache: async function() {
             for (const period of this.config.period) {
                 const cachedData = this.cache.get(sign, period);
                 if (isInitialBuild || this.shouldUpdate(cachedData, period)) {
+                    console.log(`[MMM-Starlight] Fetching initial data for ${sign}, period: ${period}`);
                     await this.fetchAndUpdateCache(sign, period);
                 } else {
-                    console.log(`[CACHE HIT] Using cached data for ${sign}, period: ${period}`);
+                    console.log(`[MMM-Starlight] Using cached data for ${sign}, period: ${period}`);
                 }
             }
         }
 
+        console.log(`[MMM-Starlight] Cache after initialization:`, JSON.stringify(this.cache.memoryCache, null, 2));
         this.scheduleUpdates();
-        console.log(`${this.name}: Cache initialization completed`);
+        console.log(`[MMM-Starlight] Cache initialization completed`);
         this.sendSocketNotification("CACHE_INITIALIZED");
     } catch (error) {
-        console.error(`${this.name}: Error initializing cache:`, error);
+        console.error(`[MMM-Starlight] Error initializing cache:`, error);
     }
 },
 
@@ -640,19 +659,15 @@ fetchFromAPI: async function(sign, period) {
             url = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/monthly?sign=${sign}`;
             break;
         default:
-            console.error(`Invalid period specified: ${period}`);
-            return null; // Return null instead of throwing an error
+            console.error(`[MMM-Starlight] Invalid period specified: ${period}`);
+            return null;
     }
 
-    if (!url) {
-        console.error(`URL not set for period: ${period}`);
-        return null;
-    }
-
-    console.log(`Fetching horoscope from source: ${url}`);
+    console.log(`[MMM-Starlight] Fetching horoscope from source: ${url}`);
 
     try {
         const response = await axios.get(url, { timeout: 30000 });
+        console.log(`[MMM-Starlight] API response for ${sign}, ${period}:`, JSON.stringify(response.data));
         if (response.data.success) {
             const processedHoroscope = parsePattern(response.data.data.horoscope_data);
             return {
@@ -662,11 +677,14 @@ fetchFromAPI: async function(sign, period) {
                 standout_days: response.data.data.standout_days
             };
         } else {
-            console.error("API returned unsuccessful response");
+            console.error("[MMM-Starlight] API returned unsuccessful response");
             return null;
         }
     } catch (error) {
-        console.error(`Error fetching horoscope for ${sign}, period: ${period}:`, error.message);
+        console.error(`[MMM-Starlight] Error fetching horoscope for ${sign}, period: ${period}:`, error.message);
+        if (error.response) {
+            console.error(`[MMM-Starlight] Error response:`, error.response.data);
+        }
         return null;
     }
 },
